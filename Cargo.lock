@@ -7,6 +7,7 @@ name = "kak"
 version = "0.1.0"
 dependencies = [
  "noargs",
+ "nojson",
  "orfail",
  "tuinix",
  "unicode-width",
@@ -23,6 +24,12 @@ name = "noargs"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe77e710319d3ff009f93efc433d879e80e6336f5b87ace6d6db7ca5951085c3"
+
+[[package]]
+name = "nojson"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f79bcf4dfb2f1beb2574b9234e49147be3f21a715ae9242dbe52f0856849bd20"
 
 [[package]]
 name = "orfail"

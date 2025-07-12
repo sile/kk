@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 noargs = "0.4.1"
+nojson = "0.2.1"
 orfail = "1.1.0"
 tuinix = "0.2.1"
 unicode-width = "0.2.1"
