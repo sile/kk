@@ -24,7 +24,7 @@ fn main() -> noargs::Result<()> {
         return Ok(());
     }
 
-    let app = App::new(path);
+    let app = App::new(path).or_fail()?;
     app.run().or_fail()?;
 
     Ok(())
