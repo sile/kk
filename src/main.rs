@@ -1,3 +1,9 @@
+use std::path::PathBuf;
+
+use orfail::OrFail;
+
+use kak::app::App;
+
 fn main() -> noargs::Result<()> {
     let mut args = noargs::raw_args();
     args.metadata_mut().app_name = env!("CARGO_PKG_NAME");
@@ -9,20 +15,17 @@ fn main() -> noargs::Result<()> {
     }
     noargs::HELP_FLAG.take_help(&mut args);
 
-    let foo: usize = noargs::opt("foo")
-        .default("1")
+    let path: PathBuf = noargs::arg("FILE")
+        .example("/path/to/file")
         .take(&mut args)
         .then(|a| a.value().parse())?;
-    let bar: bool = noargs::flag("bar").take(&mut args).is_present();
-    let baz: Option<String> = noargs::arg("[BAZ]")
-        .take(&mut args)
-        .present_and_then(|a| a.value().parse())?;
     if let Some(help) = args.finish()? {
         print!("{help}");
         return Ok(());
     }
 
-    println!("foo: {}, bar: {}, baz: {:?}", foo, bar, baz);
+    let app = App::new(path);
+    app.run().or_fail()?;
 
     Ok(())
 }
