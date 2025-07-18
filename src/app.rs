@@ -3,13 +3,12 @@ use std::path::PathBuf;
 use orfail::OrFail;
 use tuinix::{KeyCode, Terminal, TerminalEvent, TerminalInput};
 
-use crate::TerminalFrame;
+use crate::{TerminalFrame, state::State};
 
 #[derive(Debug)]
 pub struct App {
     terminal: Terminal,
-    path: PathBuf,
-    dirty: bool,
+    state: State,
 }
 
 impl App {
@@ -17,15 +16,16 @@ impl App {
         let terminal = Terminal::new().or_fail()?;
         Ok(Self {
             terminal,
-            path,
-            dirty: true,
+            state: State::new(path).or_fail()?,
         })
     }
 
     pub fn run(mut self) -> orfail::Result<()> {
+        let mut dirty = true;
         loop {
-            if self.dirty {
+            if dirty {
                 self.render().or_fail()?;
+                dirty = false;
             }
 
             match self.terminal.poll_event(None).or_fail()? {
@@ -36,10 +36,10 @@ impl App {
                         break;
                     }
 
-                    self.dirty = true;
+                    dirty = true;
                 }
                 Some(TerminalEvent::Resize(_size)) => {
-                    self.dirty = true;
+                    dirty = true;
                 }
                 None => {}
             }
@@ -54,12 +54,10 @@ impl App {
         let mut frame = TerminalFrame::new(self.terminal.size());
 
         writeln!(frame, "Kak Editor").or_fail()?;
-        writeln!(frame, "File: {}", self.path.display()).or_fail()?;
+        writeln!(frame, "File: {}", self.state.path.display()).or_fail()?;
         writeln!(frame, "\nPress 'q' to quit, any other key to see input").or_fail()?;
 
         self.terminal.draw(frame).or_fail()?;
-
-        self.dirty = false;
 
         Ok(())
     }
