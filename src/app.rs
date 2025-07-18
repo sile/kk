@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
 use orfail::OrFail;
-use tuinix::{KeyCode, Terminal, TerminalEvent, TerminalFrame, TerminalInput};
+use tuinix::{KeyCode, Terminal, TerminalEvent, TerminalInput};
+
+use crate::TerminalFrame;
 
 #[derive(Debug)]
 pub struct App {
