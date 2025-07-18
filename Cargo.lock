@@ -27,9 +27,9 @@ checksum = "fe77e710319d3ff009f93efc433d879e80e6336f5b87ace6d6db7ca5951085c3"
 
 [[package]]
 name = "nojson"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f79bcf4dfb2f1beb2574b9234e49147be3f21a715ae9242dbe52f0856849bd20"
+checksum = "89345dbd882b70c0af02720ff2d2527197361a4556c713c86d8110a8697a7e77"
 
 [[package]]
 name = "orfail"
