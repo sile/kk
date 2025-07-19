@@ -22,4 +22,4 @@ impl TextBuffer {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct TextLine(Vec<char>);
+pub struct TextLine(pub Vec<char>);

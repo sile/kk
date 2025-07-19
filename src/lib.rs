@@ -2,6 +2,7 @@ pub mod app;
 pub mod buffer;
 pub mod renderer_message_line;
 pub mod renderer_status_line;
+pub mod renderer_text_area;
 pub mod state;
 
 pub type TerminalFrame = tuinix::TerminalFrame<UnicodeCharWidthEstimator>;
