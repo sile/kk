@@ -1,6 +1,7 @@
 pub mod app;
 pub mod buffer;
 pub mod command;
+pub mod config;
 pub mod renderer_legend;
 pub mod renderer_message_line;
 pub mod renderer_status_line;

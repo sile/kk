@@ -1,0 +1,20 @@
+{
+  "commands": {
+    "up": {
+      "type": "move",
+      "row": -1
+    },
+    "down": {
+      "type": "move",
+      "row": 1
+    },
+    "left": {
+      "type": "move",
+      "col": -1
+    },
+    "right": {
+      "type": "move",
+      "col": 1
+    }
+  }
+}
