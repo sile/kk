@@ -1,10 +1,7 @@
-use tuinix::KeyInput;
-
 #[derive(Debug, Clone)]
 pub enum Action {
     Quit,
     Move(MoveAction),
-    InputChar(InputCharAction),
 }
 
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
@@ -16,7 +13,6 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
         match ty.to_unquoted_string_str()?.as_ref() {
             "quit" => Ok(Self::Quit),
             "move" => MoveAction::parse(value).map(Self::Move),
-            "input_char" => InputCharAction::parse(value).map(Self::InputChar),
             ty => Err(value.invalid(format!("unknown command type: {ty:?}"))),
         }
     }
@@ -34,19 +30,6 @@ impl MoveAction {
             row: value.to_member("row")?.map(parse)?.unwrap_or(0),
             col: value.to_member("col")?.map(parse)?.unwrap_or(0),
         })
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct InputCharAction {
-    pub value: KeyInput,
-}
-
-impl InputCharAction {
-    fn parse(_value: nojson::RawJsonValue<'_, '_>) -> Result<Self, nojson::JsonParseError> {
-        // let value = value.to_member("value")?.required()?.try_into()?;
-        // Ok(Self { value })
-        todo!()
     }
 }
 
