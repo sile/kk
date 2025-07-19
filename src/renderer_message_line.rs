@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use orfail::OrFail;
 
-use crate::{TerminalFrame, state::State};
+use crate::{mame::TerminalFrame, state::State};
 
 #[derive(Debug)]
 pub struct MessageLineRenderer;

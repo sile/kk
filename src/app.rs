@@ -1,11 +1,12 @@
 use std::path::PathBuf;
 
 use orfail::OrFail;
-use tuinix::{KeyCode, Terminal, TerminalEvent, TerminalInput, TerminalPosition, TerminalRegion};
+use tuinix::{KeyCode, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
 use crate::{
-    TerminalFrame, renderer_legend::LegendRenderer, renderer_message_line::MessageLineRenderer,
-    renderer_status_line::StatusLineRenderer, renderer_text_area::TextAreaRenderer, state::State,
+    mame::TerminalFrame, renderer_legend::LegendRenderer,
+    renderer_message_line::MessageLineRenderer, renderer_status_line::StatusLineRenderer,
+    renderer_text_area::TextAreaRenderer, state::State,
 };
 
 #[derive(Debug)]
@@ -84,7 +85,8 @@ impl App {
             self.legend.render(state, frame).or_fail()
         })?;
 
-        self.terminal.set_cursor(Some(TerminalPosition::default()));
+        self.terminal
+            .set_cursor(Some(self.state.terminal_cursor_position()));
         self.terminal.draw(frame).or_fail()?;
 
         self.state.message = None;

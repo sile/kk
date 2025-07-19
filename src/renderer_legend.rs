@@ -3,7 +3,7 @@ use std::fmt::Write;
 use orfail::OrFail;
 use tuinix::{TerminalPosition, TerminalRegion, TerminalSize};
 
-use crate::{TerminalFrame, state::State};
+use crate::{mame::TerminalFrame, state::State};
 
 #[derive(Debug)]
 pub struct LegendRenderer;

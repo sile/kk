@@ -1,5 +1,12 @@
 {
-  "keybindings": {
+  "key_bindings": {
+    "__global__": {
+      "C-c": "quit",
+      "C-p": "put_up",
+      "C-n": "put_down",
+      "C-b": "put_left",
+      "C-f": "put_right"
+    },
     "__main__": {
       "<UP>": "up",
       "<DOWN>": "down",
@@ -7,19 +14,16 @@
       "<RIGHT>": "right"
     }
   },
-  "keyremaps": {
-    "C-p": "<UP>",
-    "C-n": "<DOWN>",
-    "C-b": "<LEFT>",
-    "C-f": "<RIGHT>"
-  },
-  "keylabels": {
+  "key_labels": {
     "<UP>": "↑",
     "<DOWN>": "↓",
     "<LEFT>": "←",
     "<RIGHT>": "→"
   },
   "commands": {
+    "quit": {
+      "type": "quit"
+    },
     "up": {
       "type": "move",
       "row": -1
@@ -35,6 +39,24 @@
     "right": {
       "type": "move",
       "col": 1
+    }
+  },
+  "hidden_commands": {
+    "put_up": {
+      "type": "input_char",
+      "value": "<UP>"
+    },
+    "put_down": {
+      "type": "input_char",
+      "value": "<DOWN>"
+    },
+    "put_left": {
+      "type": "input_char",
+      "value": "<LEFT>"
+    },
+    "put_right": {
+      "type": "input_char",
+      "value": "<RIGHT>"
     }
   }
 }

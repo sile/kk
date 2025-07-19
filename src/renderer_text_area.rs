@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use orfail::OrFail;
 
-use crate::{TerminalFrame, buffer::TextLine, state::State};
+use crate::{buffer::TextLine, mame::TerminalFrame, state::State};
 
 #[derive(Debug)]
 pub struct TextAreaRenderer;
