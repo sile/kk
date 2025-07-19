@@ -1,12 +1,12 @@
-use nojson::RawJsonValue;
-
 #[derive(Debug, Clone)]
 pub enum Action {
     Move(MoveAction),
 }
 
-impl Action {
-    pub fn parse(value: nojson::RawJsonValue<'_, '_>) -> Result<Self, nojson::JsonParseError> {
+impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
+    type Error = nojson::JsonParseError;
+
+    fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
         let ty = value.to_member("type")?.required()?;
 
         match ty.to_unquoted_string_str()?.as_ref() {
@@ -31,9 +31,11 @@ impl MoveAction {
     }
 }
 
-fn parse<'text, 'raw, T>(value: RawJsonValue<'text, 'raw>) -> Result<T, nojson::JsonParseError>
+fn parse<'text, 'raw, T>(
+    value: nojson::RawJsonValue<'text, 'raw>,
+) -> Result<T, nojson::JsonParseError>
 where
-    T: TryFrom<RawJsonValue<'text, 'raw>, Error = nojson::JsonParseError>,
+    T: TryFrom<nojson::RawJsonValue<'text, 'raw>, Error = nojson::JsonParseError>,
 {
     T::try_from(value)
 }
