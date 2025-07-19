@@ -3,31 +3,63 @@ use std::fmt::Write;
 use orfail::OrFail;
 use tuinix::{TerminalPosition, TerminalRegion, TerminalSize};
 
-use crate::{mame::TerminalFrame, state::State};
+use crate::{
+    mame::{self, TerminalFrame},
+    state::State,
+};
 
 #[derive(Debug)]
 pub struct LegendRenderer;
 
 impl LegendRenderer {
     pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> orfail::Result<()> {
-        self.render_to_writer(state, frame).or_fail()?;
+        self.render_to_writer(state, Some(frame.size().cols), frame)
+            .or_fail()?;
         Ok(())
     }
 
     pub fn region(&self, state: &State, size: TerminalSize) -> TerminalRegion {
         let mut detector = SizeDetector::default();
-        self.render_to_writer(state, &mut detector).expect("bug");
-        if !size.contains(detector.size.to_region().bottom_right()) {
+        detector.size.rows += 1; // for bottom border
+
+        self.render_to_writer(state, None, &mut detector)
+            .expect("bug");
+        let legend_size = detector.finish();
+
+        if !size.contains(legend_size.to_region().bottom_right()) {
             TerminalRegion::default()
         } else {
             size.to_region()
-                .take_top(detector.size.rows)
-                .take_right(detector.size.cols)
+                .take_top(legend_size.rows)
+                .take_right(legend_size.cols)
         }
     }
 
-    fn render_to_writer<W: Write>(&self, _state: &State, mut writer: W) -> orfail::Result<()> {
-        writeln!(writer, "^C: Quit | ^S: Save | ^O: Open ").or_fail()?;
+    fn render_to_writer<W: Write>(
+        &self,
+        state: &State,
+        cols: Option<usize>,
+        mut writer: W,
+    ) -> orfail::Result<()> {
+        let group = &state.config.keybindings.main;
+
+        for binding in &group.entries {
+            if !binding.visible {
+                continue;
+            }
+
+            let action = &binding.action;
+            if let Some(label) = state.config.keylabels.get(&binding.key) {
+                writeln!(writer, "│ {label}: {action} ").or_fail()?;
+            } else {
+                let label = mame::KeyInputDisplay(binding.key);
+                writeln!(writer, "│ {label}: {action} ").or_fail()?;
+            }
+        }
+
+        if let Some(cols) = cols {
+            writeln!(writer, "└{}", "─".repeat(cols.saturating_sub(1))).or_fail()?;
+        }
 
         Ok(())
     }
@@ -37,6 +69,15 @@ impl LegendRenderer {
 struct SizeDetector {
     cursor: TerminalPosition,
     size: TerminalSize,
+}
+
+impl SizeDetector {
+    fn finish(mut self) -> TerminalSize {
+        if self.size.cols > 0 {
+            self.size.rows += 1;
+        }
+        TerminalSize::rows_cols(self.size.rows, self.size.cols)
+    }
 }
 
 impl Write for SizeDetector {
