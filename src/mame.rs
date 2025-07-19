@@ -15,105 +15,26 @@ pub fn parse_key_input(
     let key_str = value.to_unquoted_string_str()?;
 
     // Handle special keys in angle brackets
+    let special_key = |code| tuinix::KeyInput {
+        ctrl: false,
+        alt: false,
+        code,
+    };
     match key_str.as_ref() {
-        "<UP>" => {
-            return Ok(tuinix::KeyInput {
-                ctrl: false,
-                alt: false,
-                code: tuinix::KeyCode::Up,
-            });
-        }
-        "<DOWN>" => {
-            return Ok(tuinix::KeyInput {
-                ctrl: false,
-                alt: false,
-                code: tuinix::KeyCode::Down,
-            });
-        }
-        "<LEFT>" => {
-            return Ok(tuinix::KeyInput {
-                ctrl: false,
-                alt: false,
-                code: tuinix::KeyCode::Left,
-            });
-        }
-        "<RIGHT>" => {
-            return Ok(tuinix::KeyInput {
-                ctrl: false,
-                alt: false,
-                code: tuinix::KeyCode::Right,
-            });
-        }
-        "<ENTER>" => {
-            return Ok(tuinix::KeyInput {
-                ctrl: false,
-                alt: false,
-                code: tuinix::KeyCode::Enter,
-            });
-        }
-        "<ESCAPE>" => {
-            return Ok(tuinix::KeyInput {
-                ctrl: false,
-                alt: false,
-                code: tuinix::KeyCode::Escape,
-            });
-        }
-        "<BACKSPACE>" => {
-            return Ok(tuinix::KeyInput {
-                ctrl: false,
-                alt: false,
-                code: tuinix::KeyCode::Backspace,
-            });
-        }
-        "<TAB>" => {
-            return Ok(tuinix::KeyInput {
-                ctrl: false,
-                alt: false,
-                code: tuinix::KeyCode::Tab,
-            });
-        }
-        "<DELETE>" => {
-            return Ok(tuinix::KeyInput {
-                ctrl: false,
-                alt: false,
-                code: tuinix::KeyCode::Delete,
-            });
-        }
-        "<INSERT>" => {
-            return Ok(tuinix::KeyInput {
-                ctrl: false,
-                alt: false,
-                code: tuinix::KeyCode::Insert,
-            });
-        }
-        "<HOME>" => {
-            return Ok(tuinix::KeyInput {
-                ctrl: false,
-                alt: false,
-                code: tuinix::KeyCode::Home,
-            });
-        }
-        "<END>" => {
-            return Ok(tuinix::KeyInput {
-                ctrl: false,
-                alt: false,
-                code: tuinix::KeyCode::End,
-            });
-        }
-        "<PAGE_UP>" => {
-            return Ok(tuinix::KeyInput {
-                ctrl: false,
-                alt: false,
-                code: tuinix::KeyCode::PageUp,
-            });
-        }
-        "<PAGE_DOWN>" => {
-            return Ok(tuinix::KeyInput {
-                ctrl: false,
-                alt: false,
-                code: tuinix::KeyCode::PageDown,
-            });
-        }
+        "<UP>" => return Ok(special_key(tuinix::KeyCode::Up)),
+        "<DOWN>" => return Ok(special_key(tuinix::KeyCode::Down)),
+        "<LEFT>" => return Ok(special_key(tuinix::KeyCode::Left)),
+        "<RIGHT>" => return Ok(special_key(tuinix::KeyCode::Right)),
+        "<ENTER>" => return Ok(special_key(tuinix::KeyCode::Enter)),
+        "<ESCAPE>" => return Ok(special_key(tuinix::KeyCode::Escape)),
+        "<BACKSPACE>" => return Ok(special_key(tuinix::KeyCode::Backspace)),
+        "<TAB>" => return Ok(special_key(tuinix::KeyCode::Tab)),
+        "<DELETE>" => return Ok(special_key(tuinix::KeyCode::Delete)),
+        "<INSERT>" => return Ok(special_key(tuinix::KeyCode::Insert)),
+        "<HOME>" => return Ok(special_key(tuinix::KeyCode::Home)),
+        "<END>" => return Ok(special_key(tuinix::KeyCode::End)),
+        "<PAGE_UP>" => return Ok(special_key(tuinix::KeyCode::PageUp)),
+        "<PAGE_DOWN>" => return Ok(special_key(tuinix::KeyCode::PageDown)),
         _ => {}
     }
 
