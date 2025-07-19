@@ -4,6 +4,21 @@ use tuinix::KeyInput;
 
 use crate::action::ActionName;
 
+#[derive(Debug)]
+pub struct KeybindingsContext {
+    pub current_group_name: String,
+    pub next_group_name: String,
+}
+
+impl Default for KeybindingsContext {
+    fn default() -> Self {
+        Self {
+            current_group_name: "__main__".to_owned(),
+            next_group_name: "__main__".to_owned(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Keybindings {
     pub main: KeybindingsGroup,

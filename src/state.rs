@@ -6,6 +6,7 @@ use tuinix::TerminalPosition;
 use crate::{
     buffer::{TextBuffer, TextPosition},
     config::Config,
+    keybindings::KeybindingsContext,
 };
 
 #[derive(Debug)]
@@ -15,6 +16,7 @@ pub struct State {
     pub cursor: TextPosition,
     pub buffer: TextBuffer,
     pub message: Option<String>,
+    pub keybindings_context: KeybindingsContext,
 }
 
 impl State {
@@ -27,6 +29,7 @@ impl State {
             cursor: TextPosition::default(),
             buffer,
             message: None,
+            keybindings_context: KeybindingsContext::default(),
         })
     }
 
