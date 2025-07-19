@@ -1,3 +1,5 @@
+pub type ActionName = String;
+
 #[derive(Debug, Clone)]
 pub enum Action {
     Quit,

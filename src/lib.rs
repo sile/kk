@@ -2,6 +2,7 @@ pub mod action;
 pub mod app;
 pub mod buffer;
 pub mod config;
+pub mod keybindings;
 pub mod mame;
 pub mod renderer_legend;
 pub mod renderer_message_line;

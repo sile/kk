@@ -1,0 +1,62 @@
+use std::collections::BTreeMap;
+
+use tuinix::KeyInput;
+
+use crate::action::ActionName;
+
+#[derive(Debug, Clone)]
+pub struct Keybindings {
+    pub main: KeybindingsGroup,
+    pub groups: BTreeMap<String, KeybindingsGroup>,
+}
+
+impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Keybindings {
+    type Error = nojson::JsonParseError;
+
+    fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
+        let mut groups: BTreeMap<String, KeybindingsGroup> = value.try_into()?;
+        let main = groups
+            .remove("__main__")
+            .ok_or_else(|| value.invalid("missing '__main__' keybinding group"))?;
+        Ok(Self { main, groups })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct KeybindingsGroup {
+    pub entries: Vec<Keybinding>,
+}
+
+impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for KeybindingsGroup {
+    type Error = nojson::JsonParseError;
+
+    fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
+        let mut entries = Vec::new();
+        for (key, value) in value.to_object()? {
+            if key.as_raw_str() == "\"__hidden__\"" {
+                for (key, value) in value.to_object()? {
+                    entries.push(Keybinding {
+                        key: crate::mame::parse_key_input(key)?,
+                        action: value.try_into()?,
+                        visible: false,
+                    });
+                }
+                continue;
+            }
+
+            entries.push(Keybinding {
+                key: crate::mame::parse_key_input(key)?,
+                action: value.try_into()?,
+                visible: true,
+            });
+        }
+        Ok(Self { entries })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Keybinding {
+    pub key: KeyInput,
+    pub action: ActionName,
+    pub visible: bool,
+}
