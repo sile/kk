@@ -1,5 +1,6 @@
 pub mod app;
 pub mod buffer;
+pub mod renderer_legend;
 pub mod renderer_message_line;
 pub mod renderer_status_line;
 pub mod renderer_text_area;

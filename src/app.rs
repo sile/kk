@@ -4,7 +4,7 @@ use orfail::OrFail;
 use tuinix::{KeyCode, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
 use crate::{
-    TerminalFrame, renderer_message_line::MessageLineRenderer,
+    TerminalFrame, renderer_legend::LegendRenderer, renderer_message_line::MessageLineRenderer,
     renderer_status_line::StatusLineRenderer, renderer_text_area::TextAreaRenderer, state::State,
 };
 
@@ -15,6 +15,7 @@ pub struct App {
     text_area: TextAreaRenderer,
     message_line: MessageLineRenderer,
     status_line: StatusLineRenderer,
+    legend: LegendRenderer,
 }
 
 impl App {
@@ -26,6 +27,7 @@ impl App {
             text_area: TextAreaRenderer,
             message_line: MessageLineRenderer,
             status_line: StatusLineRenderer,
+            legend: LegendRenderer,
         })
     }
 
@@ -75,6 +77,11 @@ impl App {
         let region = frame.size().to_region().take_bottom(1);
         self.render_region(&mut frame, region, |state, frame| {
             self.message_line.render(state, frame).or_fail()
+        })?;
+
+        let region = self.legend.region(&self.state, frame.size());
+        self.render_region(&mut frame, region, |state, frame| {
+            self.legend.render(state, frame).or_fail()
         })?;
 
         self.terminal.draw(frame).or_fail()?;
