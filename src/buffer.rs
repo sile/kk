@@ -23,3 +23,9 @@ impl TextBuffer {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct TextLine(pub Vec<char>);
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TextPosition {
+    pub row: usize,
+    pub col: usize,
+}
