@@ -1,4 +1,24 @@
 {
+  "keybindings": {
+    "__main__": {
+      "<UP>": "up",
+      "<DOWN>": "down",
+      "<LEFT>": "left",
+      "<RIGHT>": "right"
+    }
+  },
+  "keyremaps": {
+    "C-p": "<UP>",
+    "C-n": "<DOWN>",
+    "C-b": "<LEFT>",
+    "C-f": "<RIGHT>"
+  },
+  "keylabels": {
+    "<UP>": "↑",
+    "<DOWN>": "↓",
+    "<LEFT>": "←",
+    "<RIGHT>": "→"
+  },
   "commands": {
     "up": {
       "type": "move",
