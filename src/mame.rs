@@ -14,7 +14,7 @@ pub fn parse_key_input(
 ) -> Result<tuinix::KeyInput, nojson::JsonParseError> {
     let key_str = value.to_unquoted_string_str()?;
 
-    // Handle special arrow keys in angle brackets
+    // Handle special keys in angle brackets
     match key_str.as_ref() {
         "<UP>" => {
             return Ok(tuinix::KeyInput {
@@ -51,7 +51,7 @@ pub fn parse_key_input(
                 code: tuinix::KeyCode::Enter,
             });
         }
-        "<ESCAPE>" | "<ESC>" => {
+        "<ESCAPE>" => {
             return Ok(tuinix::KeyInput {
                 ctrl: false,
                 alt: false,
@@ -72,14 +72,14 @@ pub fn parse_key_input(
                 code: tuinix::KeyCode::Tab,
             });
         }
-        "<DELETE>" | "<DEL>" => {
+        "<DELETE>" => {
             return Ok(tuinix::KeyInput {
                 ctrl: false,
                 alt: false,
                 code: tuinix::KeyCode::Delete,
             });
         }
-        "<INSERT>" | "<INS>" => {
+        "<INSERT>" => {
             return Ok(tuinix::KeyInput {
                 ctrl: false,
                 alt: false,
@@ -100,14 +100,14 @@ pub fn parse_key_input(
                 code: tuinix::KeyCode::End,
             });
         }
-        "<PAGEUP>" | "<PAGE_UP>" => {
+        "<PAGE_UP>" => {
             return Ok(tuinix::KeyInput {
                 ctrl: false,
                 alt: false,
                 code: tuinix::KeyCode::PageUp,
             });
         }
-        "<PAGEDOWN>" | "<PAGE_DOWN>" => {
+        "<PAGE_DOWN>" => {
             return Ok(tuinix::KeyInput {
                 ctrl: false,
                 alt: false,
