@@ -27,7 +27,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Config {
                 .to_object()?
                 .map(|(k, v)| Ok((mame::parse_key_input(k)?, String::try_from(v)?)))
                 .collect::<Result<_, _>>()?,
-            keybindings: value.to_member("keybidings")?.required()?.try_into()?,
+            keybindings: value.to_member("keybindings")?.required()?.try_into()?,
         })
     }
 }

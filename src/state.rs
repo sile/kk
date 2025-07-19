@@ -3,10 +3,14 @@ use std::path::PathBuf;
 use orfail::OrFail;
 use tuinix::TerminalPosition;
 
-use crate::buffer::{TextBuffer, TextPosition};
+use crate::{
+    buffer::{TextBuffer, TextPosition},
+    config::Config,
+};
 
 #[derive(Debug)]
 pub struct State {
+    pub config: Config,
     pub path: PathBuf,
     pub cursor: TextPosition,
     pub buffer: TextBuffer,
@@ -18,6 +22,7 @@ impl State {
         let mut buffer = TextBuffer::default();
         buffer.load_file(&path).or_fail()?;
         Ok(Self {
+            config: Config::default(),
             path,
             cursor: TextPosition::default(),
             buffer,
