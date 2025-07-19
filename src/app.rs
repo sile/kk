@@ -1,14 +1,15 @@
 use std::path::PathBuf;
 
 use orfail::OrFail;
-use tuinix::{KeyCode, Terminal, TerminalEvent, TerminalInput};
+use tuinix::{KeyCode, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
-use crate::{TerminalFrame, state::State};
+use crate::{TerminalFrame, renderer_message_line::MessageLineRenderer, state::State};
 
 #[derive(Debug)]
 pub struct App {
     terminal: Terminal,
     state: State,
+    message_line: MessageLineRenderer,
 }
 
 impl App {
@@ -17,11 +18,14 @@ impl App {
         Ok(Self {
             terminal,
             state: State::new(path).or_fail()?,
+            message_line: MessageLineRenderer,
         })
     }
 
     pub fn run(mut self) -> orfail::Result<()> {
         let mut dirty = true;
+        self.state.set_message("Started");
+
         loop {
             if dirty {
                 self.render().or_fail()?;
@@ -57,8 +61,29 @@ impl App {
         writeln!(frame, "File: {}", self.state.path.display()).or_fail()?;
         writeln!(frame, "\nPress 'q' to quit, any other key to see input").or_fail()?;
 
+        let message_line_region = frame.size().to_region().take_bottom(1);
+        self.render_region(&mut frame, message_line_region, |state, frame| {
+            self.message_line.render(state, frame).or_fail()
+        })?;
+
         self.terminal.draw(frame).or_fail()?;
 
+        self.state.message = None;
+        Ok(())
+    }
+
+    fn render_region<F>(
+        &self,
+        frame: &mut TerminalFrame,
+        region: TerminalRegion,
+        f: F,
+    ) -> orfail::Result<()>
+    where
+        F: FnOnce(&State, &mut TerminalFrame) -> orfail::Result<()>,
+    {
+        let mut sub_frame = TerminalFrame::new(region.size);
+        f(&self.state, &mut sub_frame).or_fail()?;
+        frame.draw(region.position, &sub_frame);
         Ok(())
     }
 }
