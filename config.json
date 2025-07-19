@@ -1,22 +1,22 @@
 {
-  "key_bindings": {
+  "keybindings": {
     "__global__": {
       "C-c": "quit"
-    },
-    "__hidden__.__global__": {
-      "C-p": "up",
-      "C-n": "down",
-      "C-b": "left",
-      "C-f": "right"
     },
     "__main__": {
       "<UP>": "up",
       "<DOWN>": "down",
       "<LEFT>": "left",
       "<RIGHT>": "right"
+    },
+    "__hidden__.__main__": {
+      "C-p": "up",
+      "C-n": "down",
+      "C-b": "left",
+      "C-f": "right"
     }
   },
-  "key_labels": {
+  "keylabels": {
     "<UP>": "↑",
     "<DOWN>": "↓",
     "<LEFT>": "←",
