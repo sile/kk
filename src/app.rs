@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use orfail::OrFail;
-use tuinix::{KeyCode, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
+use tuinix::{KeyCode, Terminal, TerminalEvent, TerminalInput, TerminalPosition, TerminalRegion};
 
 use crate::{
     TerminalFrame, renderer_legend::LegendRenderer, renderer_message_line::MessageLineRenderer,
@@ -84,6 +84,7 @@ impl App {
             self.legend.render(state, frame).or_fail()
         })?;
 
+        self.terminal.set_cursor(Some(TerminalPosition::default()));
         self.terminal.draw(frame).or_fail()?;
 
         self.state.message = None;
