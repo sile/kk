@@ -3,13 +3,17 @@ use std::path::PathBuf;
 use orfail::OrFail;
 use tuinix::{KeyCode, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
-use crate::{TerminalFrame, renderer_message_line::MessageLineRenderer, state::State};
+use crate::{
+    TerminalFrame, renderer_message_line::MessageLineRenderer,
+    renderer_status_line::StatusLineRenderer, state::State,
+};
 
 #[derive(Debug)]
 pub struct App {
     terminal: Terminal,
     state: State,
     message_line: MessageLineRenderer,
+    status_line: StatusLineRenderer,
 }
 
 impl App {
@@ -19,6 +23,7 @@ impl App {
             terminal,
             state: State::new(path).or_fail()?,
             message_line: MessageLineRenderer,
+            status_line: StatusLineRenderer,
         })
     }
 
@@ -60,6 +65,12 @@ impl App {
         writeln!(frame, "Kak Editor").or_fail()?;
         writeln!(frame, "File: {}", self.state.path.display()).or_fail()?;
         writeln!(frame, "\nPress 'q' to quit, any other key to see input").or_fail()?;
+
+        // Add status line rendering
+        let status_line_region = frame.size().to_region().take_bottom(2).take_top(1);
+        self.render_region(&mut frame, status_line_region, |state, frame| {
+            self.status_line.render(state, frame).or_fail()
+        })?;
 
         let message_line_region = frame.size().to_region().take_bottom(1);
         self.render_region(&mut frame, message_line_region, |state, frame| {
