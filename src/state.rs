@@ -4,6 +4,7 @@ use orfail::OrFail;
 use tuinix::TerminalPosition;
 
 use crate::{
+    action::MoveAction,
     buffer::{TextBuffer, TextPosition},
     keybindings::KeybindingsContext,
 };
@@ -36,5 +37,9 @@ impl State {
 
     pub fn terminal_cursor_position(&self) -> TerminalPosition {
         TerminalPosition::row_col(self.cursor.row, self.cursor.col)
+    }
+
+    pub fn handle_move_action(&mut self, action: MoveAction) {
+        //
     }
 }

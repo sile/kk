@@ -4,8 +4,14 @@ use orfail::OrFail;
 use tuinix::{KeyInput, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
 use crate::{
-    config::Config, legend::LegendRenderer, mame::TerminalFrame, message_line::MessageLineRenderer,
-    state::State, status_line::StatusLineRenderer, text_area::TextAreaRenderer,
+    action::Action,
+    config::Config,
+    legend::LegendRenderer,
+    mame::{KeyInputDisplay, TerminalFrame},
+    message_line::MessageLineRenderer,
+    state::State,
+    status_line::StatusLineRenderer,
+    text_area::TextAreaRenderer,
 };
 
 #[derive(Debug)]
@@ -63,9 +69,22 @@ impl App {
 
     fn handle_key_input(&mut self, key: KeyInput) -> orfail::Result<()> {
         let Some(action_name) = self.config.keybindings.get(&self.state.context, key) else {
-            todo!();
+            self.state
+                .set_message(format!("No action found: '{}'", KeyInputDisplay(key)));
+            return Ok(());
         };
-        todo!()
+
+        let action = self.config.actions.get(action_name).or_fail()?;
+        match action {
+            Action::Quit => {
+                self.exit = true;
+            }
+            Action::Cancel => {
+                self.state.set_message("Canceled");
+            }
+            Action::Move(action) => self.state.handle_move_action(*action),
+        }
+        Ok(())
     }
 
     fn render(&mut self) -> orfail::Result<()> {
