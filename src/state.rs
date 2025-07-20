@@ -138,4 +138,26 @@ impl State {
         self.set_message(format!("Saved: {}", self.path.display()));
         Ok(())
     }
+
+    pub fn handle_buffer_reload(&mut self) -> orfail::Result<()> {
+        // Reload the buffer from file
+        self.buffer.load_file(&self.path).or_fail()?;
+
+        // Try to preserve cursor position, but adjust if the file has changed
+        let max_row = self.buffer.rows();
+        self.cursor.row = self.cursor.row.min(max_row);
+
+        if self.cursor.row < max_row {
+            let max_col = self.buffer.cols(self.cursor.row);
+            self.cursor.col = self.cursor.col.min(max_col);
+        } else {
+            self.cursor.col = 0;
+        }
+
+        // Adjust cursor to proper character boundary
+        self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
+
+        self.set_message(format!("Reloaded: {}", self.path.display()));
+        Ok(())
+    }
 }

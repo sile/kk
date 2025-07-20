@@ -4,6 +4,7 @@
       "C-c": "quit",
       "C-g": "cancel",
       "M-s": "save",
+      "M-r": "reload",
       "C-a": "SOL",
       "C-e": "EOL",
       "M-<": "SOF",
@@ -44,6 +45,9 @@
     },
     "save": {
       "type": "buffer-save"
+    },
+    "reload": {
+      "type": "buffer-reload"
     },
     "backspace": {
       "type": "char-delete-backward"

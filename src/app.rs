@@ -83,6 +83,7 @@ impl App {
                 self.state.set_message("Canceled");
             }
             Action::BufferSave => self.state.handle_buffer_save().or_fail()?,
+            Action::BufferReload => self.state.handle_buffer_reload().or_fail()?,
             Action::CursorUp => self.state.handle_cursor_up(),
             Action::CursorDown => self.state.handle_cursor_down(),
             Action::CursorLeft => self.state.handle_cursor_left(),
