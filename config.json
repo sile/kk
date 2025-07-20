@@ -11,6 +11,8 @@
       "<DOWN>": "down",
       "<LEFT>": "left",
       "<RIGHT>": "right",
+      "<DELETE>": "delete",
+      "<BACKSPACE>": "backspace",
       "__comment__": {
         "<ALPHA_NUMERIC>": "insert_char"
       },
@@ -18,7 +20,9 @@
         "C-p": "up",
         "C-n": "down",
         "C-b": "left",
-        "C-f": "right"
+        "C-f": "right",
+        "C-d": "delete",
+        "C-h": "backspace"
       }
     }
   },
@@ -26,7 +30,9 @@
     "<UP>": "↑",
     "<DOWN>": "↓",
     "<LEFT>": "←",
-    "<RIGHT>": "→"
+    "<RIGHT>": "→",
+    "<DELETE>": "⌦",
+    "<BACKSPACE>": "⌫"
   },
   "actions": {
     "quit": {
@@ -34,6 +40,12 @@
     },
     "cancel": {
       "type": "cancel"
+    },
+    "backspace": {
+      "type": "char-delete-backward"
+    },
+    "delete": {
+      "type": "char-delete-forward"
     },
     "up": {
       "type": "cursor-up"

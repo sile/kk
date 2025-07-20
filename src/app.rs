@@ -90,6 +90,8 @@ impl App {
             Action::CursorLineEnd => self.state.handle_cursor_line_end(),
             Action::CursorBufferStart => self.state.handle_cursor_buffer_start(),
             Action::CursorBufferEnd => self.state.handle_cursor_buffer_end(),
+            Action::CharDeleteBackward => self.state.handle_char_delete_backward(),
+            Action::CharDeleteForward => self.state.handle_char_delete_forward(),
         }
         Ok(())
     }

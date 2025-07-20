@@ -37,6 +37,59 @@ impl TextBuffer {
         }
         pos
     }
+
+    pub fn delete_char_at(&mut self, pos: TextPosition) -> bool {
+        if let Some(line) = self.text.get_mut(pos.row) {
+            if line.delete_char_at(pos.col) {
+                self.dirty = true;
+                return true;
+            }
+        }
+
+        // If we couldn't delete a character on the current line,
+        // try to merge with the next line (for forward delete at line end)
+        if pos.col >= self.cols(pos.row) && pos.row < self.text.len().saturating_sub(1) {
+            let next_line = self.text.remove(pos.row + 1);
+            if let Some(current_line) = self.text.get_mut(pos.row) {
+                current_line.0.extend(next_line.0);
+                self.dirty = true;
+                return true;
+            }
+        }
+
+        false
+    }
+
+    pub fn delete_char_before(&mut self, pos: TextPosition) -> Option<TextPosition> {
+        if pos.col > 0 {
+            // Find the character boundary before current position
+            if let Some(line) = self.text.get_mut(pos.row) {
+                let char_pos = line.find_char_before(pos.col);
+                if line.delete_char_at(char_pos) {
+                    self.dirty = true;
+                    return Some(TextPosition {
+                        row: pos.row,
+                        col: char_pos,
+                    });
+                }
+            }
+        } else if pos.row > 0 {
+            // Delete newline - merge with previous line
+            let current_line = self.text.remove(pos.row);
+            let prev_row = pos.row - 1;
+            let prev_col = self.cols(prev_row);
+
+            if let Some(prev_line) = self.text.get_mut(prev_row) {
+                prev_line.0.extend(current_line.0);
+                self.dirty = true;
+                return Some(TextPosition {
+                    row: prev_row,
+                    col: prev_col,
+                });
+            }
+        }
+        None
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -68,6 +121,33 @@ impl TextLine {
             start = end;
         }
         start
+    }
+
+    fn delete_char_at(&mut self, col: usize) -> bool {
+        let mut current_col = 0;
+        for (i, &ch) in self.0.iter().enumerate() {
+            if current_col == col {
+                self.0.remove(i);
+                return true;
+            }
+            current_col += ch.width().unwrap_or_default();
+            if current_col > col {
+                break;
+            }
+        }
+        false
+    }
+
+    fn find_char_before(&self, col: usize) -> usize {
+        let mut current_col = 0;
+        for &ch in &self.0 {
+            let next_col = current_col + ch.width().unwrap_or_default();
+            if next_col >= col {
+                return current_col;
+            }
+            current_col = next_col;
+        }
+        current_col
     }
 }
 

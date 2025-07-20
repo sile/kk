@@ -122,4 +122,14 @@ impl State {
         self.cursor.row = self.buffer.rows();
         self.cursor.col = 0;
     }
+
+    pub fn handle_char_delete_backward(&mut self) {
+        if let Some(new_pos) = self.buffer.delete_char_before(self.cursor) {
+            self.cursor = new_pos;
+        }
+    }
+
+    pub fn handle_char_delete_forward(&mut self) {
+        self.buffer.delete_char_at(self.cursor);
+    }
 }
