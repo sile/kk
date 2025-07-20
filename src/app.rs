@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use orfail::OrFail;
-use tuinix::{KeyCode, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
+use tuinix::{KeyCode, KeyInput, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
 use crate::{
     config::Config, legend::LegendRenderer, mame::TerminalFrame, message_line::MessageLineRenderer,
@@ -17,6 +17,7 @@ pub struct App {
     message_line: MessageLineRenderer,
     status_line: StatusLineRenderer,
     legend: LegendRenderer,
+    exit: bool,
 }
 
 impl App {
@@ -30,6 +31,7 @@ impl App {
             message_line: MessageLineRenderer,
             status_line: StatusLineRenderer,
             legend: LegendRenderer,
+            exit: false,
         })
     }
 
@@ -37,7 +39,7 @@ impl App {
         let mut dirty = true;
         self.state.set_message("Started");
 
-        loop {
+        while !self.exit {
             if dirty {
                 self.render().or_fail()?;
                 dirty = false;
@@ -45,12 +47,8 @@ impl App {
 
             match self.terminal.poll_event(None).or_fail()? {
                 Some(TerminalEvent::Input(input)) => {
-                    let TerminalInput::Key(key_input) = input;
-
-                    if let KeyCode::Char('q') = key_input.code {
-                        break;
-                    }
-
+                    let TerminalInput::Key(key) = input;
+                    self.handle_key_input(key).or_fail()?;
                     dirty = true;
                 }
                 Some(TerminalEvent::Resize(_size)) => {
@@ -61,6 +59,13 @@ impl App {
         }
 
         Ok(())
+    }
+
+    fn handle_key_input(&mut self, key: KeyInput) -> orfail::Result<()> {
+        let Some(action_name) = self.config.keybindings.get(&self.state.context) else {
+            todo!();
+        };
+        todo!()
     }
 
     fn render(&mut self) -> orfail::Result<()> {
