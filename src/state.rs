@@ -36,29 +36,27 @@ impl State {
     }
 
     pub fn terminal_cursor_position(&self) -> TerminalPosition {
-        TerminalPosition::row_col(self.cursor.row, self.cursor.col)
+        let pos = self.buffer.adjust_to_char_boundary(self.cursor, true);
+        TerminalPosition::row_col(pos.row, pos.col)
     }
 
     pub fn handle_move_action(&mut self, MoveAction { rows, cols }: MoveAction) {
         // Calculate new row position
-        let new_row = if rows >= 0 {
-            (self.cursor.row + rows as usize).min(self.buffer.rows().saturating_sub(1))
-        } else {
-            self.cursor.row.saturating_sub((-rows) as usize)
-        };
+        self.cursor.row = self
+            .cursor
+            .row
+            .saturating_add_signed(rows)
+            .min(self.buffer.rows());
+        if cols == 0 {
+            return;
+        }
 
         // Calculate new column position
-        let max_cols = self.buffer.cols(new_row);
-        let new_col = if cols >= 0 {
-            (self.cursor.col + cols as usize).min(max_cols)
-        } else {
-            self.cursor.col.saturating_sub((-cols) as usize)
-        };
-
-        // Update cursor position
-        self.cursor = TextPosition {
-            row: new_row,
-            col: new_col,
-        };
+        self.cursor.col = self
+            .cursor
+            .col
+            .saturating_add_signed(cols)
+            .min(self.buffer.cols(self.cursor.row));
+        self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, cols < 0);
     }
 }

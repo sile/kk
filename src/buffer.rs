@@ -28,14 +28,40 @@ impl TextBuffer {
     pub fn cols(&self, row: usize) -> usize {
         self.text.get(row).map(|l| l.cols()).unwrap_or_default()
     }
+
+    pub fn adjust_to_char_boundary(&self, mut pos: TextPosition, floor: bool) -> TextPosition {
+        if let Some(line) = self.text.get(pos.row) {
+            pos.col = line.adjust_to_char_boundary(pos.col, floor);
+        } else {
+            pos.col = 0;
+        }
+        pos
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct TextLine(pub Vec<char>);
 
 impl TextLine {
-    pub fn cols(&self) -> usize {
+    fn cols(&self) -> usize {
         self.0.iter().filter_map(|c| c.width()).sum()
+    }
+
+    fn adjust_to_char_boundary(&self, col: usize, floor: bool) -> usize {
+        let mut start = 0;
+        for ch in &self.0 {
+            let end = start + ch.width().unwrap_or_default();
+            if start == col {
+                return col;
+            } else if end < col {
+                start = end;
+            } else if floor {
+                return start;
+            } else {
+                return end;
+            }
+        }
+        start
     }
 }
 
