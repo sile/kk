@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use orfail::OrFail;
-use tuinix::TerminalPosition;
+use tuinix::{TerminalPosition, TerminalSize};
 
 use crate::{
     buffer::{TextBuffer, TextPosition},
@@ -45,6 +45,34 @@ impl State {
 
     pub fn cursor_position(&self) -> TextPosition {
         self.buffer.adjust_to_char_boundary(self.cursor, true)
+    }
+
+    pub fn adjust_viewport(&mut self, text_area_size: TerminalSize) {
+        let cursor_pos = self.cursor_position();
+        let available_rows = text_area_size.rows;
+        let available_cols = text_area_size.cols;
+
+        // Adjust vertical viewport
+        if cursor_pos.row < self.viewport.row {
+            // Cursor is above viewport, scroll up
+            self.viewport.row = cursor_pos.row;
+        } else if cursor_pos.row >= self.viewport.row + available_rows {
+            // Cursor is below viewport, scroll down
+            self.viewport.row = cursor_pos
+                .row
+                .saturating_sub(available_rows.saturating_sub(1));
+        }
+
+        // Adjust horizontal viewport
+        if cursor_pos.col < self.viewport.col {
+            // Cursor is left of viewport, scroll left
+            self.viewport.col = cursor_pos.col;
+        } else if cursor_pos.col >= self.viewport.col + available_cols {
+            // Cursor is right of viewport, scroll right
+            self.viewport.col = cursor_pos
+                .col
+                .saturating_sub(available_cols.saturating_sub(1));
+        }
     }
 
     pub fn handle_cursor_up(&mut self) {

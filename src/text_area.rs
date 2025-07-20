@@ -10,7 +10,7 @@ pub struct TextAreaRenderer;
 impl TextAreaRenderer {
     pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> orfail::Result<()> {
         let size = frame.size();
-        let available_rows = size.rows.saturating_sub(2); // Reserve space for status and message lines
+        let available_rows = size.rows;
 
         // Render visible lines from the buffer starting at viewport position
         let start_row = state.viewport.row;

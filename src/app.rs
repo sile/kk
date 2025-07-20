@@ -96,6 +96,7 @@ impl App {
         let mut frame = TerminalFrame::new(self.terminal.size());
 
         let region = frame.size().to_region().drop_bottom(2);
+        self.state.adjust_viewport(region.size);
         self.render_region(&mut frame, region, |frame| {
             self.text_area.render(&self.state, frame).or_fail()
         })?;
