@@ -4,7 +4,12 @@ pub type ActionName = String;
 pub enum Action {
     Quit,
     Cancel,
-    Move(MoveAction),
+    CursorUp,
+    CursorDown,
+    CursorLeft,
+    CursorRight,
+    CursorLineStart,
+    CursorLineEnd,
 }
 
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
@@ -16,32 +21,22 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
         match ty.to_unquoted_string_str()?.as_ref() {
             "quit" => Ok(Self::Quit),
             "cancel" => Ok(Self::Cancel),
-            "move" => MoveAction::parse(value).map(Self::Move),
+            "cursor-up" => Ok(Self::CursorUp),
+            "cursor-down" => Ok(Self::CursorDown),
+            "cursor-left" => Ok(Self::CursorLeft),
+            "cursor-right" => Ok(Self::CursorRight),
+            "cursor-line-start" => Ok(Self::CursorLineStart),
+            "cursor-line-end" => Ok(Self::CursorLineEnd),
             ty => Err(value.invalid(format!("unknown command type: {ty:?}"))),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct MoveAction {
-    pub rows: isize,
-    pub cols: isize,
-}
-
-impl MoveAction {
-    fn parse(value: nojson::RawJsonValue<'_, '_>) -> Result<Self, nojson::JsonParseError> {
-        Ok(Self {
-            rows: value.to_member("rows")?.map(parse)?.unwrap_or(0),
-            cols: value.to_member("cols")?.map(parse)?.unwrap_or(0),
-        })
-    }
-}
-
-fn parse<'text, 'raw, T>(
-    value: nojson::RawJsonValue<'text, 'raw>,
-) -> Result<T, nojson::JsonParseError>
-where
-    T: TryFrom<nojson::RawJsonValue<'text, 'raw>, Error = nojson::JsonParseError>,
-{
-    T::try_from(value)
-}
+// fn parse<'text, 'raw, T>(
+//     value: nojson::RawJsonValue<'text, 'raw>,
+// ) -> Result<T, nojson::JsonParseError>
+// where
+//     T: TryFrom<nojson::RawJsonValue<'text, 'raw>, Error = nojson::JsonParseError>,
+// {
+//     T::try_from(value)
+// }

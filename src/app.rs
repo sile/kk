@@ -82,7 +82,12 @@ impl App {
             Action::Cancel => {
                 self.state.set_message("Canceled");
             }
-            Action::Move(action) => self.state.handle_move_action(*action),
+            Action::CursorUp => self.state.handle_cursor_up(),
+            Action::CursorDown => self.state.handle_cursor_down(),
+            Action::CursorLeft => self.state.handle_cursor_left(),
+            Action::CursorRight => self.state.handle_cursor_right(),
+            Action::CursorLineStart => self.state.handle_cursor_line_start(),
+            Action::CursorLineEnd => self.state.handle_cursor_line_end(),
         }
         Ok(())
     }

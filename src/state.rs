@@ -4,7 +4,6 @@ use orfail::OrFail;
 use tuinix::TerminalPosition;
 
 use crate::{
-    action::MoveAction,
     buffer::{TextBuffer, TextPosition},
     keybindings::KeybindingsContext,
 };
@@ -40,23 +39,42 @@ impl State {
         TerminalPosition::row_col(pos.row, pos.col)
     }
 
-    pub fn handle_move_action(&mut self, MoveAction { rows, cols }: MoveAction) {
-        // Calculate new row position
-        self.cursor.row = self
-            .cursor
-            .row
-            .saturating_add_signed(rows)
-            .min(self.buffer.rows());
-        if cols == 0 {
-            return;
-        }
+    pub fn handle_cursor_up(&mut self) {
+        self.cursor.row = self.cursor.row.saturating_sub(1);
+    }
 
-        // Calculate new column position
-        self.cursor.col = self
-            .cursor
-            .col
-            .saturating_add_signed(cols)
-            .min(self.buffer.cols(self.cursor.row));
-        self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, cols < 0);
+    pub fn handle_cursor_down(&mut self) {
+        self.cursor.row = self.cursor.row.saturating_add(1).min(self.buffer.rows());
+    }
+
+    pub fn handle_cursor_left(&mut self) {
+        if self.cursor.col > 0 {
+            self.cursor.col = self.cursor.col.saturating_sub(1);
+            self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
+        } else if self.cursor.row > 0 {
+            // Move to end of previous line
+            self.cursor.row = self.cursor.row.saturating_sub(1);
+            self.cursor.col = self.buffer.cols(self.cursor.row);
+        }
+    }
+
+    pub fn handle_cursor_right(&mut self) {
+        let current_cols = self.buffer.cols(self.cursor.row);
+        if self.cursor.col < current_cols {
+            self.cursor.col = self.cursor.col.saturating_add(1);
+            self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, false);
+        } else if self.cursor.row < self.buffer.rows() {
+            // Move to beginning of next line
+            self.cursor.row = self.cursor.row.saturating_add(1);
+            self.cursor.col = 0;
+        }
+    }
+
+    pub fn handle_cursor_line_start(&mut self) {
+        self.cursor.col = 0;
+    }
+
+    pub fn handle_cursor_line_end(&mut self) {
+        self.cursor.col = self.buffer.cols(self.cursor.row);
     }
 }

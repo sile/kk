@@ -3,6 +3,8 @@
     "__main__": {
       "C-c": "quit",
       "C-g": "cancel",
+      "C-a": "SOL",
+      "C-e": "EOL",
       "<UP>": "up",
       "<DOWN>": "down",
       "<LEFT>": "left",
@@ -29,20 +31,22 @@
       "type": "cancel"
     },
     "up": {
-      "type": "move",
-      "rows": -1
+      "type": "cursor-up"
     },
     "down": {
-      "type": "move",
-      "rows": 1
+      "type": "cursor-down"
     },
     "left": {
-      "type": "move",
-      "cols": -1
+      "type": "cursor-left"
     },
     "right": {
-      "type": "move",
-      "cols": 1
+      "type": "cursor-right"
+    },
+    "SOL": {
+      "type": "cursor-line-start"
+    },
+    "EOL": {
+      "type": "cursor-line-end"
     }
   }
 }
