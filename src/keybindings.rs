@@ -33,6 +33,14 @@ impl Keybindings {
         let group = self.groups.get(&context.current_group_name).or_fail()?;
         Ok(group.entries.iter())
     }
+
+    pub fn get(&self, context: &KeybindingsContext, key: KeyInput) -> Option<&ActionName> {
+        self.groups
+            .get(&context.current_group_name)?
+            .entries
+            .iter()
+            .find_map(|b| (b.key == key).then_some(&b.action))
+    }
 }
 
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Keybindings {
