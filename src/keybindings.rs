@@ -7,15 +7,19 @@ use crate::action::ActionName;
 
 #[derive(Debug)]
 pub struct KeybindingsContext {
-    pub current_group_name: String,
-    pub next_group_name: String,
+    stack: Vec<String>,
+}
+
+impl KeybindingsContext {
+    pub fn current_group_name(&self) -> &str {
+        self.stack.last().expect("bug")
+    }
 }
 
 impl Default for KeybindingsContext {
     fn default() -> Self {
         Self {
-            current_group_name: "__main__".to_owned(),
-            next_group_name: "__main__".to_owned(),
+            stack: vec!["__main__".to_owned()],
         }
     }
 }
@@ -31,13 +35,13 @@ impl Keybindings {
         context: &KeybindingsContext,
     ) -> orfail::Result<impl Iterator<Item = &Keybinding>> {
         // TODO: remove Result (add validation when config JSON parsing instead)
-        let group = self.groups.get(&context.current_group_name).or_fail()?;
+        let group = self.groups.get(context.current_group_name()).or_fail()?;
         Ok(group.entries.iter())
     }
 
     pub fn get(&self, context: &KeybindingsContext, key: KeyInput) -> Option<&ActionName> {
         self.groups
-            .get(&context.current_group_name)?
+            .get(context.current_group_name())?
             .entries
             .iter()
             .find_map(|b| (b.key == key).then_some(&b.action))

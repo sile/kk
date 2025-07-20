@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use orfail::OrFail;
-use tuinix::{KeyCode, KeyInput, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
+use tuinix::{KeyInput, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
 use crate::{
     config::Config, legend::LegendRenderer, mame::TerminalFrame, message_line::MessageLineRenderer,
@@ -62,7 +62,7 @@ impl App {
     }
 
     fn handle_key_input(&mut self, key: KeyInput) -> orfail::Result<()> {
-        let Some(action_name) = self.config.keybindings.get(&self.state.context) else {
+        let Some(action_name) = self.config.keybindings.get(&self.state.context, key) else {
             todo!();
         };
         todo!()
