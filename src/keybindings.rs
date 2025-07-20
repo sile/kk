@@ -14,6 +14,10 @@ impl KeybindingsContext {
     pub fn current_group_name(&self) -> &str {
         self.stack.last().expect("bug")
     }
+
+    pub fn group_path(&self) -> String {
+        self.stack.join(".")
+    }
 }
 
 impl Default for KeybindingsContext {
