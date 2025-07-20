@@ -18,10 +18,12 @@ impl StatusLineRenderer {
         let cursor = state.cursor_position();
         let row = cursor.row + 1; // Convert to 1-based index
         let col = cursor.col + 1; // Convert to 1-based index
+        let rows = state.buffer.rows();
+        let cols = state.buffer.cols(cursor.row);
         let context = state.context.group_path();
         write!(
             frame,
-            "{style} {dirty} [{path}:{row}:{col}] {context}{}{reset}",
+            "{style} {dirty} [{path}:{row}({rows}):{col}({cols})] {context}{}{reset}",
             filler
         )
         .or_fail()?;
