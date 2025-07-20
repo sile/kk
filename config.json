@@ -11,6 +11,9 @@
       "<DOWN>": "down",
       "<LEFT>": "left",
       "<RIGHT>": "right",
+      "__comment__": {
+        "<ALPHA_NUMERIC>": "insert_char"
+      },
       "__hidden__": {
         "C-p": "up",
         "C-n": "down",

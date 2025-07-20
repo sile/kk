@@ -72,15 +72,21 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for KeybindingsGrou
     fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
         let mut entries = Vec::new();
         for (key, value) in value.to_object()? {
-            if key.as_raw_str() == "\"__hidden__\"" {
-                for (key, value) in value.to_object()? {
-                    entries.push(Keybinding {
-                        key: crate::mame::parse_key_input(key)?,
-                        action: value.try_into()?,
-                        visible: false,
-                    });
+            match key.to_unquoted_string_str()?.as_ref() {
+                "__hidden__" => {
+                    for (key, value) in value.to_object()? {
+                        entries.push(Keybinding {
+                            key: crate::mame::parse_key_input(key)?,
+                            action: value.try_into()?,
+                            visible: false,
+                        });
+                    }
+                    continue;
                 }
-                continue;
+                "__comment__" => {
+                    continue;
+                }
+                _ => {}
             }
 
             entries.push(Keybinding {

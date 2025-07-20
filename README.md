@@ -1,5 +1,12 @@
 # kak
 
+Features
+-------
+
+- Exciplit
+  - All actions are trigerred by users, no background tasks, no implicit keybindings
+- not framework or environment, just an text editor
+
 Intendedly Unsupported Features
 -------------------------------
 
