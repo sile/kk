@@ -53,13 +53,10 @@ impl TextLine {
             let end = start + ch.width().unwrap_or_default();
             if start == col {
                 return col;
-            } else if end < col {
-                start = end;
-            } else if floor {
-                return start;
-            } else {
-                return end;
+            } else if col < end {
+                return if floor { start } else { end };
             }
+            start = end;
         }
         start
     }
