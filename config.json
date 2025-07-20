@@ -30,19 +30,19 @@
     },
     "up": {
       "type": "move",
-      "row": -1
+      "rows": -1
     },
     "down": {
       "type": "move",
-      "row": 1
+      "rows": 1
     },
     "left": {
       "type": "move",
-      "col": -1
+      "cols": -1
     },
     "right": {
       "type": "move",
-      "col": 1
+      "cols": 1
     }
   }
 }

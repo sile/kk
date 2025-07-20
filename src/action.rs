@@ -24,15 +24,15 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
 
 #[derive(Debug, Clone, Copy)]
 pub struct MoveAction {
-    pub row: isize,
-    pub col: isize,
+    pub rows: isize,
+    pub cols: isize,
 }
 
 impl MoveAction {
     fn parse(value: nojson::RawJsonValue<'_, '_>) -> Result<Self, nojson::JsonParseError> {
         Ok(Self {
-            row: value.to_member("row")?.map(parse)?.unwrap_or(0),
-            col: value.to_member("col")?.map(parse)?.unwrap_or(0),
+            rows: value.to_member("rows")?.map(parse)?.unwrap_or(0),
+            cols: value.to_member("cols")?.map(parse)?.unwrap_or(0),
         })
     }
 }

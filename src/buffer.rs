@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use orfail::OrFail;
+use unicode_width::UnicodeWidthChar;
 
 #[derive(Debug, Default)]
 pub struct TextBuffer {
@@ -19,10 +20,24 @@ impl TextBuffer {
         self.dirty = false;
         Ok(())
     }
+
+    pub fn rows(&self) -> usize {
+        self.text.len()
+    }
+
+    pub fn cols(&self, row: usize) -> usize {
+        self.text.get(row).map(|l| l.cols()).unwrap_or_default()
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct TextLine(pub Vec<char>);
+
+impl TextLine {
+    pub fn cols(&self) -> usize {
+        self.0.iter().filter_map(|c| c.width()).sum()
+    }
+}
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TextPosition {
