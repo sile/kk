@@ -5,6 +5,8 @@
       "C-g": "cancel",
       "C-a": "SOL",
       "C-e": "EOL",
+      "M-<": "SOF",
+      "M->": "EOF",
       "<UP>": "up",
       "<DOWN>": "down",
       "<LEFT>": "left",
@@ -47,6 +49,12 @@
     },
     "EOL": {
       "type": "cursor-line-end"
+    },
+    "SOF": {
+      "type": "cursor-buffer-start"
+    },
+    "EOF": {
+      "type": "cursor-buffer-end"
     }
   }
 }

@@ -113,4 +113,13 @@ impl State {
     pub fn handle_cursor_line_end(&mut self) {
         self.cursor.col = self.buffer.cols(self.cursor.row);
     }
+
+    pub fn handle_cursor_buffer_start(&mut self) {
+        self.cursor = TextPosition::default();
+    }
+
+    pub fn handle_cursor_buffer_end(&mut self) {
+        self.cursor.row = self.buffer.rows();
+        self.cursor.col = 0;
+    }
 }

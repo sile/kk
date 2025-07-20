@@ -88,6 +88,8 @@ impl App {
             Action::CursorRight => self.state.handle_cursor_right(),
             Action::CursorLineStart => self.state.handle_cursor_line_start(),
             Action::CursorLineEnd => self.state.handle_cursor_line_end(),
+            Action::CursorBufferStart => self.state.handle_cursor_buffer_start(),
+            Action::CursorBufferEnd => self.state.handle_cursor_buffer_end(),
         }
         Ok(())
     }
