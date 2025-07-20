@@ -15,7 +15,8 @@ impl StatusLineRenderer {
 
         let dirty = if state.buffer.dirty { '*' } else { ' ' };
         let path = state.path.display();
-        write!(frame, "{style} {dirty} [{path}] {}{reset}", filler).or_fail()?;
+        let context = &state.context.current_group_name;
+        write!(frame, "{style} {dirty} [{path}] {context}{}{reset}", filler).or_fail()?;
 
         Ok(())
     }
