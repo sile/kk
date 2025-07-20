@@ -1,3 +1,5 @@
+use tuinix::{KeyCode, KeyInput};
+
 pub type TerminalFrame = tuinix::TerminalFrame<UnicodeCharWidthEstimator>;
 
 #[derive(Debug, Default)]
@@ -9,6 +11,62 @@ impl tuinix::EstimateCharWidth for UnicodeCharWidthEstimator {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum KeyPattern {
+    Literal(KeyInput),
+    AlphaNumeric,
+}
+
+impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for KeyPattern {
+    type Error = nojson::JsonParseError;
+
+    fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
+        let key_str = value.to_unquoted_string_str()?;
+
+        if key_str.as_ref() == "<ALPHA_NUMERIC>" {
+            return Ok(KeyPattern::AlphaNumeric);
+        }
+
+        let key_input = parse_key_input(value)?;
+        Ok(KeyPattern::Literal(key_input))
+    }
+}
+
+impl std::fmt::Display for KeyPattern {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::AlphaNumeric => write!(f, "<ALPHA_NUMERIC>"),
+            Self::Literal(key) => match key.code {
+                KeyCode::Up => write!(f, "<UP>"),
+                KeyCode::Down => write!(f, "<DOWN>"),
+                KeyCode::Left => write!(f, "<LEFT>"),
+                KeyCode::Right => write!(f, "<RIGHT>"),
+                KeyCode::Enter => write!(f, "<ENTER>"),
+                KeyCode::Escape => write!(f, "<ESCAPE>"),
+                KeyCode::Backspace => write!(f, "<BACKSPACE>"),
+                KeyCode::Tab => write!(f, "<TAB>"),
+                KeyCode::BackTab => write!(f, "<BACK_TAB>"),
+                KeyCode::Delete => write!(f, "<DELETE>"),
+                KeyCode::Insert => write!(f, "<INSERT>"),
+                KeyCode::Home => write!(f, "<HOME>"),
+                KeyCode::End => write!(f, "<END>"),
+                KeyCode::PageUp => write!(f, "<PAGE_UP>"),
+                KeyCode::PageDown => write!(f, "<PAGE_DOWN>"),
+                KeyCode::Char(ch) => {
+                    if key.alt {
+                        write!(f, "M-")?;
+                    }
+                    if key.ctrl {
+                        write!(f, "C-")?;
+                    }
+                    write!(f, "{ch}")
+                }
+            },
+        }
+    }
+}
+
+// TODO: remove
 pub fn parse_key_input(
     value: nojson::RawJsonValue<'_, '_>,
 ) -> Result<tuinix::KeyInput, nojson::JsonParseError> {
@@ -21,21 +79,21 @@ pub fn parse_key_input(
         code,
     };
     match key_str.as_ref() {
-        "<UP>" => return Ok(special_key(tuinix::KeyCode::Up)),
-        "<DOWN>" => return Ok(special_key(tuinix::KeyCode::Down)),
-        "<LEFT>" => return Ok(special_key(tuinix::KeyCode::Left)),
-        "<RIGHT>" => return Ok(special_key(tuinix::KeyCode::Right)),
-        "<ENTER>" => return Ok(special_key(tuinix::KeyCode::Enter)),
-        "<ESCAPE>" => return Ok(special_key(tuinix::KeyCode::Escape)),
-        "<BACKSPACE>" => return Ok(special_key(tuinix::KeyCode::Backspace)),
-        "<TAB>" => return Ok(special_key(tuinix::KeyCode::Tab)),
-        "<BACK_TAB>" => return Ok(special_key(tuinix::KeyCode::BackTab)),
-        "<DELETE>" => return Ok(special_key(tuinix::KeyCode::Delete)),
-        "<INSERT>" => return Ok(special_key(tuinix::KeyCode::Insert)),
-        "<HOME>" => return Ok(special_key(tuinix::KeyCode::Home)),
-        "<END>" => return Ok(special_key(tuinix::KeyCode::End)),
-        "<PAGE_UP>" => return Ok(special_key(tuinix::KeyCode::PageUp)),
-        "<PAGE_DOWN>" => return Ok(special_key(tuinix::KeyCode::PageDown)),
+        "<UP>" => return Ok(special_key(KeyCode::Up)),
+        "<DOWN>" => return Ok(special_key(KeyCode::Down)),
+        "<LEFT>" => return Ok(special_key(KeyCode::Left)),
+        "<RIGHT>" => return Ok(special_key(KeyCode::Right)),
+        "<ENTER>" => return Ok(special_key(KeyCode::Enter)),
+        "<ESCAPE>" => return Ok(special_key(KeyCode::Escape)),
+        "<BACKSPACE>" => return Ok(special_key(KeyCode::Backspace)),
+        "<TAB>" => return Ok(special_key(KeyCode::Tab)),
+        "<BACK_TAB>" => return Ok(special_key(KeyCode::BackTab)),
+        "<DELETE>" => return Ok(special_key(KeyCode::Delete)),
+        "<INSERT>" => return Ok(special_key(KeyCode::Insert)),
+        "<HOME>" => return Ok(special_key(KeyCode::Home)),
+        "<END>" => return Ok(special_key(KeyCode::End)),
+        "<PAGE_UP>" => return Ok(special_key(KeyCode::PageUp)),
+        "<PAGE_DOWN>" => return Ok(special_key(KeyCode::PageDown)),
         _ => {}
     }
 
@@ -64,7 +122,7 @@ pub fn parse_key_input(
     if let Some(ch) = chars.next()
         && None == chars.next()
     {
-        let code = tuinix::KeyCode::Char(ch);
+        let code = KeyCode::Char(ch);
         Ok(tuinix::KeyInput { ctrl, alt, code })
     } else {
         Err(value.invalid(format!("invalid key input format: {key_str:?}")))
@@ -80,22 +138,22 @@ impl std::fmt::Display for KeyInputDisplay {
 
         // Handle special keys first
         match key_input.code {
-            tuinix::KeyCode::Up => write!(f, "<UP>"),
-            tuinix::KeyCode::Down => write!(f, "<DOWN>"),
-            tuinix::KeyCode::Left => write!(f, "<LEFT>"),
-            tuinix::KeyCode::Right => write!(f, "<RIGHT>"),
-            tuinix::KeyCode::Enter => write!(f, "<ENTER>"),
-            tuinix::KeyCode::Escape => write!(f, "<ESCAPE>"),
-            tuinix::KeyCode::Backspace => write!(f, "<BACKSPACE>"),
-            tuinix::KeyCode::Tab => write!(f, "<TAB>"),
-            tuinix::KeyCode::BackTab => write!(f, "<BACK_TAB>"),
-            tuinix::KeyCode::Delete => write!(f, "<DELETE>"),
-            tuinix::KeyCode::Insert => write!(f, "<INSERT>"),
-            tuinix::KeyCode::Home => write!(f, "<HOME>"),
-            tuinix::KeyCode::End => write!(f, "<END>"),
-            tuinix::KeyCode::PageUp => write!(f, "<PAGE_UP>"),
-            tuinix::KeyCode::PageDown => write!(f, "<PAGE_DOWN>"),
-            tuinix::KeyCode::Char(ch) => {
+            KeyCode::Up => write!(f, "<UP>"),
+            KeyCode::Down => write!(f, "<DOWN>"),
+            KeyCode::Left => write!(f, "<LEFT>"),
+            KeyCode::Right => write!(f, "<RIGHT>"),
+            KeyCode::Enter => write!(f, "<ENTER>"),
+            KeyCode::Escape => write!(f, "<ESCAPE>"),
+            KeyCode::Backspace => write!(f, "<BACKSPACE>"),
+            KeyCode::Tab => write!(f, "<TAB>"),
+            KeyCode::BackTab => write!(f, "<BACK_TAB>"),
+            KeyCode::Delete => write!(f, "<DELETE>"),
+            KeyCode::Insert => write!(f, "<INSERT>"),
+            KeyCode::Home => write!(f, "<HOME>"),
+            KeyCode::End => write!(f, "<END>"),
+            KeyCode::PageUp => write!(f, "<PAGE_UP>"),
+            KeyCode::PageDown => write!(f, "<PAGE_DOWN>"),
+            KeyCode::Char(ch) => {
                 // Handle modifier prefixes
                 if key_input.alt {
                     write!(f, "M-")?;
