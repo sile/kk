@@ -4,9 +4,8 @@ use orfail::OrFail;
 use tuinix::{KeyCode, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
 use crate::{
-    mame::TerminalFrame, renderer_legend::LegendRenderer,
-    renderer_message_line::MessageLineRenderer, renderer_status_line::StatusLineRenderer,
-    renderer_text_area::TextAreaRenderer, state::State,
+    legend::LegendRenderer, mame::TerminalFrame, message_line::MessageLineRenderer, state::State,
+    status_line::StatusLineRenderer, text_area::TextAreaRenderer,
 };
 
 #[derive(Debug)]
