@@ -3,11 +3,7 @@ use std::fmt::Write;
 use orfail::OrFail;
 use tuinix::{TerminalPosition, TerminalRegion, TerminalSize};
 
-use crate::{
-    config::Config,
-    mame::{self, TerminalFrame},
-    state::State,
-};
+use crate::{config::Config, mame::TerminalFrame, state::State};
 
 #[derive(Debug)]
 pub struct LegendRenderer;
@@ -57,7 +53,7 @@ impl LegendRenderer {
             if let Some(label) = config.keylabels.get(&binding.key) {
                 writeln!(writer, "│ {label}: {action} ").or_fail()?;
             } else {
-                let label = mame::KeyInputDisplay(binding.key);
+                let label = binding.key;
                 writeln!(writer, "│ {label}: {action} ").or_fail()?;
             }
         }

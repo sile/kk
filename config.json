@@ -9,15 +9,13 @@
       "C-e": "EOL",
       "M-<": "SOF",
       "M->": "EOF",
+      "<ALPHA_NUMERIC>": "insert",
+      "<DELETE>": "delete",
+      "<BACKSPACE>": "backspace",
       "<UP>": "up",
       "<DOWN>": "down",
       "<LEFT>": "left",
       "<RIGHT>": "right",
-      "<DELETE>": "delete",
-      "<BACKSPACE>": "backspace",
-      "__comment__": {
-        "<ALPHA_NUMERIC>": "insert_char"
-      },
       "__hidden__": {
         "C-p": "up",
         "C-n": "down",
@@ -34,7 +32,8 @@
     "<LEFT>": "←",
     "<RIGHT>": "→",
     "<DELETE>": "⌦",
-    "<BACKSPACE>": "⌫"
+    "<BACKSPACE>": "⌫",
+    "<ALPHA_NUMERIC>": "🔤"
   },
   "actions": {
     "quit": {
@@ -53,6 +52,9 @@
       "type": "char-delete-backward"
     },
     "delete": {
+      "type": "char-delete-forward"
+    },
+    "insert": {
       "type": "char-delete-forward"
     },
     "up": {

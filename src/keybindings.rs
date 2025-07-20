@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use orfail::OrFail;
 use tuinix::KeyInput;
 
-use crate::action::ActionName;
+use crate::{action::ActionName, mame::KeyPattern};
 
 #[derive(Debug)]
 pub struct KeybindingsContext {
@@ -48,7 +48,7 @@ impl Keybindings {
             .get(context.current_group_name())?
             .entries
             .iter()
-            .find_map(|b| (b.key == key).then_some(&b.action))
+            .find_map(|b| b.key.matches(key).then_some(&b.action))
     }
 }
 
@@ -76,7 +76,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for KeybindingsGrou
                 "__hidden__" => {
                     for (key, value) in value.to_object()? {
                         entries.push(Keybinding {
-                            key: crate::mame::parse_key_input(key)?,
+                            key: key.try_into()?,
                             action: value.try_into()?,
                             visible: false,
                         });
@@ -90,7 +90,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for KeybindingsGrou
             }
 
             entries.push(Keybinding {
-                key: crate::mame::parse_key_input(key)?,
+                key: key.try_into()?,
                 action: value.try_into()?,
                 visible: true,
             });
@@ -101,7 +101,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for KeybindingsGrou
 
 #[derive(Debug, Clone)]
 pub struct Keybinding {
-    pub key: KeyInput,
+    pub key: KeyPattern,
     pub action: ActionName,
     pub visible: bool,
 }

@@ -7,7 +7,7 @@ use crate::{
     action::Action,
     config::Config,
     legend::LegendRenderer,
-    mame::{KeyInputDisplay, TerminalFrame},
+    mame::{KeyPattern, TerminalFrame},
     message_line::MessageLineRenderer,
     state::State,
     status_line::StatusLineRenderer,
@@ -70,7 +70,7 @@ impl App {
     fn handle_key_input(&mut self, key: KeyInput) -> orfail::Result<()> {
         let Some(action_name) = self.config.keybindings.get(&self.state.context, key) else {
             self.state
-                .set_message(format!("No action found: '{}'", KeyInputDisplay(key)));
+                .set_message(format!("No action found: '{}'", KeyPattern::Literal(key)));
             return Ok(());
         };
 
