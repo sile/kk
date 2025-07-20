@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use orfail::OrFail;
-use tuinix::{TerminalPosition, TerminalSize};
+use tuinix::{KeyCode, TerminalPosition, TerminalSize};
 
 use crate::{
     buffer::{TextBuffer, TextPosition},
@@ -159,5 +159,14 @@ impl State {
 
         self.set_message(format!("Reloaded: {}", self.path.display()));
         Ok(())
+    }
+
+    pub fn handle_char_insert(&mut self, key: tuinix::KeyInput) {
+        // Only insert printable characters
+        if let KeyCode::Char(ch) = key.code
+            && !ch.is_control()
+        {
+            self.cursor = self.buffer.insert_char_at(self.cursor, ch);
+        }
     }
 }

@@ -14,6 +14,7 @@ pub enum Action {
     CursorLineEnd,
     CursorBufferStart,
     CursorBufferEnd,
+    CharInsert,
     CharDeleteBackward,
     CharDeleteForward,
 }
@@ -37,6 +38,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
             "cursor-line-end" => Ok(Self::CursorLineEnd),
             "cursor-buffer-start" => Ok(Self::CursorBufferStart),
             "cursor-buffer-end" => Ok(Self::CursorBufferEnd),
+            "char-insert" => Ok(Self::CharInsert),
             "char-delete-backward" => Ok(Self::CharDeleteBackward),
             "char-delete-forward" => Ok(Self::CharDeleteForward),
             ty => Err(value.invalid(format!("unknown command type: {ty:?}"))),

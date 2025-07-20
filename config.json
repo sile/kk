@@ -9,7 +9,7 @@
       "C-e": "EOL",
       "M-<": "SOF",
       "M->": "EOF",
-      "<ALPHA_NUMERIC>": "insert",
+      "<VISIBLE>": "insert",
       "<DELETE>": "delete",
       "<BACKSPACE>": "backspace",
       "<UP>": "up",
@@ -33,7 +33,7 @@
     "<RIGHT>": "→",
     "<DELETE>": "⌦",
     "<BACKSPACE>": "⌫",
-    "<ALPHA_NUMERIC>": "🔤"
+    "<VISIBLE>": "🔤"
   },
   "actions": {
     "quit": {
@@ -55,7 +55,7 @@
       "type": "char-delete-forward"
     },
     "insert": {
-      "type": "char-delete-forward"
+      "type": "char-insert"
     },
     "up": {
       "type": "cursor-up"

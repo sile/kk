@@ -14,21 +14,21 @@ impl tuinix::EstimateCharWidth for UnicodeCharWidthEstimator {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum KeyPattern {
     Literal(KeyInput),
-    AlphaNumeric,
+    VisibleChars,
 }
 
 impl KeyPattern {
     pub fn matches(self, key: KeyInput) -> bool {
         match self {
             KeyPattern::Literal(k) => k == key,
-            KeyPattern::AlphaNumeric => {
+            KeyPattern::VisibleChars => {
                 if let KeyInput {
                     ctrl: false,
                     alt: false,
                     code: KeyCode::Char(ch),
                 } = key
                 {
-                    ch.is_alphanumeric()
+                    !ch.is_control()
                 } else {
                     false
                 }
@@ -41,8 +41,8 @@ impl std::str::FromStr for KeyPattern {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s == "<ALPHA_NUMERIC>" {
-            return Ok(KeyPattern::AlphaNumeric);
+        if s == "<VISIBLE>" {
+            return Ok(KeyPattern::VisibleChars);
         }
 
         // Handle special keys in angle brackets
@@ -118,7 +118,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for KeyPattern {
 impl std::fmt::Display for KeyPattern {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::AlphaNumeric => write!(f, "<ALPHA_NUMERIC>"),
+            Self::VisibleChars => write!(f, "<VISIBLE>"),
             Self::Literal(key) => match key.code {
                 KeyCode::Up => write!(f, "<UP>"),
                 KeyCode::Down => write!(f, "<DOWN>"),

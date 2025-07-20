@@ -106,6 +106,26 @@ impl TextBuffer {
         self.dirty = false;
         Ok(())
     }
+
+    pub fn insert_char_at(&mut self, pos: TextPosition, ch: char) -> TextPosition {
+        // Ensure we have enough rows
+        while pos.row >= self.text.len() {
+            self.text.push(TextLine::default());
+        }
+
+        if let Some(line) = self.text.get_mut(pos.row) {
+            line.insert_char_at(pos.col, ch);
+            self.dirty = true;
+
+            // Return new cursor position
+            TextPosition {
+                row: pos.row,
+                col: pos.col + ch.width().unwrap_or_default(),
+            }
+        } else {
+            pos
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -164,6 +184,22 @@ impl TextLine {
             current_col = next_col;
         }
         current_col
+    }
+
+    fn insert_char_at(&mut self, col: usize, ch: char) {
+        let mut char_index = 0;
+        let mut current_col = 0;
+
+        for (i, &existing_ch) in self.0.iter().enumerate() {
+            if current_col >= col {
+                char_index = i;
+                break;
+            }
+            current_col += existing_ch.width().unwrap_or_default();
+            char_index = i + 1;
+        }
+
+        self.0.insert(char_index, ch);
     }
 }
 
