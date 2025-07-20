@@ -51,7 +51,7 @@ impl TextBuffer {
         if pos.col >= self.cols(pos.row) && pos.row < self.text.len().saturating_sub(1) {
             let next_line = self.text.remove(pos.row + 1);
             if let Some(current_line) = self.text.get_mut(pos.row) {
-                current_line.0.extend(next_line.0);
+                current_line.extend_from_line(next_line);
                 self.dirty = true;
                 return true;
             }
@@ -80,7 +80,7 @@ impl TextBuffer {
             let prev_col = self.cols(prev_row);
 
             if let Some(prev_line) = self.text.get_mut(prev_row) {
-                prev_line.0.extend(current_line.0);
+                prev_line.extend_from_line(current_line);
                 self.dirty = true;
                 return Some(TextPosition {
                     row: prev_row,
@@ -95,7 +95,7 @@ impl TextBuffer {
         let mut content = self
             .text
             .iter()
-            .map(|line| line.0.iter().collect::<String>())
+            .map(|line| line.to_string())
             .collect::<Vec<_>>()
             .join("\n");
         content.push('\n');
@@ -126,12 +126,85 @@ impl TextBuffer {
             pos
         }
     }
+
+    pub fn char_index_at_col(&self, row: usize, col: usize) -> Option<usize> {
+        if let Some(line) = self.text.get(row) {
+            let mut current_col = 0;
+            for (i, &ch) in line.0.iter().enumerate() {
+                if current_col >= col {
+                    return Some(i);
+                }
+                current_col += unicode_width::UnicodeWidthChar::width(ch).unwrap_or_default();
+            }
+            Some(line.0.len())
+        } else {
+            None
+        }
+    }
+
+    pub fn insert_newline_at(&mut self, pos: TextPosition) -> TextPosition {
+        let current_row = pos.row;
+        let current_col = pos.col;
+
+        // Ensure we have enough rows
+        while current_row >= self.text.len() {
+            self.text.push(TextLine::default());
+        }
+
+        if let Some(current_line) = self.text.get_mut(current_row) {
+            // Split the current line at cursor position
+            let chars_after_cursor = current_line.split_off_at_col(current_col);
+
+            // Create new line with the characters after cursor
+            let new_line = TextLine::from_chars(chars_after_cursor);
+
+            // Insert the new line after current line
+            self.text.insert(current_row + 1, new_line);
+            self.dirty = true;
+
+            // Return new cursor position
+            TextPosition {
+                row: current_row + 1,
+                col: 0,
+            }
+        } else {
+            pos
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct TextLine(Vec<char>);
 
 impl TextLine {
+    pub fn from_chars(chars: Vec<char>) -> Self {
+        TextLine(chars)
+    }
+
+    pub fn to_string(&self) -> String {
+        self.0.iter().collect()
+    }
+
+    pub fn extend_from_line(&mut self, other: TextLine) {
+        self.0.extend(other.0);
+    }
+
+    pub fn split_off_at_col(&mut self, col: usize) -> Vec<char> {
+        let char_index = self.char_index_at_col(col);
+        self.0.split_off(char_index)
+    }
+
+    pub fn char_index_at_col(&self, col: usize) -> usize {
+        let mut current_col = 0;
+        for (i, &ch) in self.0.iter().enumerate() {
+            if current_col >= col {
+                return i;
+            }
+            current_col += unicode_width::UnicodeWidthChar::width(ch).unwrap_or_default();
+        }
+        self.0.len()
+    }
+
     pub fn char_cols(&self) -> impl Iterator<Item = (usize, char)> {
         let mut col = 0;
         self.0.iter().map(move |&ch| {

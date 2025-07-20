@@ -12,6 +12,7 @@
       "<VISIBLE>": "insert",
       "<DELETE>": "delete",
       "<BACKSPACE>": "backspace",
+      "<ENTER>": "newline",
       "<UP>": "up",
       "<DOWN>": "down",
       "<LEFT>": "left",
@@ -22,7 +23,8 @@
         "C-b": "left",
         "C-f": "right",
         "C-d": "delete",
-        "C-h": "backspace"
+        "C-h": "backspace",
+        "C-j": "newline"
       }
     }
   },
@@ -33,6 +35,7 @@
     "<RIGHT>": "→",
     "<DELETE>": "⌦",
     "<BACKSPACE>": "⌫",
+    "<ENTER>": "↵",
     "<VISIBLE>": "🔤"
   },
   "actions": {
@@ -56,6 +59,9 @@
     },
     "insert": {
       "type": "char-insert"
+    },
+    "newline": {
+      "type": "newline-insert"
     },
     "up": {
       "type": "cursor-up"

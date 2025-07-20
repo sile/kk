@@ -169,4 +169,8 @@ impl State {
             self.cursor = self.buffer.insert_char_at(self.cursor, ch);
         }
     }
+
+    pub fn handle_newline_insert(&mut self) {
+        self.cursor = self.buffer.insert_newline_at(self.cursor);
+    }
 }
