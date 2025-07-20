@@ -82,6 +82,7 @@ impl App {
             Action::Cancel => {
                 self.state.set_message("Canceled");
             }
+            Action::BufferSave => self.state.handle_buffer_save().or_fail()?,
             Action::CursorUp => self.state.handle_cursor_up(),
             Action::CursorDown => self.state.handle_cursor_down(),
             Action::CursorLeft => self.state.handle_cursor_left(),

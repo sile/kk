@@ -90,6 +90,22 @@ impl TextBuffer {
         }
         None
     }
+
+    pub fn save_to_file<P: AsRef<Path>>(&mut self, path: P) -> orfail::Result<()> {
+        let mut content = self
+            .text
+            .iter()
+            .map(|line| line.0.iter().collect::<String>())
+            .collect::<Vec<_>>()
+            .join("\n");
+        content.push('\n');
+
+        std::fs::write(&path, content)
+            .or_fail_with(|e| format!("failed to write file {}: {e}", path.as_ref().display()))?;
+
+        self.dirty = false;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]

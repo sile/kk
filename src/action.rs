@@ -4,6 +4,7 @@ pub type ActionName = String;
 pub enum Action {
     Quit,
     Cancel,
+    BufferSave,
     CursorUp,
     CursorDown,
     CursorLeft,
@@ -25,6 +26,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
         match ty.to_unquoted_string_str()?.as_ref() {
             "quit" => Ok(Self::Quit),
             "cancel" => Ok(Self::Cancel),
+            "buffer-save" => Ok(Self::BufferSave),
             "cursor-up" => Ok(Self::CursorUp),
             "cursor-down" => Ok(Self::CursorDown),
             "cursor-left" => Ok(Self::CursorLeft),

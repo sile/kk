@@ -3,6 +3,7 @@
     "__main__": {
       "C-c": "quit",
       "C-g": "cancel",
+      "M-s": "save",
       "C-a": "SOL",
       "C-e": "EOL",
       "M-<": "SOF",
@@ -40,6 +41,9 @@
     },
     "cancel": {
       "type": "cancel"
+    },
+    "save": {
+      "type": "buffer-save"
     },
     "backspace": {
       "type": "char-delete-backward"

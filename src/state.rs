@@ -132,4 +132,10 @@ impl State {
     pub fn handle_char_delete_forward(&mut self) {
         self.buffer.delete_char_at(self.cursor);
     }
+
+    pub fn handle_buffer_save(&mut self) -> orfail::Result<()> {
+        self.buffer.save_to_file(&self.path).or_fail()?;
+        self.set_message(format!("Saved: {}", self.path.display()));
+        Ok(())
+    }
 }
