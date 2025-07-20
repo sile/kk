@@ -12,6 +12,7 @@ use crate::{
 pub struct State {
     pub path: PathBuf,
     pub cursor: TextPosition,
+    pub viewport: TextPosition, // Top-left position of the visible text area
     pub buffer: TextBuffer,
     pub message: Option<String>,
     pub context: KeybindingsContext,
@@ -24,6 +25,7 @@ impl State {
         Ok(Self {
             path,
             cursor: TextPosition::default(),
+            viewport: TextPosition::default(),
             buffer,
             message: None,
             context: KeybindingsContext::default(),
@@ -35,8 +37,14 @@ impl State {
     }
 
     pub fn terminal_cursor_position(&self) -> TerminalPosition {
-        let pos = self.buffer.adjust_to_char_boundary(self.cursor, true);
-        TerminalPosition::row_col(pos.row, pos.col)
+        let pos = self.cursor_position();
+        let screen_row = pos.row.saturating_sub(self.viewport.row);
+        let screen_col = pos.col.saturating_sub(self.viewport.col);
+        TerminalPosition::row_col(screen_row, screen_col)
+    }
+
+    pub fn cursor_position(&self) -> TextPosition {
+        self.buffer.adjust_to_char_boundary(self.cursor, true)
     }
 
     pub fn handle_cursor_up(&mut self) {

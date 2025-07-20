@@ -12,16 +12,21 @@ impl TextAreaRenderer {
         let size = frame.size();
         let available_rows = size.rows.saturating_sub(2); // Reserve space for status and message lines
 
-        // Render visible lines from the buffer
-        for (row, line) in state.buffer.text.iter().take(available_rows).enumerate() {
-            if row > 0 {
+        // Render visible lines from the buffer starting at viewport position
+        let start_row = state.viewport.row;
+        let end_row = (start_row + available_rows).min(state.buffer.text.len());
+
+        for (screen_row, buffer_row) in (start_row..end_row).enumerate() {
+            if screen_row > 0 {
                 writeln!(frame).or_fail()?;
             }
-            self.render_line(line, frame)?;
+            if let Some(line) = state.buffer.text.get(buffer_row) {
+                self.render_line(line, state.viewport.col, frame)?;
+            }
         }
 
         // Fill remaining rows with empty lines if needed
-        let rendered_rows = state.buffer.text.len().min(available_rows);
+        let rendered_rows = end_row.saturating_sub(start_row);
         for _ in rendered_rows..available_rows {
             writeln!(frame).or_fail()?;
         }
@@ -29,9 +34,17 @@ impl TextAreaRenderer {
         Ok(())
     }
 
-    fn render_line(&self, line: &TextLine, frame: &mut TerminalFrame) -> orfail::Result<()> {
-        for &ch in &line.0 {
-            write!(frame, "{}", ch).or_fail()?;
+    fn render_line(
+        &self,
+        line: &TextLine,
+        start_col: usize,
+        frame: &mut TerminalFrame,
+    ) -> orfail::Result<()> {
+        // Skip characters before the viewport's left edge
+        for (current_col, ch) in line.char_cols() {
+            if current_col >= start_col {
+                write!(frame, "{}", ch).or_fail()?;
+            }
         }
         Ok(())
     }

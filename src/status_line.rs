@@ -15,7 +15,7 @@ impl StatusLineRenderer {
 
         let dirty = if state.buffer.dirty { '*' } else { ' ' };
         let path = state.path.display();
-        let cursor = state.terminal_cursor_position();
+        let cursor = state.cursor_position();
         let row = cursor.row + 1; // Convert to 1-based index
         let col = cursor.col + 1; // Convert to 1-based index
         let context = state.context.group_path();

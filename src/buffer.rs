@@ -40,9 +40,18 @@ impl TextBuffer {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct TextLine(pub Vec<char>);
+pub struct TextLine(Vec<char>);
 
 impl TextLine {
+    pub fn char_cols(&self) -> impl Iterator<Item = (usize, char)> {
+        let mut col = 0;
+        self.0.iter().map(move |&ch| {
+            let current_col = col;
+            col += ch.width().unwrap_or_default();
+            (current_col, ch)
+        })
+    }
+
     fn cols(&self) -> usize {
         self.0.iter().filter_map(|c| c.width()).sum()
     }
