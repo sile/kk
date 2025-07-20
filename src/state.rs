@@ -5,13 +5,11 @@ use tuinix::TerminalPosition;
 
 use crate::{
     buffer::{TextBuffer, TextPosition},
-    config::Config,
     keybindings::KeybindingsContext,
 };
 
 #[derive(Debug)]
 pub struct State {
-    pub config: Config,
     pub path: PathBuf,
     pub cursor: TextPosition,
     pub buffer: TextBuffer,
@@ -24,7 +22,6 @@ impl State {
         let mut buffer = TextBuffer::default();
         buffer.load_file(&path).or_fail()?;
         Ok(Self {
-            config: Config::default(),
             path,
             cursor: TextPosition::default(),
             buffer,

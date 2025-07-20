@@ -4,6 +4,7 @@ use orfail::OrFail;
 use tuinix::{TerminalPosition, TerminalRegion, TerminalSize};
 
 use crate::{
+    config::Config,
     mame::{self, TerminalFrame},
     state::State,
 };
@@ -12,17 +13,22 @@ use crate::{
 pub struct LegendRenderer;
 
 impl LegendRenderer {
-    pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> orfail::Result<()> {
-        self.render_to_writer(state, Some(frame.size().cols), frame)
+    pub fn render(
+        &self,
+        config: &Config,
+        state: &State,
+        frame: &mut TerminalFrame,
+    ) -> orfail::Result<()> {
+        self.render_to_writer(config, state, Some(frame.size().cols), frame)
             .or_fail()?;
         Ok(())
     }
 
-    pub fn region(&self, state: &State, size: TerminalSize) -> TerminalRegion {
+    pub fn region(&self, config: &Config, state: &State, size: TerminalSize) -> TerminalRegion {
         let mut detector = SizeDetector::default();
         detector.size.rows += 1; // for bottom border
 
-        self.render_to_writer(state, None, &mut detector)
+        self.render_to_writer(config, state, None, &mut detector)
             .expect("bug");
         let legend_size = detector.finish();
 
@@ -37,17 +43,18 @@ impl LegendRenderer {
 
     fn render_to_writer<W: Write>(
         &self,
+        config: &Config,
         state: &State,
         cols: Option<usize>,
         mut writer: W,
     ) -> orfail::Result<()> {
-        for binding in state.config.keybindings.iter(&state.context).or_fail()? {
+        for binding in config.keybindings.iter(&state.context).or_fail()? {
             if !binding.visible {
                 continue;
             }
 
             let action = &binding.action;
-            if let Some(label) = state.config.keylabels.get(&binding.key) {
+            if let Some(label) = config.keylabels.get(&binding.key) {
                 writeln!(writer, "│ {label}: {action} ").or_fail()?;
             } else {
                 let label = mame::KeyInputDisplay(binding.key);

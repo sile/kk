@@ -4,13 +4,14 @@ use orfail::OrFail;
 use tuinix::{KeyCode, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
 use crate::{
-    legend::LegendRenderer, mame::TerminalFrame, message_line::MessageLineRenderer, state::State,
-    status_line::StatusLineRenderer, text_area::TextAreaRenderer,
+    config::Config, legend::LegendRenderer, mame::TerminalFrame, message_line::MessageLineRenderer,
+    state::State, status_line::StatusLineRenderer, text_area::TextAreaRenderer,
 };
 
 #[derive(Debug)]
 pub struct App {
     terminal: Terminal,
+    config: Config,
     state: State,
     text_area: TextAreaRenderer,
     message_line: MessageLineRenderer,
@@ -24,6 +25,7 @@ impl App {
         Ok(Self {
             terminal,
             state: State::new(path).or_fail()?,
+            config: Config::default(),
             text_area: TextAreaRenderer,
             message_line: MessageLineRenderer,
             status_line: StatusLineRenderer,
@@ -65,23 +67,25 @@ impl App {
         let mut frame = TerminalFrame::new(self.terminal.size());
 
         let region = frame.size().to_region().drop_bottom(2);
-        self.render_region(&mut frame, region, |state, frame| {
-            self.text_area.render(state, frame).or_fail()
+        self.render_region(&mut frame, region, |frame| {
+            self.text_area.render(&self.state, frame).or_fail()
         })?;
 
         let region = frame.size().to_region().take_bottom(2).take_top(1);
-        self.render_region(&mut frame, region, |state, frame| {
-            self.status_line.render(state, frame).or_fail()
+        self.render_region(&mut frame, region, |frame| {
+            self.status_line.render(&self.state, frame).or_fail()
         })?;
 
         let region = frame.size().to_region().take_bottom(1);
-        self.render_region(&mut frame, region, |state, frame| {
-            self.message_line.render(state, frame).or_fail()
+        self.render_region(&mut frame, region, |frame| {
+            self.message_line.render(&self.state, frame).or_fail()
         })?;
 
-        let region = self.legend.region(&self.state, frame.size());
-        self.render_region(&mut frame, region, |state, frame| {
-            self.legend.render(state, frame).or_fail()
+        let region = self.legend.region(&self.config, &self.state, frame.size());
+        self.render_region(&mut frame, region, |frame| {
+            self.legend
+                .render(&self.config, &self.state, frame)
+                .or_fail()
         })?;
 
         self.terminal
@@ -99,10 +103,10 @@ impl App {
         f: F,
     ) -> orfail::Result<()>
     where
-        F: FnOnce(&State, &mut TerminalFrame) -> orfail::Result<()>,
+        F: FnOnce(&mut TerminalFrame) -> orfail::Result<()>,
     {
         let mut sub_frame = TerminalFrame::new(region.size);
-        f(&self.state, &mut sub_frame).or_fail()?;
+        f(&mut sub_frame).or_fail()?;
         frame.draw(region.position, &sub_frame);
         Ok(())
     }

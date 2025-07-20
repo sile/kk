@@ -30,6 +30,7 @@ impl Keybindings {
         &self,
         context: &KeybindingsContext,
     ) -> orfail::Result<impl Iterator<Item = &Keybinding>> {
+        // TODO: remove Result (add validation when config JSON parsing instead)
         let group = self.groups.get(&context.current_group_name).or_fail()?;
         Ok(group.entries.iter())
     }
