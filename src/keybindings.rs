@@ -22,7 +22,6 @@ impl Default for KeybindingsContext {
 
 #[derive(Debug, Clone)]
 pub struct Keybindings {
-    pub main: KeybindingsGroup,
     pub groups: BTreeMap<String, KeybindingsGroup>,
 }
 
@@ -40,11 +39,8 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Keybindings {
     type Error = nojson::JsonParseError;
 
     fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
-        let mut groups: BTreeMap<String, KeybindingsGroup> = value.try_into()?;
-        let main = groups
-            .remove("__main__")
-            .ok_or_else(|| value.invalid("missing '__main__' keybinding group"))?;
-        Ok(Self { main, groups })
+        let groups: BTreeMap<String, KeybindingsGroup> = value.try_into()?;
+        Ok(Self { groups })
     }
 }
 

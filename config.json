@@ -2,6 +2,7 @@
   "keybindings": {
     "__main__": {
       "C-c": "quit",
+      "C-g": "cancel",
       "<UP>": "up",
       "<DOWN>": "down",
       "<LEFT>": "left",
@@ -23,6 +24,9 @@
   "actions": {
     "quit": {
       "type": "quit"
+    },
+    "cancel": {
+      "type": "cancel"
     },
     "up": {
       "type": "move",

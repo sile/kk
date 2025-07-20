@@ -3,6 +3,7 @@ pub type ActionName = String;
 #[derive(Debug, Clone)]
 pub enum Action {
     Quit,
+    Cancel,
     Move(MoveAction),
 }
 
@@ -14,6 +15,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
 
         match ty.to_unquoted_string_str()?.as_ref() {
             "quit" => Ok(Self::Quit),
+            "cancel" => Ok(Self::Cancel),
             "move" => MoveAction::parse(value).map(Self::Move),
             ty => Err(value.invalid(format!("unknown command type: {ty:?}"))),
         }
