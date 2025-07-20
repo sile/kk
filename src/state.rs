@@ -16,7 +16,7 @@ pub struct State {
     pub cursor: TextPosition,
     pub buffer: TextBuffer,
     pub message: Option<String>,
-    pub keybindings_context: KeybindingsContext,
+    pub context: KeybindingsContext,
 }
 
 impl State {
@@ -29,7 +29,7 @@ impl State {
             cursor: TextPosition::default(),
             buffer,
             message: None,
-            keybindings_context: KeybindingsContext::default(),
+            context: KeybindingsContext::default(),
         })
     }
 

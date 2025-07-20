@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use orfail::OrFail;
 use tuinix::KeyInput;
 
 use crate::action::ActionName;
@@ -23,6 +24,16 @@ impl Default for KeybindingsContext {
 pub struct Keybindings {
     pub main: KeybindingsGroup,
     pub groups: BTreeMap<String, KeybindingsGroup>,
+}
+
+impl Keybindings {
+    pub fn iter(
+        &self,
+        context: &KeybindingsContext,
+    ) -> orfail::Result<impl Iterator<Item = &Keybinding>> {
+        let group = self.groups.get(&context.current_group_name).or_fail()?;
+        Ok(group.entries.iter())
+    }
 }
 
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Keybindings {

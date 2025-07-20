@@ -41,9 +41,7 @@ impl LegendRenderer {
         cols: Option<usize>,
         mut writer: W,
     ) -> orfail::Result<()> {
-        let group = &state.config.keybindings.main;
-
-        for binding in &group.entries {
+        for binding in state.config.keybindings.iter(&state.context).or_fail()? {
             if !binding.visible {
                 continue;
             }
