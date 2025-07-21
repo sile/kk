@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::VecDeque, path::PathBuf};
 
 use orfail::OrFail;
 use tuinix::{KeyCode, TerminalPosition, TerminalSize};
@@ -10,6 +10,8 @@ use crate::{
     keybindings::KeybindingsContext,
 };
 
+pub const MAX_HISTORY_SIZE: usize = 1000;
+
 #[derive(Debug)]
 pub struct State {
     pub path: PathBuf,
@@ -20,6 +22,9 @@ pub struct State {
     pub context: KeybindingsContext,
     pub mark: Option<TextPosition>,
     pub clipboard: Clipboard,
+    pub editing: bool,
+    pub history: VecDeque<(TextPosition, TextBuffer)>,
+    pub undo_index: usize,
 }
 
 impl State {
@@ -35,6 +40,9 @@ impl State {
             context: KeybindingsContext::default(),
             mark: None,
             clipboard: Clipboard::default(),
+            editing: false,
+            history: VecDeque::new(),
+            undo_index: 0,
         })
     }
 
@@ -81,12 +89,33 @@ impl State {
         }
     }
 
+    fn start_editing(&mut self) {
+        if self.editing {
+            return;
+        }
+
+        while self.history.len() >= MAX_HISTORY_SIZE {
+            self.history.pop_front();
+        }
+
+        self.history.push_back((self.cursor, self.buffer.clone()));
+        self.undo_index = self.history.len();
+
+        self.editing = true;
+    }
+
+    fn finish_editing(&mut self) {
+        self.editing = false;
+    }
+
     pub fn handle_cursor_up(&mut self) {
         self.cursor.row = self.cursor.row.saturating_sub(1);
+        self.finish_editing();
     }
 
     pub fn handle_cursor_down(&mut self) {
         self.cursor.row = self.cursor.row.saturating_add(1).min(self.buffer.rows());
+        self.finish_editing();
     }
 
     pub fn handle_cursor_left(&mut self) {
@@ -98,6 +127,7 @@ impl State {
             self.cursor.row = self.cursor.row.saturating_sub(1);
             self.cursor.col = self.buffer.cols(self.cursor.row);
         }
+        self.finish_editing();
     }
 
     pub fn handle_cursor_right(&mut self) {
@@ -110,32 +140,39 @@ impl State {
             self.cursor.row = self.cursor.row.saturating_add(1);
             self.cursor.col = 0;
         }
+        self.finish_editing();
     }
 
     pub fn handle_cursor_line_start(&mut self) {
         self.cursor.col = 0;
+        self.finish_editing();
     }
 
     pub fn handle_cursor_line_end(&mut self) {
         self.cursor.col = self.buffer.cols(self.cursor.row);
+        self.finish_editing();
     }
 
     pub fn handle_cursor_buffer_start(&mut self) {
         self.cursor = TextPosition::default();
+        self.finish_editing();
     }
 
     pub fn handle_cursor_buffer_end(&mut self) {
         self.cursor.row = self.buffer.rows();
         self.cursor.col = 0;
+        self.finish_editing();
     }
 
     pub fn handle_char_delete_backward(&mut self) {
+        self.start_editing();
         if let Some(new_pos) = self.buffer.delete_char_before(self.cursor) {
             self.cursor = new_pos;
         }
     }
 
     pub fn handle_char_delete_forward(&mut self) {
+        self.start_editing();
         self.buffer.delete_char_at(self.cursor);
     }
 
@@ -146,6 +183,9 @@ impl State {
     }
 
     pub fn handle_buffer_reload(&mut self) -> orfail::Result<()> {
+        self.finish_editing();
+        self.start_editing();
+
         // Reload the buffer from file
         self.buffer.load_file(&self.path).or_fail()?;
 
@@ -164,10 +204,12 @@ impl State {
         self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
 
         self.set_message(format!("Reloaded: {}", self.path.display()));
+        self.finish_editing();
         Ok(())
     }
 
     pub fn handle_char_insert(&mut self, key: tuinix::KeyInput) {
+        self.start_editing();
         // Only insert printable characters
         if let KeyCode::Char(ch) = key.code
             && !ch.is_control()
@@ -177,19 +219,34 @@ impl State {
     }
 
     pub fn handle_newline_insert(&mut self) {
+        self.finish_editing();
+        self.start_editing();
         self.cursor = self.buffer.insert_newline_at(self.cursor);
+        self.finish_editing();
     }
 
     pub fn handle_buffer_undo(&mut self) {
-        if let Some(new_cursor) = self.buffer.undo() {
-            self.cursor = new_cursor;
-            self.set_message("Undo");
-        } else {
-            self.set_message("Nothing to undo");
+        if self.editing {
+            self.finish_editing();
+            self.start_editing();
+            self.editing = false;
         }
+
+        let Some(i) = self.undo_index.checked_sub(1) else {
+            self.set_message("Nothing to undo");
+            return;
+        };
+
+        let (cursor, buffer) = self.history[i].clone();
+        self.cursor = cursor;
+        self.buffer = buffer;
+        self.undo_index = i;
+        self.set_message(format!("Undo ({})", self.history.len() - i));
     }
 
     pub fn handle_mark_set(&mut self) {
+        self.finish_editing();
+
         let cursor_pos = self.cursor_position();
         if self.mark == Some(cursor_pos) {
             // If mark is already at cursor position, deactivate it
@@ -203,6 +260,8 @@ impl State {
     }
 
     pub fn handle_mark_copy(&mut self) -> orfail::Result<()> {
+        self.finish_editing();
+
         if let Some(mark_pos) = self.mark.take() {
             let cursor_pos = self.cursor_position();
             let (start, end) = if mark_pos <= cursor_pos {
@@ -224,6 +283,8 @@ impl State {
     }
 
     pub fn handle_mark_cut(&mut self) -> orfail::Result<()> {
+        self.finish_editing();
+
         if let Some(mark_pos) = self.mark.take() {
             let cursor_pos = self.cursor_position();
             let (start, end) = if mark_pos <= cursor_pos {
@@ -362,6 +423,8 @@ impl State {
     }
 
     pub fn handle_clipboard_paste(&mut self) -> orfail::Result<()> {
+        self.finish_editing();
+
         let text = self.clipboard.read().or_fail()?;
 
         if text.is_empty() {
@@ -376,6 +439,7 @@ impl State {
             self.set_message("Nothing to paste");
             return Ok(());
         }
+        self.start_editing();
 
         // Insert the text
         if lines.len() == 1 {
@@ -413,6 +477,7 @@ impl State {
             ));
         }
 
+        self.finish_editing();
         Ok(())
     }
 
@@ -420,6 +485,8 @@ impl State {
         &mut self,
         action: &ExternalCommandAction,
     ) -> orfail::Result<()> {
+        self.finish_editing();
+
         let mut cmd = std::process::Command::new(&action.command);
 
         for arg in &action.args {

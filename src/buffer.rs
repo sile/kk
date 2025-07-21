@@ -3,35 +3,10 @@ use std::path::Path;
 use orfail::OrFail;
 use unicode_width::UnicodeWidthChar;
 
-#[derive(Debug, Clone)]
-pub enum UndoAction {
-    InsertChar {
-        pos: TextPosition,
-        ch: char,
-    },
-    DeleteChar {
-        pos: TextPosition,
-        ch: char,
-    },
-    InsertNewline {
-        pos: TextPosition,
-    },
-    DeleteNewline {
-        pos: TextPosition,
-        deleted_line: TextLine,
-    },
-    // Compound action for operations that should be undone together
-    Compound(Vec<UndoAction>),
-}
-
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct TextBuffer {
     pub text: Vec<TextLine>,
     pub dirty: bool,
-    undo_stack: Vec<UndoAction>,
-    redo_stack: Vec<UndoAction>,
-    // Track if we're currently undoing/redoing to avoid adding to undo stack
-    in_undo_redo: bool,
 }
 
 impl TextBuffer {
@@ -43,9 +18,6 @@ impl TextBuffer {
             .map(|l| TextLine(l.chars().collect()))
             .collect();
         self.dirty = false;
-        // Clear undo/redo stacks when loading new file
-        self.undo_stack.clear();
-        self.redo_stack.clear();
         Ok(())
     }
 
@@ -66,83 +38,10 @@ impl TextBuffer {
         pos
     }
 
-    fn push_undo_action(&mut self, action: UndoAction) {
-        if !self.in_undo_redo {
-            self.undo_stack.push(action);
-            // Clear redo stack when new action is performed
-            self.redo_stack.clear();
-        }
-    }
-
-    pub fn undo(&mut self) -> Option<TextPosition> {
-        if let Some(action) = self.undo_stack.pop() {
-            self.in_undo_redo = true;
-            let cursor_pos = self.apply_undo_action(&action);
-            self.redo_stack.push(action);
-            self.in_undo_redo = false;
-            self.dirty = true;
-            cursor_pos
-        } else {
-            None
-        }
-    }
-
-    fn apply_undo_action(&mut self, action: &UndoAction) -> Option<TextPosition> {
-        match action {
-            UndoAction::InsertChar { pos, .. } => {
-                // Undo insert by deleting
-                self.delete_char_at_internal(*pos);
-                Some(*pos)
-            }
-            UndoAction::DeleteChar { pos, ch } => {
-                // Undo delete by inserting
-                self.insert_char_at_internal(*pos, *ch);
-                Some(TextPosition {
-                    row: pos.row,
-                    col: pos.col + ch.width().unwrap_or_default(),
-                })
-            }
-            UndoAction::InsertNewline { pos } => {
-                // Undo newline insert by joining lines
-                if pos.row + 1 < self.text.len() {
-                    let next_line = self.text.remove(pos.row + 1);
-                    if let Some(current_line) = self.text.get_mut(pos.row) {
-                        current_line.extend_from_line(next_line);
-                    }
-                }
-                Some(*pos)
-            }
-            UndoAction::DeleteNewline { pos, deleted_line } => {
-                // Undo newline delete by splitting line
-                if let Some(current_line) = self.text.get_mut(pos.row) {
-                    let chars_after = current_line.split_off_at_col(pos.col);
-                    let mut new_line = deleted_line.clone();
-                    new_line.0.extend(chars_after);
-                    self.text.insert(pos.row + 1, new_line);
-                }
-                Some(TextPosition {
-                    row: pos.row + 1,
-                    col: 0,
-                })
-            }
-            UndoAction::Compound(actions) => {
-                // Apply compound actions in reverse order
-                let mut last_pos = None;
-                for action in actions.iter().rev() {
-                    if let Some(pos) = self.apply_undo_action(action) {
-                        last_pos = Some(pos);
-                    }
-                }
-                last_pos
-            }
-        }
-    }
-
     pub fn delete_char_at(&mut self, pos: TextPosition) -> bool {
         // Store the character for undo before deleting
         if let Some(line) = self.text.get(pos.row) {
-            if let Some(ch) = line.char_at_col(pos.col) {
-                self.push_undo_action(UndoAction::DeleteChar { pos, ch });
+            if let Some(_ch) = line.char_at_col(pos.col) {
                 self.delete_char_at_internal(pos);
                 self.dirty = true;
                 return true;
@@ -152,8 +51,7 @@ impl TextBuffer {
         // Handle forward delete at line end (merge with next line)
         if pos.col >= self.cols(pos.row) && pos.row < self.text.len().saturating_sub(1) {
             let deleted_line = self.text.get(pos.row + 1).cloned();
-            if let Some(deleted_line) = deleted_line {
-                self.push_undo_action(UndoAction::DeleteNewline { pos, deleted_line });
+            if let Some(_deleted_line) = deleted_line {
                 let next_line = self.text.remove(pos.row + 1);
                 if let Some(current_line) = self.text.get_mut(pos.row) {
                     current_line.extend_from_line(next_line);
@@ -179,14 +77,7 @@ impl TextBuffer {
             // Find the character boundary before current position
             if let Some(line) = self.text.get(pos.row) {
                 let char_pos = line.find_char_before(pos.col);
-                if let Some(ch) = line.char_at_col(char_pos) {
-                    self.push_undo_action(UndoAction::DeleteChar {
-                        pos: TextPosition {
-                            row: pos.row,
-                            col: char_pos,
-                        },
-                        ch,
-                    });
+                if let Some(_ch) = line.char_at_col(char_pos) {
                     if self.delete_char_at_internal(TextPosition {
                         row: pos.row,
                         col: char_pos,
@@ -205,14 +96,6 @@ impl TextBuffer {
             if let Some(current_line) = current_line {
                 let prev_row = pos.row - 1;
                 let prev_col = self.cols(prev_row);
-
-                self.push_undo_action(UndoAction::DeleteNewline {
-                    pos: TextPosition {
-                        row: prev_row,
-                        col: prev_col,
-                    },
-                    deleted_line: current_line.clone(),
-                });
 
                 self.text.remove(pos.row);
                 if let Some(prev_line) = self.text.get_mut(prev_row) {
@@ -245,7 +128,6 @@ impl TextBuffer {
     }
 
     pub fn insert_char_at(&mut self, pos: TextPosition, ch: char) -> TextPosition {
-        self.push_undo_action(UndoAction::InsertChar { pos, ch });
         let new_pos = self.insert_char_at_internal(pos, ch);
         self.dirty = true;
         new_pos
@@ -286,7 +168,6 @@ impl TextBuffer {
     }
 
     pub fn insert_newline_at(&mut self, pos: TextPosition) -> TextPosition {
-        self.push_undo_action(UndoAction::InsertNewline { pos });
         let new_pos = self.insert_newline_at_internal(pos);
         self.dirty = true;
         new_pos
