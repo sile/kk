@@ -74,32 +74,11 @@ impl TextBuffer {
         }
     }
 
-    pub fn can_undo(&self) -> bool {
-        !self.undo_stack.is_empty()
-    }
-
-    pub fn can_redo(&self) -> bool {
-        !self.redo_stack.is_empty()
-    }
-
     pub fn undo(&mut self) -> Option<TextPosition> {
         if let Some(action) = self.undo_stack.pop() {
             self.in_undo_redo = true;
             let cursor_pos = self.apply_undo_action(&action);
             self.redo_stack.push(action);
-            self.in_undo_redo = false;
-            self.dirty = true;
-            cursor_pos
-        } else {
-            None
-        }
-    }
-
-    pub fn redo(&mut self) -> Option<TextPosition> {
-        if let Some(action) = self.redo_stack.pop() {
-            self.in_undo_redo = true;
-            let cursor_pos = self.apply_redo_action(&action);
-            self.undo_stack.push(action);
             self.in_undo_redo = false;
             self.dirty = true;
             cursor_pos
@@ -151,52 +130,6 @@ impl TextBuffer {
                 let mut last_pos = None;
                 for action in actions.iter().rev() {
                     if let Some(pos) = self.apply_undo_action(action) {
-                        last_pos = Some(pos);
-                    }
-                }
-                last_pos
-            }
-        }
-    }
-
-    fn apply_redo_action(&mut self, action: &UndoAction) -> Option<TextPosition> {
-        match action {
-            UndoAction::InsertChar { pos, ch } => {
-                // Redo insert
-                self.insert_char_at_internal(*pos, *ch);
-                Some(TextPosition {
-                    row: pos.row,
-                    col: pos.col + ch.width().unwrap_or_default(),
-                })
-            }
-            UndoAction::DeleteChar { pos, .. } => {
-                // Redo delete
-                self.delete_char_at_internal(*pos);
-                Some(*pos)
-            }
-            UndoAction::InsertNewline { pos } => {
-                // Redo newline insert
-                self.insert_newline_at_internal(*pos);
-                Some(TextPosition {
-                    row: pos.row + 1,
-                    col: 0,
-                })
-            }
-            UndoAction::DeleteNewline { pos, .. } => {
-                // Redo newline delete
-                if pos.row + 1 < self.text.len() {
-                    let next_line = self.text.remove(pos.row + 1);
-                    if let Some(current_line) = self.text.get_mut(pos.row) {
-                        current_line.extend_from_line(next_line);
-                    }
-                }
-                Some(*pos)
-            }
-            UndoAction::Compound(actions) => {
-                // Apply compound actions in normal order
-                let mut last_pos = None;
-                for action in actions {
-                    if let Some(pos) = self.apply_redo_action(action) {
                         last_pos = Some(pos);
                     }
                 }

@@ -24,6 +24,7 @@
       "<RIGHT>": "right",
       "__hidden__": {
         "C-0x7f": "undo",
+        "C-u": "undo",
         "C-`": "mark",
         "C-p": "up",
         "C-n": "down",
