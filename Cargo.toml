@@ -1,7 +1,13 @@
 [package]
 name = "kk"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2024"
+authors = ["Takeru Ohta <phjgt308@gmail.com>"]
+license = "MIT"
+description = "A TUI text editor"
+homepage = "https://github.com/sile/kk"
+repository = "https://github.com/sile/kk"
+readme = "README.md"
 
 [dependencies]
 noargs = "0.4.1"
