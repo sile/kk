@@ -97,6 +97,7 @@ impl App {
             Action::CharInsert => self.state.handle_char_insert(key),
             Action::CharDeleteBackward => self.state.handle_char_delete_backward(),
             Action::CharDeleteForward => self.state.handle_char_delete_forward(),
+            Action::MarkSet => todo!(),
         }
         Ok(())
     }

@@ -10,6 +10,7 @@
       "C-e": "EOL",
       "M-<": "SOF",
       "M->": "EOF",
+      "C- ": "mark",
       "<VISIBLE>": "insert",
       "<DELETE>": "delete",
       "<BACKSPACE>": "backspace",
@@ -20,6 +21,7 @@
       "<RIGHT>": "right",
       "__hidden__": {
         "C-0x7f": "undo",
+        "C-`": "mark",
         "C-p": "up",
         "C-n": "down",
         "C-b": "left",
@@ -48,6 +50,9 @@
     },
     "cancel": {
       "type": "cancel"
+    },
+    "mark": {
+      "type": "mark-set"
     },
     "save": {
       "type": "buffer-save"

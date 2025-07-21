@@ -19,6 +19,7 @@ pub enum Action {
     CharInsert,
     CharDeleteBackward,
     CharDeleteForward,
+    MarkSet,
 }
 
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
@@ -45,6 +46,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
             "char-insert" => Ok(Self::CharInsert),
             "char-delete-backward" => Ok(Self::CharDeleteBackward),
             "char-delete-forward" => Ok(Self::CharDeleteForward),
+            "mark-set" => Ok(Self::MarkSet),
             ty => Err(value.invalid(format!("unknown command type: {ty:?}"))),
         }
     }
