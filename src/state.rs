@@ -17,6 +17,7 @@ pub struct State {
     pub path: PathBuf,
     pub cursor: TextPosition,
     pub viewport: TextPosition, // Top-left position of the visible text area
+    pub recenter_viewport: bool,
     pub buffer: TextBuffer,
     pub message: Option<String>,
     pub context: KeybindingsContext,
@@ -35,6 +36,7 @@ impl State {
             path,
             cursor: TextPosition::default(),
             viewport: TextPosition::default(),
+            recenter_viewport: false,
             buffer,
             message: None,
             context: KeybindingsContext::default(),
@@ -66,6 +68,15 @@ impl State {
         let available_rows = text_area_size.rows;
         let available_cols = text_area_size.cols;
 
+        if self.recenter_viewport {
+            // Center the cursor in the viewport
+            self.viewport.row = cursor_pos.row.saturating_sub(available_rows / 2);
+            self.viewport.col = cursor_pos.col.saturating_sub(available_cols / 2);
+            self.recenter_viewport = false;
+            return;
+        }
+
+        // Existing viewport adjustment logic
         // Adjust vertical viewport
         if cursor_pos.row < self.viewport.row {
             // Cursor is above viewport, scroll up
@@ -612,5 +623,11 @@ impl State {
         self.finish_editing();
 
         Ok(())
+    }
+
+    pub fn handle_view_recenter(&mut self) {
+        self.finish_editing();
+        self.recenter_viewport = true;
+        self.set_message("View recentered");
     }
 }

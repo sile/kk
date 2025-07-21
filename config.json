@@ -10,6 +10,7 @@
       "C-e": "EOL",
       "M-<": "SOF",
       "M->": "EOF",
+      "C-l": "recenter",
       "C- ": "mark",
       "C-w": "cut",
       "M-w": "copy",
@@ -124,6 +125,9 @@
     },
     "EOF": {
       "type": "cursor-buffer-end"
+    },
+    "recenter": {
+      "type": "view-recenter"
     },
     "niho": [
       {
