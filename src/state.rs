@@ -505,6 +505,8 @@ impl State {
             None
         };
         cmd.stdin(std::process::Stdio::piped());
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
 
         let mut child = match cmd.spawn() {
             Err(e) => {
