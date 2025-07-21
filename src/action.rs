@@ -23,7 +23,7 @@ pub enum Action {
     MarkCopy,
     MarkCut,
     ClipboardPaste,
-    ShellCommand(ShellCommandAction),
+    ShellCommand(ExternalCommandAction),
 }
 
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
@@ -54,28 +54,23 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
             "mark-copy" => Ok(Self::MarkCopy),
             "mark-cut" => Ok(Self::MarkCut),
             "clipboard-paste" => Ok(Self::ClipboardPaste),
-            "shell-command" => ShellCommandAction::try_from(value).map(Self::ShellCommand),
+            "external-command" => ExternalCommandAction::try_from(value).map(Self::ShellCommand),
             ty => Err(value.invalid(format!("unknown command type: {ty:?}"))),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct ShellCommandAction {
-    pub shell: String,
+pub struct ExternalCommandAction {
     pub command: String,
     pub args: Vec<String>,
 }
 
-impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for ShellCommandAction {
+impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for ExternalCommandAction {
     type Error = nojson::JsonParseError;
 
     fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
         Ok(Self {
-            shell: value
-                .to_member("shell")?
-                .map(String::try_from)?
-                .unwrap_or_else(|| "sh".to_owned()),
             command: value.to_member("command")?.required()?.try_into()?,
             args: value
                 .to_member("args")?

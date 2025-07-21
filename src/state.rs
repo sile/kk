@@ -4,7 +4,7 @@ use orfail::OrFail;
 use tuinix::{KeyCode, TerminalPosition, TerminalSize};
 
 use crate::{
-    action::ShellCommandAction,
+    action::ExternalCommandAction,
     buffer::{TextBuffer, TextPosition},
     clipboard::Clipboard,
     keybindings::KeybindingsContext,
@@ -416,9 +416,11 @@ impl State {
         Ok(())
     }
 
-    pub fn handle_shell_command(&mut self, action: &ShellCommandAction) -> orfail::Result<()> {
-        let mut cmd = std::process::Command::new(&action.shell);
-        cmd.arg("-c").arg(&action.command);
+    pub fn handle_external_command(
+        &mut self,
+        action: &ExternalCommandAction,
+    ) -> orfail::Result<()> {
+        let mut cmd = std::process::Command::new(&action.command);
 
         for arg in &action.args {
             cmd.arg(arg);

@@ -113,7 +113,7 @@
       "type": "cursor-buffer-end"
     },
     "ls": {
-      "type": "shell-command",
+      "type": "external-command",
       "command": "ls"
     }
   }
