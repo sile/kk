@@ -5,6 +5,7 @@ use tuinix::{KeyCode, TerminalPosition, TerminalSize};
 
 use crate::{
     buffer::{TextBuffer, TextPosition},
+    clipboard::Clipboard,
     keybindings::KeybindingsContext,
 };
 
@@ -17,6 +18,7 @@ pub struct State {
     pub message: Option<String>,
     pub context: KeybindingsContext,
     pub mark: Option<TextPosition>,
+    pub clipboard: Clipboard,
 }
 
 impl State {
@@ -31,6 +33,7 @@ impl State {
             message: None,
             context: KeybindingsContext::default(),
             mark: None,
+            clipboard: Clipboard::default(),
         })
     }
 
