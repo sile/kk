@@ -33,7 +33,8 @@
         "C-<RIGHT>": "down",
         "C-d": "delete",
         "C-h": "backspace",
-        "C-j": "newline"
+        "C-j": "newline",
+        "M-l": "ls"
       }
     }
   },
@@ -110,6 +111,10 @@
     },
     "EOF": {
       "type": "cursor-buffer-end"
+    },
+    "ls": {
+      "type": "shell-command",
+      "command": "ls"
     }
   }
 }

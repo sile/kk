@@ -4,6 +4,7 @@ use orfail::OrFail;
 use tuinix::{KeyCode, TerminalPosition, TerminalSize};
 
 use crate::{
+    action::ShellCommandAction,
     buffer::{TextBuffer, TextPosition},
     clipboard::Clipboard,
     keybindings::KeybindingsContext,
@@ -410,6 +411,32 @@ impl State {
                 total_chars,
                 lines.len()
             ));
+        }
+
+        Ok(())
+    }
+
+    pub fn handle_shell_command(&mut self, action: &ShellCommandAction) -> orfail::Result<()> {
+        let mut cmd = std::process::Command::new(&action.shell);
+        cmd.arg("-c").arg(&action.command);
+
+        for arg in &action.args {
+            cmd.arg(arg);
+        }
+
+        match cmd.output() {
+            Ok(output) => {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    self.set_message(format!("Command succeeded: {}", stdout.trim()));
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    self.set_message(format!("Command failed: {}", stderr.trim()));
+                }
+            }
+            Err(e) => {
+                self.set_message(format!("Failed to execute command: {}", e));
+            }
         }
 
         Ok(())
