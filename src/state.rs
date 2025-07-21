@@ -201,7 +201,7 @@ impl State {
         }
     }
 
-    pub fn handle_mark_copy(&mut self) {
+    pub fn handle_mark_copy(&mut self) -> orfail::Result<()> {
         if let Some(mark_pos) = self.mark.take() {
             let cursor_pos = self.cursor_position();
             let (start, end) = if mark_pos <= cursor_pos {
@@ -211,7 +211,7 @@ impl State {
             };
 
             if let Some(text) = self.get_text_in_range(start, end) {
-                // TODO: Implement clipboard functionality
+                self.clipboard.write(&text).or_fail()?;
                 self.set_message(format!("Copied {} characters", text.len()));
             } else {
                 self.set_message("Nothing to copy");
@@ -219,9 +219,10 @@ impl State {
         } else {
             self.set_message("No mark set");
         }
+        Ok(())
     }
 
-    pub fn handle_mark_cut(&mut self) {
+    pub fn handle_mark_cut(&mut self) -> orfail::Result<()> {
         if let Some(mark_pos) = self.mark.take() {
             let cursor_pos = self.cursor_position();
             let (start, end) = if mark_pos <= cursor_pos {
@@ -236,7 +237,7 @@ impl State {
                 self.cursor = start;
                 self.mark = None;
 
-                // TODO: Implement clipboard functionality
+                self.clipboard.write(&text).or_fail()?;
                 self.set_message(format!("Cut {} characters", text.len()));
             } else {
                 self.set_message("Nothing to cut");
@@ -244,6 +245,7 @@ impl State {
         } else {
             self.set_message("No mark set");
         }
+        Ok(())
     }
 
     // Helper method to get text in a range

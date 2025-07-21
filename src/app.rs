@@ -99,8 +99,8 @@ impl App {
             Action::CharDeleteBackward => self.state.handle_char_delete_backward(),
             Action::CharDeleteForward => self.state.handle_char_delete_forward(),
             Action::MarkSet => self.state.handle_mark_set(),
-            Action::MarkCopy => self.state.handle_mark_copy(),
-            Action::MarkCut => self.state.handle_mark_cut(),
+            Action::MarkCopy => self.state.handle_mark_copy().or_fail()?,
+            Action::MarkCut => self.state.handle_mark_cut().or_fail()?,
         }
         Ok(())
     }
