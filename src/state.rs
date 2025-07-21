@@ -493,20 +493,121 @@ impl State {
             cmd.arg(arg);
         }
 
-        match cmd.output() {
-            Ok(output) => {
-                if output.status.success() {
-                    let stdout = String::from_utf8_lossy(&output.stdout);
-                    self.set_message(format!("Command succeeded: {}", stdout.trim()));
-                } else {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    self.set_message(format!("Command failed: {}", stderr.trim()));
-                }
-            }
+        let stdin_input = if let Some(mark_pos) = self.mark {
+            let cursor_pos = self.cursor_position();
+            let (start, end) = if mark_pos <= cursor_pos {
+                (mark_pos, cursor_pos)
+            } else {
+                (cursor_pos, mark_pos)
+            };
+            self.get_text_in_range(start, end)
+        } else {
+            None
+        };
+        cmd.stdin(std::process::Stdio::piped());
+
+        let mut child = match cmd.spawn() {
             Err(e) => {
                 self.set_message(format!("Failed to execute command: {}", e));
+                return Ok(());
+            }
+            Ok(child) => child,
+        };
+
+        // Write to stdin if we have marked text
+        if let Some(mut stdin) = child.stdin.take() {
+            if let Some(text) = stdin_input {
+                use std::io::Write;
+                let _ = stdin.write_all(text.as_bytes());
             }
         }
+
+        let output = match child.wait_with_output() {
+            Err(e) => {
+                self.set_message(format!("Failed to wait for command: {}", e));
+                return Ok(());
+            }
+            Ok(output) => output,
+        };
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            self.set_message(format!("Command failed: {}", stderr.trim()));
+            return Ok(());
+        }
+
+        self.start_editing();
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        if let Some(mark_pos) = self.mark.take() {
+            // Replace marked region with output
+            let cursor_pos = self.cursor_position();
+            let (start, end) = if mark_pos <= cursor_pos {
+                (mark_pos, cursor_pos)
+            } else {
+                (cursor_pos, mark_pos)
+            };
+
+            self.start_editing();
+
+            // Delete the marked region
+            self.delete_text_in_range(start, end);
+            self.cursor = start;
+
+            // Insert the command output
+            let output_str = stdout.trim_end(); // Remove trailing whitespace/newlines
+            let lines: Vec<&str> = output_str.lines().collect();
+
+            if !lines.is_empty() {
+                // Insert first line
+                for ch in lines[0].chars() {
+                    self.cursor = self.buffer.insert_char_at(self.cursor, ch);
+                }
+
+                // Insert subsequent lines with newlines
+                for line in &lines[1..] {
+                    self.cursor = self.buffer.insert_newline_at(self.cursor);
+                    for ch in line.chars() {
+                        self.cursor = self.buffer.insert_char_at(self.cursor, ch);
+                    }
+                }
+            }
+
+            self.finish_editing();
+            self.set_message(format!(
+                "Replaced region with command output ({} chars)",
+                output_str.len()
+            ));
+        } else {
+            // No marked region, insert output at cursor
+            self.start_editing();
+
+            let output_str = stdout.trim_end();
+            let lines: Vec<&str> = output_str.lines().collect();
+
+            if !lines.is_empty() {
+                // Insert first line
+                for ch in lines[0].chars() {
+                    self.cursor = self.buffer.insert_char_at(self.cursor, ch);
+                }
+
+                // Insert subsequent lines with newlines
+                for line in &lines[1..] {
+                    self.cursor = self.buffer.insert_newline_at(self.cursor);
+                    for ch in line.chars() {
+                        self.cursor = self.buffer.insert_char_at(self.cursor, ch);
+                    }
+                }
+            }
+
+            self.finish_editing();
+            self.set_message(format!(
+                "Inserted command output ({} chars)",
+                output_str.len()
+            ));
+        }
+        self.finish_editing();
 
         Ok(())
     }
