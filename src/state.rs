@@ -359,4 +359,59 @@ impl State {
 
         self.buffer.dirty = true;
     }
+
+    pub fn handle_clipboard_paste(&mut self) -> orfail::Result<()> {
+        let text = self.clipboard.read().or_fail()?;
+
+        if text.is_empty() {
+            self.set_message("Clipboard is empty");
+            return Ok(());
+        }
+
+        // Split text into lines
+        let lines: Vec<&str> = text.lines().collect();
+
+        if lines.is_empty() {
+            self.set_message("Nothing to paste");
+            return Ok(());
+        }
+
+        // Insert the text
+        if lines.len() == 1 {
+            // Single line paste
+            let line = lines[0];
+            for ch in line.chars() {
+                self.cursor = self.buffer.insert_char_at(self.cursor, ch);
+            }
+            self.set_message(format!("Pasted {} characters", line.len()));
+        } else {
+            // Multi-line paste
+            let mut total_chars = 0;
+
+            // Insert first line
+            for ch in lines[0].chars() {
+                self.cursor = self.buffer.insert_char_at(self.cursor, ch);
+                total_chars += 1;
+            }
+
+            // Insert newline and subsequent lines
+            for line in &lines[1..] {
+                self.cursor = self.buffer.insert_newline_at(self.cursor);
+                total_chars += 1; // Count the newline
+
+                for ch in line.chars() {
+                    self.cursor = self.buffer.insert_char_at(self.cursor, ch);
+                    total_chars += 1;
+                }
+            }
+
+            self.set_message(format!(
+                "Pasted {} characters across {} lines",
+                total_chars,
+                lines.len()
+            ));
+        }
+
+        Ok(())
+    }
 }

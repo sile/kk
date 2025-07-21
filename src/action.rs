@@ -22,6 +22,7 @@ pub enum Action {
     MarkSet,
     MarkCopy,
     MarkCut,
+    ClipboardPaste,
 }
 
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
@@ -51,16 +52,8 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
             "mark-set" => Ok(Self::MarkSet),
             "mark-copy" => Ok(Self::MarkCopy),
             "mark-cut" => Ok(Self::MarkCut),
+            "clipboard-paste" => Ok(Self::ClipboardPaste),
             ty => Err(value.invalid(format!("unknown command type: {ty:?}"))),
         }
     }
 }
-
-// fn parse<'text, 'raw, T>(
-//     value: nojson::RawJsonValue<'text, 'raw>,
-// ) -> Result<T, nojson::JsonParseError>
-// where
-//     T: TryFrom<nojson::RawJsonValue<'text, 'raw>, Error = nojson::JsonParseError>,
-// {
-//     T::try_from(value)
-// }

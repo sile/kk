@@ -27,7 +27,7 @@ impl Default for Clipboard {
             .map(PathBuf::from)
             .unwrap_or_default();
         Self {
-            path: dir.join(".kak.clipbpard"),
+            path: dir.join(".kak.clipboard"), // Fixed typo: "clipbpard" -> "clipboard"
         }
     }
 }

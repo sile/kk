@@ -13,6 +13,7 @@
       "C- ": "mark",
       "C-w": "cut",
       "M-w": "copy",
+      "C-y": "paste",
       "<VISIBLE>": "insert",
       "<DELETE>": "delete",
       "<BACKSPACE>": "backspace",
@@ -61,6 +62,9 @@
     },
     "copy": {
       "type": "mark-copy"
+    },
+    "paste": {
+      "type": "clipboard-paste"
     },
     "save": {
       "type": "buffer-save"

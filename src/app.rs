@@ -101,6 +101,7 @@ impl App {
             Action::MarkSet => self.state.handle_mark_set(),
             Action::MarkCopy => self.state.handle_mark_copy().or_fail()?,
             Action::MarkCut => self.state.handle_mark_cut().or_fail()?,
+            Action::ClipboardPaste => self.state.handle_clipboard_paste().or_fail()?,
         }
         Ok(())
     }
