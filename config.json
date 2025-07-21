@@ -19,6 +19,7 @@
       "<LEFT>": "left",
       "<RIGHT>": "right",
       "__hidden__": {
+        "C-0x7f": "undo",
         "C-p": "up",
         "C-n": "down",
         "C-b": "left",

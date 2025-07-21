@@ -94,6 +94,19 @@ impl std::str::FromStr for KeyPattern {
         {
             let code = KeyCode::Char(ch);
             Ok(KeyPattern::Literal(key(code)))
+        } else if let Some(hex_str) = remaining.strip_prefix("0x") {
+            // Handle hex notation for control chars such as 0x7f
+            match u32::from_str_radix(hex_str, 16) {
+                Ok(code_point) => {
+                    if let Some(ch) = char::from_u32(code_point) {
+                        let code = KeyCode::Char(ch);
+                        Ok(KeyPattern::Literal(key(code)))
+                    } else {
+                        Err(format!("invalid Unicode code point: 0x{:x}", code_point))
+                    }
+                }
+                Err(_) => Err(format!("invalid hex notation: {}", remaining)),
+            }
         } else {
             Err(format!("invalid key input format: {s:?}"))
         }
@@ -139,6 +152,7 @@ impl std::fmt::Display for KeyPattern {
                     KeyCode::End => write!(f, "<END>"),
                     KeyCode::PageUp => write!(f, "<PAGE_UP>"),
                     KeyCode::PageDown => write!(f, "<PAGE_DOWN>"),
+                    KeyCode::Char(ch) if ch.is_control() => write!(f, "0x{:x}", ch as u32),
                     KeyCode::Char(ch) => write!(f, "{ch}"),
                 }
             }
