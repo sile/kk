@@ -75,7 +75,17 @@ impl App {
         };
 
         let action = self.config.actions.get(action_name).or_fail()?;
+        self.handle_action(action.clone(), key).or_fail()?; // TODO: remove clone
+        Ok(())
+    }
+
+    fn handle_action(&mut self, action: Action, key: KeyInput) -> orfail::Result<()> {
         match action {
+            Action::Multiple(actions) => {
+                for action in actions {
+                    self.handle_action(action, key).or_fail()?;
+                }
+            }
             Action::Quit => {
                 self.exit = true;
             }
@@ -102,7 +112,9 @@ impl App {
             Action::MarkCopy => self.state.handle_mark_copy().or_fail()?,
             Action::MarkCut => self.state.handle_mark_cut().or_fail()?,
             Action::ClipboardPaste => self.state.handle_clipboard_paste().or_fail()?,
-            Action::ShellCommand(action) => self.state.handle_external_command(action).or_fail()?,
+            Action::ShellCommand(action) => {
+                self.state.handle_external_command(&action).or_fail()?
+            }
         }
         Ok(())
     }

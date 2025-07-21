@@ -24,12 +24,17 @@ pub enum Action {
     MarkCut,
     ClipboardPaste,
     ShellCommand(ExternalCommandAction),
+    Multiple(Vec<Action>),
 }
 
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
     type Error = nojson::JsonParseError;
 
     fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
+        if value.kind().is_array() {
+            return Ok(Self::Multiple(value.try_into()?));
+        }
+
         let ty = value.to_member("type")?.required()?;
 
         match ty.to_unquoted_string_str()?.as_ref() {
