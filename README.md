@@ -4,7 +4,9 @@ kk
 [![kk](https://img.shields.io/crates/v/kk.svg)](https://crates.io/crates/kk)
 ![License](https://img.shields.io/crates/l/kk)
 
-**WIP** A TUI text editor.
+A TUI text editor.
+
+**WIP** 
 
 Intentionally Unsupported Features
 ---------------------------------
