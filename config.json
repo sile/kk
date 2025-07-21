@@ -22,6 +22,8 @@
         "C-n": "down",
         "C-b": "left",
         "C-f": "right",
+        "C-<LEFT>": "up",
+        "C-<RIGHT>": "down",
         "C-d": "delete",
         "C-h": "backspace",
         "C-j": "newline"

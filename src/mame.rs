@@ -45,31 +45,6 @@ impl std::str::FromStr for KeyPattern {
             return Ok(KeyPattern::VisibleChars);
         }
 
-        // Handle special keys in angle brackets
-        let special_key = |code| KeyInput {
-            ctrl: false,
-            alt: false,
-            code,
-        };
-        match s {
-            "<UP>" => return Ok(KeyPattern::Literal(special_key(KeyCode::Up))),
-            "<DOWN>" => return Ok(KeyPattern::Literal(special_key(KeyCode::Down))),
-            "<LEFT>" => return Ok(KeyPattern::Literal(special_key(KeyCode::Left))),
-            "<RIGHT>" => return Ok(KeyPattern::Literal(special_key(KeyCode::Right))),
-            "<ENTER>" => return Ok(KeyPattern::Literal(special_key(KeyCode::Enter))),
-            "<ESCAPE>" => return Ok(KeyPattern::Literal(special_key(KeyCode::Escape))),
-            "<BACKSPACE>" => return Ok(KeyPattern::Literal(special_key(KeyCode::Backspace))),
-            "<TAB>" => return Ok(KeyPattern::Literal(special_key(KeyCode::Tab))),
-            "<BACK_TAB>" => return Ok(KeyPattern::Literal(special_key(KeyCode::BackTab))),
-            "<DELETE>" => return Ok(KeyPattern::Literal(special_key(KeyCode::Delete))),
-            "<INSERT>" => return Ok(KeyPattern::Literal(special_key(KeyCode::Insert))),
-            "<HOME>" => return Ok(KeyPattern::Literal(special_key(KeyCode::Home))),
-            "<END>" => return Ok(KeyPattern::Literal(special_key(KeyCode::End))),
-            "<PAGE_UP>" => return Ok(KeyPattern::Literal(special_key(KeyCode::PageUp))),
-            "<PAGE_DOWN>" => return Ok(KeyPattern::Literal(special_key(KeyCode::PageDown))),
-            _ => {}
-        }
-
         // Handle modifier key combinations like "C-c", "M-x"
         let mut alt = false;
         let mut ctrl = false;
@@ -91,13 +66,34 @@ impl std::str::FromStr for KeyPattern {
             }
         }
 
+        // Handle special keys in angle brackets
+        let key = |code| KeyInput { ctrl, alt, code };
+        match remaining {
+            "<UP>" => return Ok(KeyPattern::Literal(key(KeyCode::Up))),
+            "<DOWN>" => return Ok(KeyPattern::Literal(key(KeyCode::Down))),
+            "<LEFT>" => return Ok(KeyPattern::Literal(key(KeyCode::Left))),
+            "<RIGHT>" => return Ok(KeyPattern::Literal(key(KeyCode::Right))),
+            "<ENTER>" => return Ok(KeyPattern::Literal(key(KeyCode::Enter))),
+            "<ESCAPE>" => return Ok(KeyPattern::Literal(key(KeyCode::Escape))),
+            "<BACKSPACE>" => return Ok(KeyPattern::Literal(key(KeyCode::Backspace))),
+            "<TAB>" => return Ok(KeyPattern::Literal(key(KeyCode::Tab))),
+            "<BACK_TAB>" => return Ok(KeyPattern::Literal(key(KeyCode::BackTab))),
+            "<DELETE>" => return Ok(KeyPattern::Literal(key(KeyCode::Delete))),
+            "<INSERT>" => return Ok(KeyPattern::Literal(key(KeyCode::Insert))),
+            "<HOME>" => return Ok(KeyPattern::Literal(key(KeyCode::Home))),
+            "<END>" => return Ok(KeyPattern::Literal(key(KeyCode::End))),
+            "<PAGE_UP>" => return Ok(KeyPattern::Literal(key(KeyCode::PageUp))),
+            "<PAGE_DOWN>" => return Ok(KeyPattern::Literal(key(KeyCode::PageDown))),
+            _ => {}
+        }
+
         // Handle character input
         let mut chars = remaining.chars();
         if let Some(ch) = chars.next()
             && chars.next().is_none()
         {
             let code = KeyCode::Char(ch);
-            Ok(KeyPattern::Literal(KeyInput { ctrl, alt, code }))
+            Ok(KeyPattern::Literal(key(code)))
         } else {
             Err(format!("invalid key input format: {s:?}"))
         }
@@ -119,32 +115,33 @@ impl std::fmt::Display for KeyPattern {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::VisibleChars => write!(f, "<VISIBLE>"),
-            Self::Literal(key) => match key.code {
-                KeyCode::Up => write!(f, "<UP>"),
-                KeyCode::Down => write!(f, "<DOWN>"),
-                KeyCode::Left => write!(f, "<LEFT>"),
-                KeyCode::Right => write!(f, "<RIGHT>"),
-                KeyCode::Enter => write!(f, "<ENTER>"),
-                KeyCode::Escape => write!(f, "<ESCAPE>"),
-                KeyCode::Backspace => write!(f, "<BACKSPACE>"),
-                KeyCode::Tab => write!(f, "<TAB>"),
-                KeyCode::BackTab => write!(f, "<BACK_TAB>"),
-                KeyCode::Delete => write!(f, "<DELETE>"),
-                KeyCode::Insert => write!(f, "<INSERT>"),
-                KeyCode::Home => write!(f, "<HOME>"),
-                KeyCode::End => write!(f, "<END>"),
-                KeyCode::PageUp => write!(f, "<PAGE_UP>"),
-                KeyCode::PageDown => write!(f, "<PAGE_DOWN>"),
-                KeyCode::Char(ch) => {
-                    if key.alt {
-                        write!(f, "M-")?;
-                    }
-                    if key.ctrl {
-                        write!(f, "C-")?;
-                    }
-                    write!(f, "{ch}")
+            Self::Literal(key) => {
+                if key.alt {
+                    write!(f, "M-")?;
                 }
-            },
+                if key.ctrl {
+                    write!(f, "C-")?;
+                }
+
+                match key.code {
+                    KeyCode::Up => write!(f, "<UP>"),
+                    KeyCode::Down => write!(f, "<DOWN>"),
+                    KeyCode::Left => write!(f, "<LEFT>"),
+                    KeyCode::Right => write!(f, "<RIGHT>"),
+                    KeyCode::Enter => write!(f, "<ENTER>"),
+                    KeyCode::Escape => write!(f, "<ESCAPE>"),
+                    KeyCode::Backspace => write!(f, "<BACKSPACE>"),
+                    KeyCode::Tab => write!(f, "<TAB>"),
+                    KeyCode::BackTab => write!(f, "<BACK_TAB>"),
+                    KeyCode::Delete => write!(f, "<DELETE>"),
+                    KeyCode::Insert => write!(f, "<INSERT>"),
+                    KeyCode::Home => write!(f, "<HOME>"),
+                    KeyCode::End => write!(f, "<END>"),
+                    KeyCode::PageUp => write!(f, "<PAGE_UP>"),
+                    KeyCode::PageDown => write!(f, "<PAGE_DOWN>"),
+                    KeyCode::Char(ch) => write!(f, "{ch}"),
+                }
+            }
         }
     }
 }
