@@ -11,6 +11,8 @@
       "M-<": "SOF",
       "M->": "EOF",
       "C- ": "mark",
+      "C-w": "cut",
+      "M-w": "copy",
       "<VISIBLE>": "insert",
       "<DELETE>": "delete",
       "<BACKSPACE>": "backspace",
@@ -53,6 +55,12 @@
     },
     "mark": {
       "type": "mark-set"
+    },
+    "cut": {
+      "type": "mark-cut"
+    },
+    "copy": {
+      "type": "mark-copy"
     },
     "save": {
       "type": "buffer-save"

@@ -197,4 +197,161 @@ impl State {
             self.set_message("Mark set");
         }
     }
+
+    pub fn handle_mark_copy(&mut self) {
+        if let Some(mark_pos) = self.mark.take() {
+            let cursor_pos = self.cursor_position();
+            let (start, end) = if mark_pos <= cursor_pos {
+                (mark_pos, cursor_pos)
+            } else {
+                (cursor_pos, mark_pos)
+            };
+
+            if let Some(text) = self.get_text_in_range(start, end) {
+                // TODO: Implement clipboard functionality
+                self.set_message(format!("Copied {} characters", text.len()));
+            } else {
+                self.set_message("Nothing to copy");
+            }
+        } else {
+            self.set_message("No mark set");
+        }
+    }
+
+    pub fn handle_mark_cut(&mut self) {
+        if let Some(mark_pos) = self.mark.take() {
+            let cursor_pos = self.cursor_position();
+            let (start, end) = if mark_pos <= cursor_pos {
+                (mark_pos, cursor_pos)
+            } else {
+                (cursor_pos, mark_pos)
+            };
+
+            if let Some(text) = self.get_text_in_range(start, end) {
+                // Delete the selected text
+                self.delete_text_in_range(start, end);
+                self.cursor = start;
+                self.mark = None;
+
+                // TODO: Implement clipboard functionality
+                self.set_message(format!("Cut {} characters", text.len()));
+            } else {
+                self.set_message("Nothing to cut");
+            }
+        } else {
+            self.set_message("No mark set");
+        }
+    }
+
+    // Helper method to get text in a range
+    fn get_text_in_range(&self, start: TextPosition, end: TextPosition) -> Option<String> {
+        if start == end {
+            return None;
+        }
+
+        let mut result = String::new();
+
+        if start.row == end.row {
+            // Single line selection
+            if let Some(line) = self.buffer.text.get(start.row) {
+                for (col, ch) in line.char_cols() {
+                    if col >= start.col && col < end.col {
+                        result.push(ch);
+                    }
+                }
+            }
+        } else {
+            // Multi-line selection
+            for row in start.row..=end.row {
+                if let Some(line) = self.buffer.text.get(row) {
+                    if row == start.row {
+                        // First line: from start.col to end of line
+                        for (col, ch) in line.char_cols() {
+                            if col >= start.col {
+                                result.push(ch);
+                            }
+                        }
+                        result.push('\n');
+                    } else if row == end.row {
+                        // Last line: from start of line to end.col
+                        for (col, ch) in line.char_cols() {
+                            if col < end.col {
+                                result.push(ch);
+                            }
+                        }
+                    } else {
+                        // Middle lines: entire line
+                        result.push_str(&line.to_string());
+                        result.push('\n');
+                    }
+                }
+            }
+        }
+
+        if result.is_empty() {
+            None
+        } else {
+            Some(result)
+        }
+    }
+
+    // Helper method to delete text in a range
+    fn delete_text_in_range(&mut self, start: TextPosition, end: TextPosition) {
+        if start == end {
+            return;
+        }
+
+        // TODO: This should be implemented as a compound undo action
+        // For now, we'll do a simple implementation
+
+        if start.row == end.row {
+            // Single line deletion
+            if let Some(line) = self.buffer.text.get_mut(start.row) {
+                let start_char_idx = line.char_index_at_col(start.col);
+                let end_char_idx = line.char_index_at_col(end.col);
+
+                for _ in start_char_idx..end_char_idx {
+                    if start_char_idx < line.len() {
+                        line.0.remove(start_char_idx);
+                    }
+                }
+            }
+        } else {
+            // Multi-line deletion
+            // Remove complete middle lines
+            for _ in start.row + 1..end.row {
+                if start.row + 1 < self.buffer.text.len() {
+                    self.buffer.text.remove(start.row + 1);
+                }
+            }
+
+            // Handle first and last lines
+            if let Some(start_line) = self.buffer.text.get_mut(start.row) {
+                let chars_to_keep: Vec<char> = start_line
+                    .char_cols()
+                    .filter(|(col, _)| *col < start.col)
+                    .map(|(_, ch)| ch)
+                    .collect();
+                start_line.0 = chars_to_keep;
+            }
+
+            if start.row + 1 < self.buffer.text.len() {
+                if let Some(end_line) = self.buffer.text.get(start.row + 1).cloned() {
+                    let chars_to_keep: Vec<char> = end_line
+                        .char_cols()
+                        .filter(|(col, _)| *col >= end.col)
+                        .map(|(_, ch)| ch)
+                        .collect();
+
+                    if let Some(start_line) = self.buffer.text.get_mut(start.row) {
+                        start_line.0.extend(chars_to_keep);
+                    }
+
+                    self.buffer.text.remove(start.row + 1);
+                }
+            }
+        }
+
+        self.buffer.dirty = true;
+    }
 }

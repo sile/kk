@@ -390,7 +390,7 @@ impl TextBuffer {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct TextLine(Vec<char>);
+pub struct TextLine(pub Vec<char>);
 
 impl TextLine {
     pub fn from_chars(chars: Vec<char>) -> Self {
@@ -408,17 +408,6 @@ impl TextLine {
     pub fn split_off_at_col(&mut self, col: usize) -> Vec<char> {
         let char_index = self.char_index_at_col(col);
         self.0.split_off(char_index)
-    }
-
-    pub fn char_index_at_col(&self, col: usize) -> usize {
-        let mut current_col = 0;
-        for (i, &ch) in self.0.iter().enumerate() {
-            if current_col >= col {
-                return i;
-            }
-            current_col += unicode_width::UnicodeWidthChar::width(ch).unwrap_or_default();
-        }
-        self.0.len()
     }
 
     pub fn char_cols(&self) -> impl Iterator<Item = (usize, char)> {
@@ -504,6 +493,21 @@ impl TextLine {
         }
 
         self.0.insert(char_index, ch);
+    }
+
+    pub fn char_index_at_col(&self, col: usize) -> usize {
+        let mut current_col = 0;
+        for (i, &ch) in self.0.iter().enumerate() {
+            if current_col >= col {
+                return i;
+            }
+            current_col += ch.width().unwrap_or_default();
+        }
+        self.0.len()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }
 
