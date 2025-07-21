@@ -173,4 +173,13 @@ impl State {
     pub fn handle_newline_insert(&mut self) {
         self.cursor = self.buffer.insert_newline_at(self.cursor);
     }
+
+    pub fn handle_buffer_undo(&mut self) {
+        if let Some(new_cursor) = self.buffer.undo() {
+            self.cursor = new_cursor;
+            self.set_message("Undo");
+        } else {
+            self.set_message("Nothing to undo");
+        }
+    }
 }

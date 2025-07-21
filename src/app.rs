@@ -84,6 +84,7 @@ impl App {
             }
             Action::BufferSave => self.state.handle_buffer_save().or_fail()?,
             Action::BufferReload => self.state.handle_buffer_reload().or_fail()?,
+            Action::BufferUndo => self.state.handle_buffer_undo(),
             Action::CursorUp => self.state.handle_cursor_up(),
             Action::CursorDown => self.state.handle_cursor_down(),
             Action::CursorLeft => self.state.handle_cursor_left(),
