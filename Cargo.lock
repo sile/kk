@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "kak"
+name = "kk"
 version = "0.1.0"
 dependencies = [
  "noargs",
