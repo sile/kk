@@ -16,6 +16,7 @@ pub struct State {
     pub buffer: TextBuffer,
     pub message: Option<String>,
     pub context: KeybindingsContext,
+    pub mark: Option<TextPosition>,
 }
 
 impl State {
@@ -29,6 +30,7 @@ impl State {
             buffer,
             message: None,
             context: KeybindingsContext::default(),
+            mark: None,
         })
     }
 
@@ -180,6 +182,19 @@ impl State {
             self.set_message("Undo");
         } else {
             self.set_message("Nothing to undo");
+        }
+    }
+
+    pub fn handle_mark_set(&mut self) {
+        let cursor_pos = self.cursor_position();
+        if self.mark == Some(cursor_pos) {
+            // If mark is already at cursor position, deactivate it
+            self.mark = None;
+            self.set_message("Mark deactivated");
+        } else {
+            // Set mark at current cursor position
+            self.mark = Some(cursor_pos);
+            self.set_message("Mark set");
         }
     }
 }
