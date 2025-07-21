@@ -80,6 +80,7 @@ impl App {
                 self.exit = true;
             }
             Action::Cancel => {
+                self.state.mark = None;
                 self.state.set_message("Canceled");
             }
             Action::BufferSave => self.state.handle_buffer_save().or_fail()?,
