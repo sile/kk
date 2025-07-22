@@ -15,6 +15,7 @@
       "C-w": "cut",
       "M-w": "copy",
       "C-y": "paste",
+      "C-k": "kill-line",
       "<VISIBLE>": "insert",
       "<DELETE>": "delete",
       "<BACKSPACE>": "backspace",
@@ -128,6 +129,9 @@
     },
     "recenter": {
       "type": "view-recenter"
+    },
+    "kill-line": {
+      "type": "line-delete"
     },
     "niho": [
       {

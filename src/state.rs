@@ -630,4 +630,51 @@ impl State {
         self.recenter_viewport = true;
         self.set_message("View recentered");
     }
+
+    pub fn handle_line_delete(&mut self) -> orfail::Result<()> {
+        self.start_editing();
+
+        let cursor_pos = self.cursor_position();
+        let current_line_cols = self.buffer.cols(cursor_pos.row);
+
+        if cursor_pos.col >= current_line_cols {
+            // Cursor is at or past end of line - delete the newline (merge with next line)
+            if cursor_pos.row < self.buffer.rows().saturating_sub(1) {
+                if let Some(next_line) = self.buffer.text.get(cursor_pos.row + 1).cloned() {
+                    // Copy the newline to clipboard
+                    self.clipboard.write("\n").or_fail()?;
+
+                    self.buffer.text.remove(cursor_pos.row + 1);
+                    if let Some(current_line) = self.buffer.text.get_mut(cursor_pos.row) {
+                        current_line.extend_from_line(next_line);
+                        self.buffer.dirty = true;
+                    }
+                    self.set_message("Killed newline");
+                }
+            }
+        } else {
+            // Delete from cursor to end of line and copy to clipboard
+            if let Some(line) = self.buffer.text.get_mut(cursor_pos.row) {
+                let char_index = line.char_index_at_col(cursor_pos.col);
+
+                // Extract the text that will be deleted
+                let killed_text: String = line.0[char_index..].iter().collect();
+
+                if !killed_text.is_empty() {
+                    // Copy to clipboard
+                    self.clipboard.write(&killed_text).or_fail()?;
+
+                    // Delete the text
+                    line.0.truncate(char_index);
+                    self.buffer.dirty = true;
+
+                    self.set_message(format!("Killed {} characters", killed_text.len()));
+                } else {
+                    self.set_message("Nothing to kill");
+                }
+            }
+        }
+
+        Ok(())
+    }
 }

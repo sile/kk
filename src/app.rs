@@ -109,6 +109,7 @@ impl App {
             Action::CharInsert => self.state.handle_char_insert(key),
             Action::CharDeleteBackward => self.state.handle_char_delete_backward(),
             Action::CharDeleteForward => self.state.handle_char_delete_forward(),
+            Action::LineDelete => self.state.handle_line_delete().or_fail()?,
             Action::MarkSet => self.state.handle_mark_set(),
             Action::MarkCopy => self.state.handle_mark_copy().or_fail()?,
             Action::MarkCut => self.state.handle_mark_cut().or_fail()?,
