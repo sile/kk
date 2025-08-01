@@ -51,14 +51,19 @@ impl App {
                 dirty = false;
             }
 
-            match self.terminal.poll_event(None).or_fail()? {
+            match self.terminal.poll_event(&[], &[], None).or_fail()? {
                 Some(TerminalEvent::Input(input)) => {
-                    let TerminalInput::Key(key) = input;
+                    let TerminalInput::Key(key) = input else {
+                        unreachable!()
+                    };
                     self.handle_key_input(key).or_fail()?;
                     dirty = true;
                 }
                 Some(TerminalEvent::Resize(_size)) => {
                     dirty = true;
+                }
+                Some(TerminalEvent::FdReady { .. }) => {
+                    unreachable!()
                 }
                 None => {}
             }

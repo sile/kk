@@ -27,9 +27,9 @@ checksum = "fe77e710319d3ff009f93efc433d879e80e6336f5b87ace6d6db7ca5951085c3"
 
 [[package]]
 name = "nojson"
-version = "0.2.2"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89345dbd882b70c0af02720ff2d2527197361a4556c713c86d8110a8697a7e77"
+checksum = "65e3fa72cb03854073e16eb51d58461723cd2a2ece63ea78f43371cfadeb3b58"
 
 [[package]]
 name = "orfail"
@@ -39,9 +39,9 @@ checksum = "aba2212a0fddd290c8209fb9b0393382435ede29c24a71f245d7fa92f0f3442e"
 
 [[package]]
 name = "tuinix"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d4e84931e3c6c70178413e9d1bbc2de6cc14f6152d8b45d73f1ef75578a4b95"
+checksum = "b010be14df662cef88ba13aa67fff3e632e46f39f2b4d540fff6ed4c01696acf"
 dependencies = [
  "libc",
 ]
