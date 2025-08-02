@@ -109,8 +109,14 @@ impl App {
             Action::CursorLineEnd => self.state.handle_cursor_line_end(),
             Action::CursorBufferStart => self.state.handle_cursor_buffer_start(),
             Action::CursorBufferEnd => self.state.handle_cursor_buffer_end(),
-            Action::CursorPageUp => self.state.handle_cursor_page_up(),
-            Action::CursorPageDown => self.state.handle_cursor_page_down(),
+            Action::CursorPageUp => {
+                let text_area_size = self.terminal.size().to_region().drop_bottom(2).size;
+                self.state.handle_cursor_page_up(text_area_size);
+            }
+            Action::CursorPageDown => {
+                let text_area_size = self.terminal.size().to_region().drop_bottom(2).size;
+                self.state.handle_cursor_page_down(text_area_size);
+            }
             Action::ViewRecenter => self.state.handle_view_recenter(),
             Action::NewlineInsert => self.state.handle_newline_insert(),
             Action::CharInsert => self.state.handle_char_insert(key),

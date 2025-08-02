@@ -678,18 +678,14 @@ impl State {
         Ok(())
     }
 
-    pub fn handle_cursor_page_up(&mut self) {
-        // Move cursor up by a page (approximated as 10 lines for now)
-        // In a real implementation, you'd use the viewport height
-        self.cursor.row = self.cursor.row.saturating_sub(10);
+    pub fn handle_cursor_page_up(&mut self, text_area_size: tuinix::TerminalSize) {
         self.finish_editing();
+        self.cursor.row = self.cursor.row.saturating_sub(text_area_size.rows);
     }
 
-    pub fn handle_cursor_page_down(&mut self) {
-        // Move cursor down by a page (approximated as 10 lines for now)
-        // In a real implementation, you'd use the viewport height
-        let max_row = self.buffer.rows();
-        self.cursor.row = (self.cursor.row + 10).min(max_row);
+    pub fn handle_cursor_page_down(&mut self, text_area_size: tuinix::TerminalSize) {
         self.finish_editing();
+        let max_row = self.buffer.rows();
+        self.cursor.row = (self.cursor.row + text_area_size.rows).min(max_row);
     }
 }
