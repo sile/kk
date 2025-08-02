@@ -84,9 +84,17 @@
     "paste": {
       "type": "clipboard-paste"
     },
-    "save": {
-      "type": "buffer-save"
+    "restore": {
+      "type": "cursor-undo"
     },
+    "save": [
+      {
+        "type": "cursor-anchor"
+      },
+      {
+        "type": "buffer-save"
+      }
+    ],
     "reload": {
       "type": "buffer-reload"
     },

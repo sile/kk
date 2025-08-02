@@ -130,6 +130,7 @@ impl App {
             Action::ShellCommand(action) => {
                 self.state.handle_external_command(&action).or_fail()?
             }
+            Action::CursorAnchor | Action::CursorUndo => todo!(),
         }
         Ok(())
     }
