@@ -677,4 +677,19 @@ impl State {
 
         Ok(())
     }
+
+    pub fn handle_cursor_page_up(&mut self) {
+        // Move cursor up by a page (approximated as 10 lines for now)
+        // In a real implementation, you'd use the viewport height
+        self.cursor.row = self.cursor.row.saturating_sub(10);
+        self.finish_editing();
+    }
+
+    pub fn handle_cursor_page_down(&mut self) {
+        // Move cursor down by a page (approximated as 10 lines for now)
+        // In a real implementation, you'd use the viewport height
+        let max_row = self.buffer.rows();
+        self.cursor.row = (self.cursor.row + 10).min(max_row);
+        self.finish_editing();
+    }
 }

@@ -109,6 +109,8 @@ impl App {
             Action::CursorLineEnd => self.state.handle_cursor_line_end(),
             Action::CursorBufferStart => self.state.handle_cursor_buffer_start(),
             Action::CursorBufferEnd => self.state.handle_cursor_buffer_end(),
+            Action::CursorPageUp => self.state.handle_cursor_page_up(),
+            Action::CursorPageDown => self.state.handle_cursor_page_down(),
             Action::ViewRecenter => self.state.handle_view_recenter(),
             Action::NewlineInsert => self.state.handle_newline_insert(),
             Action::CharInsert => self.state.handle_char_insert(key),

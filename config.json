@@ -34,6 +34,8 @@
         "C-f": "right",
         "C-<LEFT>": "up",
         "C-<RIGHT>": "down",
+        "<PAGE_UP>": "page-up",
+        "<PAGE_DOWN>": "page-down",
         "C-d": "delete",
         "C-h": "backspace",
         "C-j": "newline",
@@ -126,6 +128,12 @@
     },
     "EOF": {
       "type": "cursor-buffer-end"
+    },
+    "page-up": {
+      "type": "cursor-page-up"
+    },
+    "page-down": {
+      "type": "cursor-page-down"
     },
     "recenter": {
       "type": "view-recenter"
