@@ -135,9 +135,16 @@ impl App {
             }
             Action::CursorAnchor => {
                 let anchor = self.state.current_cursor_anchor();
+                self.state.set_message("Anchor: {anchor}");
                 self.anchor_log.append(anchor).or_fail()?;
             }
-            Action::CursorJump => todo!(),
+            Action::CursorJump => {
+                let current = self.state.current_cursor_anchor();
+                if let Some(anchor) = self.anchor_log.prev_anchor(&current).or_fail()? {
+                    self.state.restore_anchor(&anchor).or_fail()?;
+                    self.state.set_message("Jump: {anchor}");
+                }
+            }
         }
         Ok(())
     }

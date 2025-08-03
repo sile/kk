@@ -10,6 +10,7 @@ pub struct CursorAnchorLog {
 impl CursorAnchorLog {
     pub fn append(&self, anchor: CursorAnchor) -> orfail::Result<()> {
         let mut file = std::fs::OpenOptions::new()
+            .create(true)
             .append(true)
             .open(&self.log_file_path)
             .or_fail()?;

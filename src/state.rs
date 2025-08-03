@@ -53,6 +53,20 @@ impl State {
         self.message = Some(message.into());
     }
 
+    pub fn restore_anchor(&mut self, anchor: &CursorAnchor) -> orfail::Result<()> {
+        self.finish_editing();
+        if self.path != anchor.path {
+            self.buffer.load_file(&anchor.path).or_fail()?;
+        }
+        self.cursor.row = self.buffer.rows().min(anchor.line.get() - 1);
+        self.cursor.col = self
+            .buffer
+            .col_at_char_index(self.cursor.row, anchor.char.get() - 1)
+            .unwrap_or_default();
+        self.recenter_viewport = true;
+        Ok(())
+    }
+
     pub fn terminal_cursor_position(&self) -> TerminalPosition {
         let pos = self.cursor_position();
         let screen_row = pos.row.saturating_sub(self.viewport.row);

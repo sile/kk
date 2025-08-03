@@ -152,6 +152,14 @@ impl TextBuffer {
         }
     }
 
+    pub fn col_at_char_index(&self, row: usize, char_index: usize) -> Option<usize> {
+        if let Some(line) = self.text.get(row) {
+            Some(line.col_at_char_index(char_index))
+        } else {
+            None
+        }
+    }
+
     pub fn char_index_at_col(&self, row: usize, col: usize) -> Option<usize> {
         if let Some(line) = self.text.get(row) {
             let mut current_col = 0;
@@ -322,6 +330,17 @@ impl TextLine {
 
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    pub fn col_at_char_index(&self, char_index: usize) -> usize {
+        let mut col = 0;
+        for (i, &ch) in self.0.iter().enumerate() {
+            if i >= char_index {
+                return col;
+            }
+            col += ch.width().unwrap_or_default();
+        }
+        col
     }
 }
 
