@@ -5,6 +5,7 @@ use tuinix::{KeyInput, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
 use crate::{
     action::Action,
+    anchor::CursorAnchorLog,
     config::Config,
     legend::LegendRenderer,
     mame::{KeyPattern, TerminalFrame},
@@ -19,6 +20,7 @@ pub struct App {
     terminal: Terminal,
     config: Config,
     state: State,
+    anchor_log: CursorAnchorLog,
     text_area: TextAreaRenderer,
     message_line: MessageLineRenderer,
     status_line: StatusLineRenderer,
@@ -32,6 +34,7 @@ impl App {
         Ok(Self {
             terminal,
             state: State::new(path).or_fail()?,
+            anchor_log: CursorAnchorLog::default(),
             config: Config::default(),
             text_area: TextAreaRenderer,
             message_line: MessageLineRenderer,
@@ -130,7 +133,11 @@ impl App {
             Action::ShellCommand(action) => {
                 self.state.handle_external_command(&action).or_fail()?
             }
-            Action::CursorAnchor | Action::CursorJump => todo!(),
+            Action::CursorAnchor => {
+                let anchor = self.state.current_cursor_anchor();
+                self.anchor_log.append(anchor).or_fail()?;
+            }
+            Action::CursorJump => todo!(),
         }
         Ok(())
     }
