@@ -1,4 +1,4 @@
-use crate::action::GrepAction;
+use crate::{action::GrepAction, mame::TerminalFrame, state::State};
 
 #[derive(Debug)]
 pub struct GrepMode {
@@ -12,6 +12,15 @@ impl GrepMode {
             action,
             query: String::new(),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct GrepQueryRenderer;
+
+impl GrepQueryRenderer {
+    pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> orfail::Result<()> {
+        Ok(())
     }
 }
 

@@ -7,7 +7,7 @@ use crate::{
     action::Action,
     anchor::CursorAnchorLog,
     config::Config,
-    grep_mode::GrepMode,
+    grep_mode::{GrepMode, GrepQueryRenderer},
     legend::LegendRenderer,
     mame::{KeyPattern, TerminalFrame},
     message_line::MessageLineRenderer,
@@ -115,11 +115,11 @@ impl App {
             Action::CursorBufferStart => self.state.handle_cursor_buffer_start(),
             Action::CursorBufferEnd => self.state.handle_cursor_buffer_end(),
             Action::CursorPageUp => {
-                let text_area_size = self.terminal.size().to_region().drop_bottom(2).size;
+                let text_area_size = self.text_area_region().size;
                 self.state.handle_cursor_page_up(text_area_size);
             }
             Action::CursorPageDown => {
-                let text_area_size = self.terminal.size().to_region().drop_bottom(2).size;
+                let text_area_size = self.text_area_region().size;
                 self.state.handle_cursor_page_down(text_area_size);
             }
             Action::ViewRecenter => self.state.handle_view_recenter(),
@@ -149,19 +149,33 @@ impl App {
             }
             Action::Grep(action) => {
                 self.state.grep_mode = Some(GrepMode::new(action));
+                self.state.mark = None;
+                self.state.set_message("Entered grep mode");
             }
         }
         Ok(())
     }
 
+    fn text_area_region(&self) -> TerminalRegion {
+        let footer_rows = if self.state.grep_mode.is_some() { 3 } else { 2 };
+        self.terminal.size().to_region().drop_bottom(footer_rows)
+    }
+
     fn render(&mut self) -> orfail::Result<()> {
         let mut frame = TerminalFrame::new(self.terminal.size());
 
-        let region = frame.size().to_region().drop_bottom(2);
+        let region = self.text_area_region();
         self.state.adjust_viewport(region.size);
         self.render_region(&mut frame, region, |frame| {
             self.text_area.render(&self.state, frame).or_fail()
         })?;
+
+        if self.state.grep_mode.is_some() {
+            let region = frame.size().to_region().take_bottom(3).take_top(1);
+            self.render_region(&mut frame, region, |frame| {
+                GrepQueryRenderer.render(&self.state, frame).or_fail()
+            })?;
+        }
 
         let region = frame.size().to_region().take_bottom(2).take_top(1);
         self.render_region(&mut frame, region, |frame| {
