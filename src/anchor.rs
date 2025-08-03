@@ -1,6 +1,66 @@
-use std::{num::NonZeroUsize, path::PathBuf};
+use std::{io::Write, num::NonZeroUsize, path::PathBuf};
 
-#[derive(Debug, Clone)]
+use orfail::OrFail;
+
+#[derive(Debug)]
+pub struct CursorAnchorLog {
+    log_file_path: PathBuf,
+}
+
+impl CursorAnchorLog {
+    pub fn append(&self, anchor: CursorAnchor) -> orfail::Result<()> {
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&self.log_file_path)
+            .or_fail()?;
+        writeln!(file, "{}", anchor).or_fail()?;
+        Ok(())
+    }
+
+    pub fn recent_anchors(&self) -> orfail::Result<impl Iterator<Item = CursorAnchor>> {
+        // TODO: optimize
+        let log = std::fs::read_to_string(&self.log_file_path).or_fail()?;
+        Ok(log
+            .lines()
+            .rev()
+            .filter_map(|line| line.trim().parse::<CursorAnchor>().ok())
+            .collect::<Vec<_>>()
+            .into_iter())
+    }
+
+    pub fn prev_anchor(&self, current: &CursorAnchor) -> orfail::Result<Option<CursorAnchor>> {
+        let n = 1000; // TODO
+        if let Some(a) = self
+            .recent_anchors()
+            .or_fail()?
+            .take(n)
+            .skip_while(|a| a != current)
+            .next()
+        {
+            return Ok(Some(a));
+        }
+
+        Ok(self
+            .recent_anchors()
+            .or_fail()?
+            .take(n)
+            .skip_while(|a| a.path != current.path)
+            .next())
+    }
+}
+
+impl Default for CursorAnchorLog {
+    fn default() -> Self {
+        let dir = std::env::var_os("HOME") // TODO
+            .map(PathBuf::from)
+            .unwrap_or_default();
+        Self {
+            log_file_path: dir.join(".kk.anchors"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CursorAnchor {
     pub path: PathBuf,
     pub line: NonZeroUsize,
