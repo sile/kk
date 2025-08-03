@@ -56,7 +56,14 @@ impl State {
     pub fn restore_anchor(&mut self, anchor: &CursorAnchor) -> orfail::Result<()> {
         self.finish_editing();
         if self.path != anchor.path {
+            // TODO: dirty check
+
             self.buffer.load_file(&anchor.path).or_fail()?;
+            self.path = anchor.path.clone();
+
+            // TODO: keep undo history
+            self.history.clear();
+            self.undo_index = 0;
         }
         self.cursor.row = self.buffer.rows().min(anchor.line.get() - 1);
         self.cursor.col = self
