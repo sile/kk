@@ -16,6 +16,7 @@
       "M-w": "copy",
       "C-y": "paste",
       "C-k": "kill-line",
+      "M-,": "jump",
       "<VISIBLE>": "insert",
       "<DELETE>": "delete",
       "<BACKSPACE>": "backspace",
@@ -84,8 +85,8 @@
     "paste": {
       "type": "clipboard-paste"
     },
-    "restore": {
-      "type": "cursor-undo"
+    "jump": {
+      "type": "cursor-jump"
     },
     "save": [
       {
