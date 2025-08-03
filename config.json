@@ -11,6 +11,7 @@
       "M-<": "SOF",
       "M->": "EOF",
       "C-l": "recenter",
+      "C-s": "grep",
       "C- ": "mark",
       "C-w": "cut",
       "M-w": "copy",

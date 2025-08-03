@@ -145,7 +145,7 @@ impl App {
                     self.state.set_message(format!("Jump: {anchor}"));
                 }
             }
-            Action::Grep(_) => todo!(),
+            Action::Grep(action) => self.state.handle_grep(&action).or_fail()?,
         }
         Ok(())
     }
