@@ -30,6 +30,7 @@ pub enum Action {
     MarkCut,
     ClipboardPaste,
     ShellCommand(ExternalCommandAction),
+    Grep(GrepAction),
     Multiple(Vec<Action>),
 }
 
@@ -72,6 +73,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
             "mark-cut" => Ok(Self::MarkCut),
             "clipboard-paste" => Ok(Self::ClipboardPaste),
             "external-command" => ExternalCommandAction::try_from(value).map(Self::ShellCommand),
+            "grep" => GrepAction::try_from(value).map(Self::Grep),
             ty => Err(value.invalid(format!("unknown command type: {ty:?}"))),
         }
     }
@@ -84,6 +86,26 @@ pub struct ExternalCommandAction {
 }
 
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for ExternalCommandAction {
+    type Error = nojson::JsonParseError;
+
+    fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
+        Ok(Self {
+            command: value.to_member("command")?.required()?.try_into()?,
+            args: value
+                .to_member("args")?
+                .map(Vec::try_from)?
+                .unwrap_or_default(),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GrepAction {
+    pub command: String,
+    pub args: Vec<String>,
+}
+
+impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for GrepAction {
     type Error = nojson::JsonParseError;
 
     fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {

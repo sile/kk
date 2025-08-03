@@ -150,6 +150,13 @@
     "kill-line": {
       "type": "line-delete"
     },
+    "grep": {
+      "type": "grep",
+      "command": "grep",
+      "args": [
+        "-bo"
+      ]
+    },
     "niho": [
       {
         "type": "cursor-line-start"
