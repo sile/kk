@@ -1,10 +1,11 @@
-use std::{collections::VecDeque, path::PathBuf};
+use std::{collections::VecDeque, num::NonZeroUsize, path::PathBuf};
 
 use orfail::OrFail;
 use tuinix::{KeyCode, TerminalPosition, TerminalSize};
 
 use crate::{
     action::ExternalCommandAction,
+    anchor::CursorAnchor,
     buffer::{TextBuffer, TextPosition},
     clipboard::Clipboard,
     keybindings::KeybindingsContext,
@@ -623,6 +624,18 @@ impl State {
         self.finish_editing();
 
         Ok(())
+    }
+
+    pub fn current_cursor_anchor(&self) -> CursorAnchor {
+        CursorAnchor {
+            path: self.path.clone(),
+            line: NonZeroUsize::MIN.saturating_add(self.cursor.row),
+            char: NonZeroUsize::MIN.saturating_add(
+                self.buffer
+                    .char_index_at_col(self.cursor.row, self.cursor.col)
+                    .unwrap_or_default(),
+            ),
+        }
     }
 
     pub fn handle_view_recenter(&mut self) {
