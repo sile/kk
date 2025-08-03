@@ -1,3 +1,7 @@
+use std::fmt::Write;
+
+use orfail::OrFail;
+
 use crate::{action::GrepAction, mame::TerminalFrame, state::State};
 
 #[derive(Debug)]
@@ -20,6 +24,17 @@ pub struct GrepQueryRenderer;
 
 impl GrepQueryRenderer {
     pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> orfail::Result<()> {
+        let Some(grep) = &state.grep_mode else {
+            unreachable!();
+        };
+
+        let cols = frame.size().cols;
+        writeln!(frame, "{}", "─".repeat(cols)).or_fail()?;
+        write!(frame, "(GREP)$ {} ", grep.action.command).or_fail()?;
+        for arg in &grep.action.args {
+            write!(frame, "{arg} ").or_fail()?;
+        }
+        writeln!(frame).or_fail()?;
         Ok(())
     }
 }
