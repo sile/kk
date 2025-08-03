@@ -7,6 +7,7 @@ use crate::{
     action::Action,
     anchor::CursorAnchorLog,
     config::Config,
+    grep_mode::GrepMode,
     legend::LegendRenderer,
     mame::{KeyPattern, TerminalFrame},
     message_line::MessageLineRenderer,
@@ -99,6 +100,7 @@ impl App {
             }
             Action::Cancel => {
                 self.state.mark = None;
+                self.state.grep_mode = None;
                 self.state.set_message("Canceled");
             }
             Action::BufferSave => self.state.handle_buffer_save().or_fail()?,
@@ -146,8 +148,7 @@ impl App {
                 }
             }
             Action::Grep(action) => {
-                // TODO: enter search mode
-                self.state.handle_grep(&action).or_fail()?
+                self.state.grep_mode = Some(GrepMode::new(action));
             }
         }
         Ok(())
