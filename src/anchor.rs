@@ -35,7 +35,7 @@ impl CursorAnchorLog {
             .or_fail()?
             .take(n)
             .skip_while(|a| a != current)
-            .next()
+            .nth(1)
         {
             return Ok(Some(a));
         }
@@ -44,8 +44,7 @@ impl CursorAnchorLog {
             .recent_anchors()
             .or_fail()?
             .take(n)
-            .skip_while(|a| a.path != current.path)
-            .next())
+            .find(|a| a.path == current.path))
     }
 }
 
