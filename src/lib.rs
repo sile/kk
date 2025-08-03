@@ -4,6 +4,7 @@ pub mod app;
 pub mod buffer;
 pub mod clipboard;
 pub mod config;
+pub mod grep_mode;
 pub mod keybindings;
 pub mod legend;
 pub mod mame;

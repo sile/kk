@@ -145,7 +145,10 @@ impl App {
                     self.state.set_message(format!("Jump: {anchor}"));
                 }
             }
-            Action::Grep(action) => self.state.handle_grep(&action).or_fail()?,
+            Action::Grep(action) => {
+                // TODO: enter search mode
+                self.state.handle_grep(&action).or_fail()?
+            }
         }
         Ok(())
     }
