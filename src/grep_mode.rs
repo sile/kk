@@ -1,9 +1,14 @@
-use std::fmt::Write;
+use std::{fmt::Write, io::Write as _, path::PathBuf};
 
 use orfail::OrFail;
 use tuinix::{TerminalPosition, TerminalRegion};
 
-use crate::{action::GrepAction, buffer::TextBuffer, mame::TerminalFrame, state::State};
+use crate::{
+    action::GrepAction,
+    buffer::{TextBuffer, TextPosition},
+    mame::TerminalFrame,
+    state::State,
+};
 
 #[derive(Debug)]
 pub struct GrepMode {
@@ -46,21 +51,28 @@ impl GrepMode {
         self.cursor += 1;
     }
 
-    pub fn grep(&mut self, buffer: &TextBuffer) -> orfail::Result<()> {
-        self.execute_command(buffer).or_fail()?;
-        // let dir = std::env::var_os("HOME") // TODO
-        //     .map(PathBuf::from)
-        //     .unwrap_or_default();
-        // std::fs::write(dir.join(".kk.highlight"), &output.stdout).or_fail()?;
+    pub fn grep(&mut self, buffer: &TextBuffer) -> orfail::Result<GrepResult> {
+        if self.query.is_empty() {
+            return Ok(GrepResult::default());
+        }
 
-        Ok(())
+        let buffer = buffer.to_single_text();
+        let output = self.execute_command(&buffer).or_fail()?;
+        let dir = std::env::var_os("HOME") // TODO
+            .map(PathBuf::from)
+            .unwrap_or_default();
+        std::fs::write(dir.join(".kk.highlight"), &output).or_fail()?;
+
+        GrepResult::parse(&output, &buffer).or_fail()
     }
 
-    fn execute_command(&self, buffer: &TextBuffer) -> orfail::Result<String> {
+    fn execute_command(&self, buffer: &str) -> orfail::Result<String> {
         let mut cmd = std::process::Command::new(&self.action.command);
         for arg in &self.action.args {
             cmd.arg(arg);
         }
+        cmd.arg(self.query.iter().copied().collect::<String>());
+
         cmd.stdin(std::process::Stdio::piped());
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());
@@ -69,17 +81,9 @@ impl GrepMode {
             .spawn()
             .or_fail_with(|e| format!("Failed to execute grep command: {e}"))?;
 
-        if let Some(stdin) = child.stdin.take() {
-            use std::io::Write;
-
-            let mut writer = std::io::BufWriter::new(stdin);
-            for line in &buffer.text {
-                for ch in &line.0 {
-                    write!(writer, "{ch}").or_fail()?;
-                }
-                writeln!(writer).or_fail()?;
-            }
-            writer.flush().or_fail()?;
+        if let Some(mut stdin) = child.stdin.take() {
+            write!(stdin, "{buffer}").or_fail()?;
+            stdin.flush().or_fail()?;
         }
 
         let output = child
@@ -91,6 +95,41 @@ impl GrepMode {
             format!("Grep command failed: {}", stderr.trim())
         })?;
         String::from_utf8(output.stdout).or_fail()
+    }
+}
+
+#[derive(Debug)]
+pub struct HighlightItem {
+    pub start_position: TextPosition,
+    pub end_position: TextPosition,
+}
+
+#[derive(Debug, Default)]
+pub struct GrepResult {
+    pub highlights: Vec<HighlightItem>,
+}
+
+impl GrepResult {
+    fn parse(output: &str, input: &str) -> orfail::Result<Self> {
+        let mut highlights = Vec::new();
+        for line in output.lines() {
+            let (byte_offset, text) = line.trim().split_once(':').or_fail()?;
+            let start_byte_offset = byte_offset.parse::<usize>().or_fail()?;
+            let end_byte_offset = start_byte_offset + text.len();
+            highlights.push(HighlightItem {
+                start_position: byte_offset_to_text_position(input, start_byte_offset).or_fail()?,
+                end_position: byte_offset_to_text_position(input, end_byte_offset).or_fail()?,
+            });
+        }
+        Ok(Self { highlights })
+    }
+}
+
+fn byte_offset_to_text_position(text: &str, offset: usize) -> orfail::Result<TextPosition> {
+    todo!();
+    TextPosition {
+        row: todo!(),
+        col: todo!(),
     }
 }
 

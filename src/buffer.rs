@@ -21,6 +21,13 @@ impl TextBuffer {
         Ok(())
     }
 
+    pub fn to_single_text(&self) -> String {
+        self.text
+            .iter()
+            .flat_map(|line| line.0.iter().copied())
+            .collect()
+    }
+
     pub fn rows(&self) -> usize {
         self.text.len()
     }
@@ -346,6 +353,6 @@ impl TextLine {
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TextPosition {
-    pub row: usize,
-    pub col: usize,
+    pub row: usize, // 0 origin
+    pub col: usize, // 0 origin
 }
