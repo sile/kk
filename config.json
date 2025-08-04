@@ -46,6 +46,7 @@
       }
     },
     "__grep__": {
+      "C-g": "cancel",
       "<VISIBLE>": "insert",
       "<DELETE>": "delete",
       "<BACKSPACE>": "backspace",

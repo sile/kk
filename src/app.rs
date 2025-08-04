@@ -101,6 +101,7 @@ impl App {
             Action::Cancel => {
                 self.state.mark = None;
                 self.state.grep_mode = None;
+                self.state.context.enter("__main__");
                 self.state.set_message("Canceled");
             }
             Action::BufferSave => self.state.handle_buffer_save().or_fail()?,
@@ -150,6 +151,7 @@ impl App {
             Action::Grep(action) => {
                 self.state.grep_mode = Some(GrepMode::new(action));
                 self.state.mark = None;
+                self.state.context.enter("__grep__");
                 self.state.set_message("Entered grep mode");
             }
         }

@@ -18,6 +18,11 @@ impl KeybindingsContext {
     pub fn group_path(&self) -> String {
         self.stack.join(".")
     }
+
+    pub fn enter(&mut self, name: &str) {
+        self.stack.clear();
+        self.stack.push(name.to_owned());
+    }
 }
 
 impl Default for KeybindingsContext {
