@@ -52,7 +52,6 @@
       "<BACKSPACE>": "backspace",
       "<LEFT>": "left",
       "<RIGHT>": "right",
-      "C-k": "kill-line",
       "C-a": "SOL",
       "C-e": "EOL",
       "__hidden__": {

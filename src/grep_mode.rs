@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 use orfail::OrFail;
+use tuinix::{TerminalPosition, TerminalRegion};
 
 use crate::{action::GrepAction, mame::TerminalFrame, state::State};
 
@@ -8,6 +9,7 @@ use crate::{action::GrepAction, mame::TerminalFrame, state::State};
 pub struct GrepMode {
     pub action: GrepAction,
     pub query: String,
+    pub cursor: usize,
 }
 
 impl GrepMode {
@@ -15,7 +17,22 @@ impl GrepMode {
         Self {
             action,
             query: String::new(),
+            cursor: 0,
         }
+    }
+
+    pub fn cursor_position(&self, region: TerminalRegion) -> TerminalPosition {
+        let mut frame = TerminalFrame::new(region.size);
+        let mut pos = region.position;
+
+        // TODO: factor out
+        let _ = write!(frame, "$ {} ", self.action.command);
+        for arg in &self.action.args {
+            let _ = write!(frame, "{arg} ");
+        }
+        pos.col = frame.cursor().col;
+
+        pos
     }
 }
 

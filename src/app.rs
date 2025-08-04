@@ -173,9 +173,10 @@ impl App {
         })?;
 
         let mut frame_region = frame.size().to_region();
+        let mut grep_region = frame_region;
         if self.state.grep_mode.is_some() {
-            let region = frame_region.take_bottom(1);
-            self.render_region(&mut frame, region, |frame| {
+            grep_region = frame_region.take_bottom(1);
+            self.render_region(&mut frame, grep_region, |frame| {
                 GrepQueryRenderer.render(&self.state, frame).or_fail()
             })?;
             frame_region = frame_region.drop_bottom(1);
@@ -198,8 +199,13 @@ impl App {
                 .or_fail()
         })?;
 
-        self.terminal
-            .set_cursor(Some(self.state.terminal_cursor_position()));
+        if let Some(grep) = &self.state.grep_mode {
+            self.terminal
+                .set_cursor(Some(grep.cursor_position(grep_region)));
+        } else {
+            self.terminal
+                .set_cursor(Some(self.state.terminal_cursor_position()));
+        }
         self.terminal.draw(frame).or_fail()?;
 
         self.state.message = None;
