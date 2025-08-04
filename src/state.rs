@@ -28,7 +28,7 @@ pub struct State {
     pub editing: bool,
     pub history: VecDeque<(TextPosition, TextBuffer)>,
     pub undo_index: usize,
-    pub grep_mode: Option<GrepMode>,
+    pub grep_mode: Option<GrepMode>, // TODO: non-optional
 }
 
 impl State {
@@ -140,7 +140,7 @@ impl State {
         self.editing = true;
     }
 
-    fn finish_editing(&mut self) {
+    pub fn finish_editing(&mut self) {
         self.editing = false;
     }
 

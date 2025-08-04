@@ -47,6 +47,7 @@
     },
     "__grep__": {
       "C-g": "cancel",
+      "C-y": "paste",
       "<VISIBLE>": "insert",
       "<DELETE>": "delete",
       "<BACKSPACE>": "backspace",
@@ -171,7 +172,7 @@
       "type": "grep",
       "command": "grep",
       "args": [
-        "-bo"
+        "-bio"
       ]
     },
     "niho": [

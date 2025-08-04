@@ -127,7 +127,10 @@ impl App {
             Action::NewlineInsert => self.state.handle_newline_insert(),
             Action::CharInsert => {
                 if let Some(grep) = &mut self.state.grep_mode {
-                    grep.handle_char_insert(key)
+                    grep.handle_char_insert(key);
+                    if let Err(e) = grep.grep(&self.state.buffer) {
+                        self.state.set_message(e.message);
+                    }
                 } else {
                     self.state.handle_char_insert(key)
                 }
@@ -155,6 +158,7 @@ impl App {
                 }
             }
             Action::Grep(action) => {
+                self.state.finish_editing();
                 self.state.grep_mode = Some(GrepMode::new(action));
                 self.state.mark = None;
                 self.state.context.enter("__grep__");
