@@ -51,9 +51,9 @@ impl GrepMode {
         self.cursor += 1;
     }
 
-    pub fn grep(&mut self, buffer: &TextBuffer) -> orfail::Result<GrepResult> {
+    pub fn grep(&mut self, buffer: &TextBuffer) -> orfail::Result<Highlight> {
         if self.query.is_empty() {
-            return Ok(GrepResult::default());
+            return Ok(Highlight::default());
         }
 
         let buffer = buffer.to_single_text();
@@ -63,7 +63,7 @@ impl GrepMode {
             .unwrap_or_default();
         std::fs::write(dir.join(".kk.highlight"), &output).or_fail()?;
 
-        GrepResult::parse(&output, &buffer).or_fail()
+        Highlight::parse(&output, &buffer).or_fail()
     }
 
     fn execute_command(&self, buffer: &str) -> orfail::Result<String> {
@@ -90,10 +90,16 @@ impl GrepMode {
             .wait_with_output()
             .or_fail_with(|e| format!("Failed to wait for command: {e}"))?;
 
-        output.status.success().or_fail_with(|()| {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            format!("Grep command failed: {}", stderr.trim())
-        })?;
+        match output.status.code() {
+            Some(0 | 1) => {}
+            _ => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(orfail::Failure::new(format!(
+                    "Grep command failed: {}",
+                    stderr.trim()
+                )));
+            }
+        }
         String::from_utf8(output.stdout).or_fail()
     }
 }
@@ -105,23 +111,23 @@ pub struct HighlightItem {
 }
 
 #[derive(Debug, Default)]
-pub struct GrepResult {
-    pub highlights: Vec<HighlightItem>,
+pub struct Highlight {
+    pub items: Vec<HighlightItem>,
 }
 
-impl GrepResult {
+impl Highlight {
     fn parse(output: &str, input: &str) -> orfail::Result<Self> {
-        let mut highlights = Vec::new();
+        let mut items = Vec::new();
         for line in output.lines() {
             let (byte_offset, text) = line.trim().split_once(':').or_fail()?;
             let start_byte_offset = byte_offset.parse::<usize>().or_fail()?;
             let end_byte_offset = start_byte_offset + text.len();
-            highlights.push(HighlightItem {
+            items.push(HighlightItem {
                 start_position: byte_offset_to_text_position(input, start_byte_offset).or_fail()?,
                 end_position: byte_offset_to_text_position(input, end_byte_offset).or_fail()?,
             });
         }
-        Ok(Self { highlights })
+        Ok(Self { items })
     }
 }
 

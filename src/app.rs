@@ -128,8 +128,13 @@ impl App {
             Action::CharInsert => {
                 if let Some(grep) = &mut self.state.grep_mode {
                     grep.handle_char_insert(key);
-                    if let Err(e) = grep.grep(&self.state.buffer) {
-                        self.state.set_message(e.message);
+                    match grep.grep(&self.state.buffer) {
+                        Err(e) => self.state.set_message(e.message),
+                        Ok(hightlight) => {
+                            // TODO: render hightlights
+                            self.state
+                                .set_message(format!("Hit: {}", hightlight.items.len()));
+                        }
                     }
                 } else {
                     self.state.handle_char_insert(key)
