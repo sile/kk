@@ -57,8 +57,12 @@ impl TextAreaRenderer {
                 let is_marked = marked_region.as_ref().map_or(false, |(start, end)| {
                     current_col >= *start && current_col < *end
                 });
+                let is_highlighted = state.highlight.contains(TextPosition {
+                    row: line_row,
+                    col: current_col,
+                });
 
-                if is_marked {
+                if is_marked || is_highlighted {
                     let style = TerminalStyle::new().reverse();
                     let reset = TerminalStyle::RESET;
                     write!(frame, "{style}{ch}{reset}").or_fail()?;

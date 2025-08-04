@@ -129,6 +129,12 @@ impl Highlight {
         }
         Ok(Self { items })
     }
+
+    pub fn contains(&self, pos: TextPosition) -> bool {
+        self.items
+            .iter()
+            .any(|item| item.start_position <= pos && pos < item.end_position)
+    }
 }
 
 fn byte_offset_to_text_position(text: &str, offset: usize) -> orfail::Result<TextPosition> {
