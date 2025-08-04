@@ -8,7 +8,7 @@ use crate::{
     anchor::CursorAnchor,
     buffer::{TextBuffer, TextPosition},
     clipboard::Clipboard,
-    grep_mode::GrepMode,
+    grep_mode::{GrepMode, Highlight},
     keybindings::KeybindingsContext,
 };
 
@@ -29,6 +29,7 @@ pub struct State {
     pub history: VecDeque<(TextPosition, TextBuffer)>,
     pub undo_index: usize,
     pub grep_mode: Option<GrepMode>, // TODO: non-optional
+    pub highlight: Highlight,
 }
 
 impl State {
@@ -49,6 +50,7 @@ impl State {
             history: VecDeque::new(),
             undo_index: 0,
             grep_mode: None,
+            highlight: Highlight::default(),
         })
     }
 

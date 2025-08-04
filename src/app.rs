@@ -7,7 +7,7 @@ use crate::{
     action::Action,
     anchor::CursorAnchorLog,
     config::Config,
-    grep_mode::{GrepMode, GrepQueryRenderer},
+    grep_mode::{GrepMode, GrepQueryRenderer, Highlight},
     legend::LegendRenderer,
     mame::{KeyPattern, TerminalFrame},
     message_line::MessageLineRenderer,
@@ -101,6 +101,7 @@ impl App {
             Action::Cancel => {
                 self.state.mark = None;
                 self.state.grep_mode = None;
+                self.state.highlight = Highlight::default();
                 self.state.context.enter("__main__");
                 self.state.set_message("Canceled");
             }
@@ -130,10 +131,10 @@ impl App {
                     grep.handle_char_insert(key);
                     match grep.grep(&self.state.buffer) {
                         Err(e) => self.state.set_message(e.message),
-                        Ok(hightlight) => {
-                            // TODO: render hightlights
+                        Ok(highlight) => {
                             self.state
-                                .set_message(format!("Hit: {}", hightlight.items.len()));
+                                .set_message(format!("Hit: {}", highlight.items.len()));
+                            self.state.highlight = highlight;
                         }
                     }
                 } else {
