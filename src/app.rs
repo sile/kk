@@ -157,7 +157,7 @@ impl App {
     }
 
     fn text_area_region(&self) -> TerminalRegion {
-        let footer_rows = if self.state.grep_mode.is_some() { 4 } else { 2 };
+        let footer_rows = if self.state.grep_mode.is_some() { 3 } else { 2 };
         self.terminal.size().to_region().drop_bottom(footer_rows)
     }
 
@@ -170,19 +170,21 @@ impl App {
             self.text_area.render(&self.state, frame).or_fail()
         })?;
 
+        let mut frame_region = frame.size().to_region();
         if self.state.grep_mode.is_some() {
-            let region = frame.size().to_region().take_bottom(4).take_top(2);
+            let region = frame_region.take_bottom(1);
             self.render_region(&mut frame, region, |frame| {
                 GrepQueryRenderer.render(&self.state, frame).or_fail()
             })?;
+            frame_region = frame_region.drop_bottom(1);
         }
 
-        let region = frame.size().to_region().take_bottom(2).take_top(1);
+        let region = frame_region.take_bottom(2).take_top(1);
         self.render_region(&mut frame, region, |frame| {
             self.status_line.render(&self.state, frame).or_fail()
         })?;
 
-        let region = frame.size().to_region().take_bottom(1);
+        let region = frame_region.take_bottom(1);
         self.render_region(&mut frame, region, |frame| {
             self.message_line.render(&self.state, frame).or_fail()
         })?;

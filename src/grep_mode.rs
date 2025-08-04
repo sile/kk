@@ -28,9 +28,7 @@ impl GrepQueryRenderer {
             unreachable!();
         };
 
-        let cols = frame.size().cols;
-        writeln!(frame, "{}", "─".repeat(cols)).or_fail()?;
-        write!(frame, "(GREP)$ {} ", grep.action.command).or_fail()?;
+        write!(frame, "$ {} ", grep.action.command).or_fail()?;
         for arg in &grep.action.args {
             write!(frame, "{arg} ").or_fail()?;
         }
