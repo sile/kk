@@ -24,7 +24,7 @@ impl TextBuffer {
     pub fn to_single_text(&self) -> String {
         self.text
             .iter()
-            .flat_map(|line| line.0.iter().copied())
+            .flat_map(|line| line.0.iter().copied().chain(std::iter::once('\n')))
             .collect()
     }
 
