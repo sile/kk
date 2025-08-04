@@ -126,11 +126,30 @@ impl GrepResult {
 }
 
 fn byte_offset_to_text_position(text: &str, offset: usize) -> orfail::Result<TextPosition> {
-    todo!();
-    TextPosition {
-        row: todo!(),
-        col: todo!(),
+    if offset > text.len() {
+        return Err(orfail::Failure::new("Byte offset exceeds text length"));
     }
+
+    let mut row = 0;
+    let mut col = 0;
+    let mut current_offset = 0;
+
+    for ch in text.chars() {
+        if current_offset >= offset {
+            break;
+        }
+
+        if ch == '\n' {
+            row += 1;
+            col = 0;
+        } else {
+            col += unicode_width::UnicodeWidthChar::width(ch).unwrap_or_default();
+        }
+
+        current_offset += ch.len_utf8();
+    }
+
+    Ok(TextPosition { row, col })
 }
 
 #[derive(Debug)]
