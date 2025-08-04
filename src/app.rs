@@ -125,7 +125,13 @@ impl App {
             }
             Action::ViewRecenter => self.state.handle_view_recenter(),
             Action::NewlineInsert => self.state.handle_newline_insert(),
-            Action::CharInsert => self.state.handle_char_insert(key),
+            Action::CharInsert => {
+                if let Some(grep) = &mut self.state.grep_mode {
+                    grep.handle_char_insert(key)
+                } else {
+                    self.state.handle_char_insert(key)
+                }
+            }
             Action::CharDeleteBackward => self.state.handle_char_delete_backward(),
             Action::CharDeleteForward => self.state.handle_char_delete_forward(),
             Action::LineDelete => self.state.handle_line_delete().or_fail()?,

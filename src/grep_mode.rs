@@ -8,7 +8,7 @@ use crate::{action::GrepAction, mame::TerminalFrame, state::State};
 #[derive(Debug)]
 pub struct GrepMode {
     pub action: GrepAction,
-    pub query: String,
+    pub query: Vec<char>,
     pub cursor: usize,
 }
 
@@ -16,7 +16,7 @@ impl GrepMode {
     pub fn new(action: GrepAction) -> Self {
         Self {
             action,
-            query: String::new(),
+            query: Vec::new(),
             cursor: 0,
         }
     }
@@ -30,9 +30,20 @@ impl GrepMode {
         for arg in &self.action.args {
             let _ = write!(frame, "{arg} ");
         }
+        for ch in self.query.iter().take(self.cursor) {
+            let _ = write!(frame, "{ch}");
+        }
         pos.col = frame.cursor().col;
 
         pos
+    }
+
+    pub fn handle_char_insert(&mut self, key: tuinix::KeyInput) {
+        let tuinix::KeyCode::Char(ch) = key.code else {
+            return;
+        };
+        self.query.insert(self.cursor, ch);
+        self.cursor += 1;
     }
 }
 
@@ -48,6 +59,9 @@ impl GrepQueryRenderer {
         write!(frame, "$ {} ", grep.action.command).or_fail()?;
         for arg in &grep.action.args {
             write!(frame, "{arg} ").or_fail()?;
+        }
+        for ch in &grep.query {
+            write!(frame, "{ch}").or_fail()?;
         }
         writeln!(frame).or_fail()?;
         Ok(())
