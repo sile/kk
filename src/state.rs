@@ -158,7 +158,6 @@ impl State {
 
     pub fn handle_cursor_left(&mut self) {
         if let Some(grep) = &mut self.grep_mode {
-            // TODO: consider char width
             grep.cursor = grep.cursor.saturating_sub(1);
             return;
         }
@@ -176,7 +175,6 @@ impl State {
 
     pub fn handle_cursor_right(&mut self) {
         if let Some(grep) = &mut self.grep_mode {
-            // TODO: consider char width
             grep.cursor = (grep.cursor + 1).min(grep.query.len());
             return;
         }
@@ -194,11 +192,21 @@ impl State {
     }
 
     pub fn handle_cursor_line_start(&mut self) {
+        if let Some(grep) = &mut self.grep_mode {
+            grep.cursor = 0;
+            return;
+        }
+
         self.cursor.col = 0;
         self.finish_editing();
     }
 
     pub fn handle_cursor_line_end(&mut self) {
+        if let Some(grep) = &mut self.grep_mode {
+            grep.cursor = grep.query.len();
+            return;
+        }
+
         self.cursor.col = self.buffer.cols(self.cursor.row);
         self.finish_editing();
     }
