@@ -54,16 +54,27 @@ impl TextAreaRenderer {
         // Skip characters before the viewport's left edge and render with marking
         for (current_col, ch) in line.char_cols() {
             if current_col >= start_col {
+                let pos = TextPosition {
+                    row: line_row,
+                    col: current_col,
+                };
+
                 let is_marked = marked_region.as_ref().map_or(false, |(start, end)| {
                     current_col >= *start && current_col < *end
                 });
-                let is_highlighted = state.highlight.contains(TextPosition {
-                    row: line_row,
-                    col: current_col,
-                });
+                let is_highlighted = state.highlight.contains(pos);
 
-                if is_marked || is_highlighted {
-                    let style = TerminalStyle::new().reverse();
+                let mut style = TerminalStyle::new();
+                if is_marked {
+                    style = style.reverse();
+                }
+                if is_highlighted {
+                    style = style.bg_color(tuinix::TerminalColor::new(220, 220, 220));
+                }
+                if state.grep_mode.is_some() && pos == state.cursor {
+                    style = style.underline().bold();
+                }
+                if style != TerminalStyle::RESET {
                     let reset = TerminalStyle::RESET;
                     write!(frame, "{style}{ch}{reset}").or_fail()?;
                 } else {
