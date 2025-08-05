@@ -124,6 +124,7 @@ impl App {
                 let text_area_size = self.text_area_region().size;
                 self.state.handle_cursor_page_down(text_area_size);
             }
+            Action::CursorSkipSpaces => self.state.handle_cursor_skip_spaces(),
             Action::ViewRecenter => self.state.handle_view_recenter(),
             Action::NewlineInsert => self.state.handle_newline_insert(),
             Action::CharInsert => self.state.handle_char_insert(key),

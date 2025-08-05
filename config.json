@@ -27,6 +27,7 @@
       "<DOWN>": "down",
       "<LEFT>": "left",
       "<RIGHT>": "right",
+      "<TAB>": "rustfmt",
       "__hidden__": {
         "C-0x7f": "undo",
         "C-u": "undo",
@@ -209,6 +210,9 @@
       },
       {
         "type": "buffer-reload"
+      },
+      {
+        "type": "cursor-skip-spaces"
       },
       {
         "type": "cancel"

@@ -836,4 +836,32 @@ impl State {
             self.set_message("Wrapped to last grep hit");
         }
     }
+
+    pub fn handle_cursor_skip_spaces(&mut self) {
+        self.finish_editing();
+
+        let current_row = self.cursor.row;
+        let mut current_col = self.cursor.col;
+
+        if let Some(line) = self.buffer.text.get(current_row) {
+            let mut found_non_space = false;
+            for (col, ch) in line.char_cols() {
+                if col >= current_col {
+                    if ch.is_ascii_whitespace() {
+                        current_col = col + 1;
+                    } else {
+                        current_col = col;
+                        found_non_space = true;
+                        break;
+                    }
+                }
+            }
+
+            if found_non_space {
+                self.cursor.col = current_col;
+            }
+        }
+
+        self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
+    }
 }
