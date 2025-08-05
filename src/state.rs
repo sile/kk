@@ -789,4 +789,51 @@ impl State {
         let max_row = self.buffer.rows();
         self.cursor.row = (self.cursor.row + text_area_size.rows).min(max_row);
     }
+
+    pub fn handle_grep_next_hit(&mut self) {
+        self.finish_editing();
+
+        let current_pos = self.cursor_position();
+
+        // Find the next highlight item after the current cursor position
+        if let Some(next_item) = self
+            .highlight
+            .items
+            .iter()
+            .find(|item| item.start_position > current_pos)
+        {
+            self.cursor = next_item.start_position;
+            self.recenter_viewport = true;
+            self.set_message("Moved to next grep hit");
+        } else if let Some(first_item) = self.highlight.items.first() {
+            // Wrap around to the first item
+            self.cursor = first_item.start_position;
+            self.recenter_viewport = true;
+            self.set_message("Wrapped to first grep hit");
+        }
+    }
+
+    pub fn handle_grep_prev_hit(&mut self) {
+        self.finish_editing();
+
+        let current_pos = self.cursor_position();
+
+        // Find the previous highlight item before the current cursor position
+        if let Some(prev_item) = self
+            .highlight
+            .items
+            .iter()
+            .rev()
+            .find(|item| item.start_position < current_pos)
+        {
+            self.cursor = prev_item.start_position;
+            self.recenter_viewport = true;
+            self.set_message("Moved to previous grep hit");
+        } else if let Some(last_item) = self.highlight.items.last() {
+            // Wrap around to the last item
+            self.cursor = last_item.start_position;
+            self.recenter_viewport = true;
+            self.set_message("Wrapped to last grep hit");
+        }
+    }
 }

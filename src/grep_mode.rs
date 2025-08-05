@@ -127,6 +127,7 @@ impl Highlight {
                 end_position: byte_offset_to_text_position(input, end_byte_offset).or_fail()?,
             });
         }
+        items.sort_by_key(|x| x.start_position);
         Ok(Self { items })
     }
 

@@ -31,6 +31,8 @@ pub enum Action {
     ClipboardPaste,
     ShellCommand(ExternalCommandAction),
     Grep(GrepAction),
+    GrepNextHit,
+    GrepPrevHit,
     Multiple(Vec<Action>),
 }
 
@@ -74,6 +76,8 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
             "clipboard-paste" => Ok(Self::ClipboardPaste),
             "external-command" => ExternalCommandAction::try_from(value).map(Self::ShellCommand),
             "grep" => GrepAction::try_from(value).map(Self::Grep),
+            "grep-next-hit" => Ok(Self::GrepNextHit),
+            "grep-prev-hit" => Ok(Self::GrepPrevHit),
             ty => Err(value.invalid(format!("unknown command type: {ty:?}"))),
         }
     }

@@ -47,6 +47,7 @@
     },
     "__grep__": {
       "C-g": "cancel",
+      "<ENTER>": "cancel",
       "C-y": "paste",
       "<VISIBLE>": "insert",
       "<DELETE>": "delete",
@@ -55,6 +56,8 @@
       "<RIGHT>": "right",
       "C-a": "SOL",
       "C-e": "EOL",
+      "C-s": "next-hit",
+      "C-r": "prev-hit",
       "__hidden__": {
         "C-b": "left",
         "C-f": "right",
@@ -174,6 +177,12 @@
       "args": [
         "-bio"
       ]
+    },
+    "next-hit": {
+      "type": "grep-next-hit"
+    },
+    "prev-hit": {
+      "type": "grep-prev-hit"
     },
     "niho": [
       {

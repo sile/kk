@@ -156,6 +156,20 @@ impl App {
                 self.state.context.enter("__grep__");
                 self.state.set_message("Entered grep mode");
             }
+            Action::GrepNextHit => {
+                if !self.state.highlight.items.is_empty() {
+                    self.state.handle_grep_next_hit();
+                } else {
+                    self.state.set_message("No grep hits available");
+                }
+            }
+            Action::GrepPrevHit => {
+                if !self.state.highlight.items.is_empty() {
+                    self.state.handle_grep_prev_hit();
+                } else {
+                    self.state.set_message("No grep hits available");
+                }
+            }
         }
         Ok(())
     }
