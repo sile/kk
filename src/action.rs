@@ -33,6 +33,7 @@ pub enum Action {
     Grep(GrepAction),
     GrepNextHit,
     GrepPrevHit,
+    ContextSet(ContextSetAction),
     Multiple(Vec<Action>),
 }
 
@@ -74,6 +75,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
             "mark-copy" => Ok(Self::MarkCopy),
             "mark-cut" => Ok(Self::MarkCut),
             "clipboard-paste" => Ok(Self::ClipboardPaste),
+            "context-set" => ContextSetAction::try_from(value).map(Self::ContextSet),
             "external-command" => ExternalCommandAction::try_from(value).map(Self::ShellCommand),
             "grep" => GrepAction::try_from(value).map(Self::Grep),
             "grep-next-hit" => Ok(Self::GrepNextHit),
@@ -119,6 +121,21 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for GrepAction {
                 .to_member("args")?
                 .map(Vec::try_from)?
                 .unwrap_or_default(),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ContextSetAction {
+    pub name: String,
+}
+
+impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for ContextSetAction {
+    type Error = nojson::JsonParseError;
+
+    fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
+        Ok(Self {
+            name: value.to_member("name")?.required()?.try_into()?,
         })
     }
 }
