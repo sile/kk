@@ -72,7 +72,7 @@
     },
     "ext": {
       "C-g": "cancel",
-      "C-x": "save"
+      "C-s": "save"
     },
     "rust": {
       "C-g": "cancel",
@@ -129,6 +129,13 @@
       },
       {
         "type": "buffer-save"
+      },
+      {
+        "type": "cancel"
+      },
+      {
+        "type": "echo",
+        "message": "Saved!"
       }
     ],
     "reload": {
