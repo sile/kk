@@ -258,8 +258,11 @@ impl State {
         match grep.grep(&self.buffer) {
             Err(e) => self.set_message(e.message),
             Ok(highlight) => {
-                self.set_message(format!("Hit: {}", highlight.items.len()));
                 self.highlight = highlight;
+                if !self.highlight.contains(self.cursor) {
+                    self.handle_grep_next_hit();
+                }
+                self.set_message(format!("Hit: {}", self.highlight.items.len()));
             }
         }
     }
@@ -299,13 +302,7 @@ impl State {
     pub fn handle_char_insert(&mut self, key: tuinix::KeyInput) {
         if let Some(grep) = &mut self.grep_mode {
             grep.handle_char_insert(key);
-            match grep.grep(&self.buffer) {
-                Err(e) => self.set_message(e.message),
-                Ok(highlight) => {
-                    self.set_message(format!("Hit: {}", highlight.items.len()));
-                    self.highlight = highlight;
-                }
-            }
+            self.regrep();
             return;
         }
 
