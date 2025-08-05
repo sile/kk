@@ -211,6 +211,9 @@
         "type": "buffer-reload"
       },
       {
+        "type": "cancel"
+      },
+      {
         "type": "echo",
         "message": "Formatted!"
       }
