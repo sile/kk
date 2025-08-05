@@ -34,6 +34,7 @@ pub enum Action {
     GrepNextHit,
     GrepPrevHit,
     ContextSet(ContextSetAction),
+    Echo(EchoAction),
     Multiple(Vec<Action>),
 }
 
@@ -76,6 +77,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
             "mark-cut" => Ok(Self::MarkCut),
             "clipboard-paste" => Ok(Self::ClipboardPaste),
             "context-set" => ContextSetAction::try_from(value).map(Self::ContextSet),
+            "echo" => EchoAction::try_from(value).map(Self::Echo),
             "external-command" => ExternalCommandAction::try_from(value).map(Self::ShellCommand),
             "grep" => GrepAction::try_from(value).map(Self::Grep),
             "grep-next-hit" => Ok(Self::GrepNextHit),
@@ -86,9 +88,31 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
 }
 
 #[derive(Debug, Clone)]
+pub enum ExternalCommandArg {
+    Literal(String),
+    CurrentFile,
+}
+
+impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for ExternalCommandArg {
+    type Error = nojson::JsonParseError;
+
+    fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
+        if let Ok(var) = value.to_member("var") {
+            let var = var.required()?;
+            match var.to_unquoted_string_str()?.as_ref() {
+                "CURRENT_FILE" => Ok(Self::CurrentFile),
+                _ => Err(var.invalid("unknown var")),
+            }
+        } else {
+            Ok(Self::Literal(value.try_into()?))
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ExternalCommandAction {
     pub command: String,
-    pub args: Vec<String>,
+    pub args: Vec<ExternalCommandArg>,
 }
 
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for ExternalCommandAction {
@@ -136,6 +160,21 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for ContextSetActio
     fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
         Ok(Self {
             name: value.to_member("name")?.required()?.try_into()?,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct EchoAction {
+    pub message: String,
+}
+
+impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for EchoAction {
+    type Error = nojson::JsonParseError;
+
+    fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
+        Ok(Self {
+            message: value.to_member("message")?.required()?.try_into()?,
         })
     }
 }

@@ -4,7 +4,7 @@ use orfail::OrFail;
 use tuinix::{KeyCode, TerminalPosition, TerminalSize};
 
 use crate::{
-    action::ExternalCommandAction,
+    action::{ExternalCommandAction, ExternalCommandArg},
     anchor::CursorAnchor,
     buffer::{TextBuffer, TextPosition},
     clipboard::Clipboard,
@@ -587,7 +587,10 @@ impl State {
         let mut cmd = std::process::Command::new(&action.command);
 
         for arg in &action.args {
-            cmd.arg(arg);
+            match arg {
+                ExternalCommandArg::Literal(a) => cmd.arg(a),
+                ExternalCommandArg::CurrentFile => cmd.arg(&self.path.display().to_string()),
+            };
         }
 
         let stdin_input = if let Some(mark_pos) = self.mark {

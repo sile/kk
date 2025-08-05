@@ -153,6 +153,9 @@ impl App {
                 self.state.context.enter(&c.name);
                 self.state.set_message(format!("New context: {}", c.name));
             }
+            Action::Echo(m) => {
+                self.state.set_message(&m.message);
+            }
             Action::Grep(action) => {
                 self.state.finish_editing();
                 self.state.grep_mode = Some(GrepMode::new(action));

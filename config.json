@@ -67,7 +67,9 @@
       }
     },
     "rust": {
-      "C-g": "cancel"
+      "C-g": "cancel",
+      "C-f": "rustfmt",
+      "f": "rustfmt"
     }
   },
   "keylabels": {
@@ -192,6 +194,27 @@
       "type": "context-set",
       "name": "rust"
     },
+    "rustfmt": [
+      {
+        "type": "buffer-save"
+      },
+      {
+        "type": "external-command",
+        "command": "rustfmt",
+        "args": [
+          {
+            "var": "CURRENT_FILE"
+          }
+        ]
+      },
+      {
+        "type": "buffer-reload"
+      },
+      {
+        "type": "echo",
+        "message": "Formatted!"
+      }
+    ],
     "niho": [
       {
         "type": "cursor-line-start"
