@@ -17,6 +17,7 @@
       "M-w": "copy",
       "C-y": "paste",
       "C-k": "kill-line",
+      "C-r": "rust-mode",
       "M-,": "jump",
       "<VISIBLE>": "insert",
       "<DELETE>": "delete",
@@ -64,6 +65,9 @@
         "C-d": "delete",
         "C-h": "backspace"
       }
+    },
+    "rust": {
+      "C-g": "cancel"
     }
   },
   "keylabels": {
@@ -183,6 +187,10 @@
     },
     "prev-hit": {
       "type": "grep-prev-hit"
+    },
+    "rust-mode": {
+      "type": "context-set",
+      "name": "rust"
     },
     "niho": [
       {
