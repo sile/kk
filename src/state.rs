@@ -223,6 +223,15 @@ impl State {
     }
 
     pub fn handle_char_delete_backward(&mut self) {
+        if let Some(grep) = &mut self.grep_mode {
+            if grep.cursor > 0 {
+                grep.query.remove(grep.cursor - 1);
+                grep.cursor -= 1;
+                self.regrep();
+            }
+            return;
+        }
+
         self.start_editing();
         if let Some(new_pos) = self.buffer.delete_char_before(self.cursor) {
             self.cursor = new_pos;
@@ -230,8 +239,29 @@ impl State {
     }
 
     pub fn handle_char_delete_forward(&mut self) {
+        if let Some(grep) = &mut self.grep_mode {
+            if grep.cursor < grep.query.len() {
+                grep.query.remove(grep.cursor);
+                self.regrep();
+            }
+            return;
+        }
+
         self.start_editing();
         self.buffer.delete_char_at(self.cursor);
+    }
+
+    fn regrep(&mut self) {
+        let Some(grep) = &mut self.grep_mode else {
+            return;
+        };
+        match grep.grep(&self.buffer) {
+            Err(e) => self.set_message(e.message),
+            Ok(highlight) => {
+                self.set_message(format!("Hit: {}", highlight.items.len()));
+                self.highlight = highlight;
+            }
+        }
     }
 
     pub fn handle_buffer_save(&mut self) -> orfail::Result<()> {
