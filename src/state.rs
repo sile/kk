@@ -247,6 +247,18 @@ impl State {
     }
 
     pub fn handle_char_insert(&mut self, key: tuinix::KeyInput) {
+        if let Some(grep) = &mut self.grep_mode {
+            grep.handle_char_insert(key);
+            match grep.grep(&self.buffer) {
+                Err(e) => self.set_message(e.message),
+                Ok(highlight) => {
+                    self.set_message(format!("Hit: {}", highlight.items.len()));
+                    self.highlight = highlight;
+                }
+            }
+            return;
+        }
+
         self.start_editing();
         // Only insert printable characters
         if let KeyCode::Char(ch) = key.code
