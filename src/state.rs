@@ -157,6 +157,12 @@ impl State {
     }
 
     pub fn handle_cursor_left(&mut self) {
+        if let Some(grep) = &mut self.grep_mode {
+            // TODO: consider char width
+            grep.cursor = grep.cursor.saturating_sub(1);
+            return;
+        }
+
         if self.cursor.col > 0 {
             self.cursor.col = self.cursor.col.saturating_sub(1);
             self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
@@ -169,6 +175,12 @@ impl State {
     }
 
     pub fn handle_cursor_right(&mut self) {
+        if let Some(grep) = &mut self.grep_mode {
+            // TODO: consider char width
+            grep.cursor = (grep.cursor + 1).min(grep.query.len());
+            return;
+        }
+
         let current_cols = self.buffer.cols(self.cursor.row);
         if self.cursor.col < current_cols {
             self.cursor.col = self.cursor.col.saturating_add(1);
