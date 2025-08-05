@@ -18,6 +18,7 @@
       "C-y": "paste",
       "C-k": "kill-line",
       "C-r": "rust-mode",
+      "C-x": "ext-mode",
       "M-,": "jump",
       "<VISIBLE>": "insert",
       "<DELETE>": "delete",
@@ -59,13 +60,19 @@
       "C-a": "SOL",
       "C-e": "EOL",
       "C-s": "next-hit",
+      "<TAB>": "next-hit",
       "C-r": "prev-hit",
+      "<BACKTAB>": "prev-hit",
       "__hidden__": {
         "C-b": "left",
         "C-f": "right",
         "C-d": "delete",
         "C-h": "backspace"
       }
+    },
+    "ext": {
+      "C-g": "cancel",
+      "C-x": "save"
     },
     "rust": {
       "C-g": "cancel",
@@ -190,6 +197,10 @@
     },
     "prev-hit": {
       "type": "grep-prev-hit"
+    },
+    "ext-mode": {
+      "type": "context-set",
+      "name": "ext"
     },
     "rust-mode": {
       "type": "context-set",

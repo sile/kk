@@ -77,7 +77,7 @@ impl std::str::FromStr for KeyPattern {
             "<ESCAPE>" => return Ok(KeyPattern::Literal(key(KeyCode::Escape))),
             "<BACKSPACE>" => return Ok(KeyPattern::Literal(key(KeyCode::Backspace))),
             "<TAB>" => return Ok(KeyPattern::Literal(key(KeyCode::Tab))),
-            "<BACK_TAB>" => return Ok(KeyPattern::Literal(key(KeyCode::BackTab))),
+            "<BACKTAB>" => return Ok(KeyPattern::Literal(key(KeyCode::BackTab))),
             "<DELETE>" => return Ok(KeyPattern::Literal(key(KeyCode::Delete))),
             "<INSERT>" => return Ok(KeyPattern::Literal(key(KeyCode::Insert))),
             "<HOME>" => return Ok(KeyPattern::Literal(key(KeyCode::Home))),
