@@ -18,6 +18,7 @@
       "C-y": "paste",
       "C-k": "kill-line",
       "C-r": "rust-mode",
+      "M-j": "json-mode",
       "C-x": "ext-mode",
       "M-,": "jump",
       "<VISIBLE>": "insert",
@@ -71,13 +72,17 @@
       }
     },
     "ext": {
-      "C-g": "cancel",
+      "C-g": "goto",
       "C-s": "save"
     },
     "rust": {
       "C-g": "cancel",
       "C-f": "rustfmt",
       "f": "rustfmt"
+    },
+    "json": {
+      "C-g": "cancel",
+      "f": "jqfmt"
     }
   },
   "keylabels": {
@@ -122,6 +127,9 @@
     },
     "jump": {
       "type": "cursor-jump"
+    },
+    "godo": {
+      "type": "goto-line"
     },
     "save": [
       {
@@ -213,6 +221,10 @@
       "type": "context-set",
       "name": "rust"
     },
+    "json-mode": {
+      "type": "context-set",
+      "name": "json"
+    },
     "rustfmt": [
       {
         "type": "buffer-save"
@@ -224,6 +236,32 @@
           {
             "var": "CURRENT_FILE"
           }
+        ]
+      },
+      {
+        "type": "buffer-reload"
+      },
+      {
+        "type": "cursor-skip-spaces"
+      },
+      {
+        "type": "cancel"
+      },
+      {
+        "type": "echo",
+        "message": "Formatted!"
+      }
+    ],
+    "jqfmt": [
+      {
+        "type": "buffer-save"
+      },
+      {
+        "type": "external-command",
+        "command": "fish",
+        "args": [
+          "-c",
+          "jq . $KK_CURRENT_FILE | sponge $KK_CURRENT_FILE"
         ]
       },
       {

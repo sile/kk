@@ -37,6 +37,7 @@ pub enum Action {
     ContextSet(ContextSetAction),
     Echo(EchoAction),
     Complement(ComplementAction),
+    GotoLine,
     Multiple(Vec<Action>),
 }
 
@@ -86,6 +87,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
             "grep-next-hit" => Ok(Self::GrepNextHit),
             "grep-prev-hit" => Ok(Self::GrepPrevHit),
             "complement" => ComplementAction::try_from(value).map(Self::Complement),
+            "goto-line" => Ok(Self::GotoLine),
             ty => Err(value.invalid(format!("unknown command type: {ty:?}"))),
         }
     }

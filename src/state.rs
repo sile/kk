@@ -607,6 +607,7 @@ impl State {
         cmd.stdin(std::process::Stdio::piped());
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());
+        cmd.env("KK_CURRENT_FILE", self.path.display().to_string());
 
         let mut child = match cmd.spawn() {
             Err(e) => {
