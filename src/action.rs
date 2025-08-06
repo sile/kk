@@ -36,6 +36,7 @@ pub enum Action {
     GrepPrevHit,
     ContextSet(ContextSetAction),
     Echo(EchoAction),
+    Complement(ComplementAction),
     Multiple(Vec<Action>),
 }
 
@@ -84,6 +85,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
             "grep" => GrepAction::try_from(value).map(Self::Grep),
             "grep-next-hit" => Ok(Self::GrepNextHit),
             "grep-prev-hit" => Ok(Self::GrepPrevHit),
+            "complement" => ComplementAction::try_from(value).map(Self::Complement),
             ty => Err(value.invalid(format!("unknown command type: {ty:?}"))),
         }
     }
@@ -138,6 +140,26 @@ pub struct GrepAction {
 }
 
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for GrepAction {
+    type Error = nojson::JsonParseError;
+
+    fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
+        Ok(Self {
+            command: value.to_member("command")?.required()?.try_into()?,
+            args: value
+                .to_member("args")?
+                .map(Vec::try_from)?
+                .unwrap_or_default(),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ComplementAction {
+    pub command: String,
+    pub args: Vec<String>,
+}
+
+impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for ComplementAction {
     type Error = nojson::JsonParseError;
 
     fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {

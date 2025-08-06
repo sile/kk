@@ -178,6 +178,7 @@ impl App {
                     self.state.set_message("No grep hits available");
                 }
             }
+            Action::Complement(_) => todo!(),
         }
         Ok(())
     }
