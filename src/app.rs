@@ -37,7 +37,7 @@ impl App {
             state: State::new(path).or_fail()?,
             anchor_log: CursorAnchorLog::default(),
             config: Config::default(),
-             text_area: TextAreaRenderer,
+            text_area: TextAreaRenderer,
             message_line: MessageLineRenderer,
             status_line: StatusLineRenderer,
             legend: LegendRenderer,
@@ -49,7 +49,7 @@ impl App {
         let mut dirty = true;
         self.state.set_message("Started");
 
-         while !self.exit {
+        while !self.exit {
             if dirty {
                 self.render().or_fail()?;
                 dirty = false;
@@ -83,7 +83,11 @@ impl App {
             return Ok(());
         };
 
-        let action = self.config.actions.get(action_name).or_fail()?;
+        let action = self
+            .config
+            .actions
+            .get(action_name)
+            .or_fail_with(|()| format!("undefined action: {action_name:?}"))?;
         self.handle_action(action.clone(), key).or_fail()?; // TODO: remove clone
         Ok(())
     }
