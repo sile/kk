@@ -129,6 +129,8 @@ impl App {
                 self.state.handle_cursor_page_down(text_area_size);
             }
             Action::CursorSkipSpaces => self.state.handle_cursor_skip_spaces(),
+            Action::CursorUpSkipSpaces => self.state.handle_cursor_up_skip_spaces(),
+            Action::CursorDownSkipSpaces => self.state.handle_cursor_down_skip_spaces(),
             Action::ViewRecenter => self.state.handle_view_recenter(),
             Action::NewlineInsert => self.state.handle_newline_insert(),
             Action::CharInsert => self.state.handle_char_insert(key),

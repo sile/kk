@@ -80,7 +80,9 @@
     },
     "goto": {
       "C-g": "cancel",
-      "g": "goto"
+      "g": "goto",
+      "p": "up-same-level",
+      "n": "down-same-level"
     },
     "rust": {
       "C-g": "cancel",
@@ -151,6 +153,12 @@
         "message": "Moved!"
       }
     ],
+    "up-same-level": {
+      "type": "cursor-up-skip-spaces"
+    },
+    "down-same-level": {
+      "type": "cursor-down-skip-spaces"
+    },
     "save": [
       {
         "type": "cursor-anchor"

@@ -866,6 +866,69 @@ impl State {
         self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
     }
 
+    pub fn handle_cursor_up_skip_spaces(&mut self) {
+        self.finish_editing();
+
+        let mut current_row = self.cursor.row;
+
+        // Move up through lines, skipping empty lines and lines with only whitespace
+        while current_row > 0 {
+            current_row = current_row.saturating_sub(1);
+
+            if let Some(line) = self.buffer.text.get(current_row) {
+                // Check if line has non-whitespace content
+                let has_content = line.char_cols().any(|(_, ch)| !ch.is_ascii_whitespace());
+
+                if has_content {
+                    self.cursor.row = current_row;
+                    // Try to maintain column position, but adjust to line length if needed
+                    let max_col = self.buffer.cols(current_row);
+                    self.cursor.col = self.cursor.col.min(max_col);
+                    self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
+                    return;
+                }
+            }
+        }
+
+        // If we didn't find a non-empty line above, just move to the first line
+        self.cursor.row = 0;
+        self.cursor.col = 0;
+    }
+
+    pub fn handle_cursor_down_skip_spaces(&mut self) {
+        self.finish_editing();
+
+        let mut current_row = self.cursor.row;
+        let max_row = self.buffer.rows();
+
+        // Move down through lines, skipping empty lines and lines with only whitespace
+        while current_row < max_row {
+            current_row = current_row.saturating_add(1);
+
+            if current_row >= max_row {
+                break;
+            }
+
+            if let Some(line) = self.buffer.text.get(current_row) {
+                // Check if line has non-whitespace content
+                let has_content = line.char_cols().any(|(_, ch)| !ch.is_ascii_whitespace());
+
+                if has_content {
+                    self.cursor.row = current_row;
+                    // Try to maintain column position, but adjust to line length if needed
+                    let max_col = self.buffer.cols(current_row);
+                    self.cursor.col = self.cursor.col.min(max_col);
+                    self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
+                    return;
+                }
+            }
+        }
+
+        // If we didn't find a non-empty line below, move to the last line
+        self.cursor.row = max_row;
+        self.cursor.col = 0;
+    }
+
     pub fn handle_goto_line(&mut self) -> orfail::Result<()> {
         let text = self.clipboard.read().or_fail()?;
         let Some(anchor) = CursorAnchor::parse_for_goto(&text, &self.path) else {
