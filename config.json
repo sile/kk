@@ -243,6 +243,8 @@
         "type": "external-command",
         "command": "rustfmt",
         "args": [
+          "--edition",
+          "2024",
           {
             "var": "CURRENT_FILE"
           }
