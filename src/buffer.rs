@@ -248,7 +248,6 @@ impl TextLine {
         })
     }
 
-    // Add method to get character at column
     pub fn char_at_col(&self, col: usize) -> Option<char> {
         let mut current_col = 0;
         for &ch in &self.0 {

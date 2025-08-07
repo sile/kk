@@ -153,12 +153,22 @@
         "message": "Moved!"
       }
     ],
-    "up-same-level": {
-      "type": "cursor-up-skip-spaces"
-    },
-    "down-same-level": {
-      "type": "cursor-down-skip-spaces"
-    },
+    "up-same-level": [
+      {
+        "type": "cursor-up-skip-spaces"
+      },
+      {
+        "type": "cancel"
+      }
+    ],
+    "down-same-level": [
+      {
+        "type": "cursor-down-skip-spaces"
+      },
+      {
+        "type": "cancel"
+      }
+    ],
     "save": [
       {
         "type": "cursor-anchor"
