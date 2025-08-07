@@ -17,6 +17,7 @@ impl Clipboard {
     }
 
     pub fn write(&self, content: &str) -> orfail::Result<()> {
+        // TODO: File::lock()
         std::fs::write(&self.path, content).or_fail()
     }
 }

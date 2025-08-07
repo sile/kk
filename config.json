@@ -21,6 +21,7 @@
       "M-j": "json-mode",
       "C-x": "ext-mode",
       "M-,": "jump",
+      "M-/": "complement",
       "<VISIBLE>": "insert",
       "<DELETE>": "delete",
       "<BACKSPACE>": "backspace",
@@ -128,6 +129,10 @@
     },
     "jump": {
       "type": "cursor-jump"
+    },
+    "complement": {
+      "type": "complement",
+      "command": "grep"
     },
     "goto": [
       {
