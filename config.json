@@ -233,13 +233,18 @@
     "kill-line": {
       "type": "line-delete"
     },
-    "grep": {
-      "type": "grep",
-      "command": "grep",
-      "args": [
-        "-bio"
-      ]
-    },
+    "grep": [
+      {
+        "type": "cursor-anchor"
+      },
+      {
+        "type": "grep",
+        "command": "grep",
+        "args": [
+          "-bio"
+        ]
+      }
+    ],
     "next-hit": {
       "type": "grep-next-hit"
     },

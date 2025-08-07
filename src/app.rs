@@ -165,8 +165,7 @@ impl App {
             }
             Action::Grep(action) => {
                 self.state.finish_editing();
-                self.state.grep_mode =
-                    Some(GrepMode::new(action, self.state.current_cursor_anchor()));
+                self.state.grep_mode = Some(GrepMode::new(action));
                 self.state.mark = None;
                 self.state.context.enter("__grep__");
                 self.state.set_message("Entered grep mode");

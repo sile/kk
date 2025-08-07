@@ -5,7 +5,6 @@ use tuinix::{TerminalPosition, TerminalRegion};
 
 use crate::{
     action::GrepAction,
-    anchor::CursorAnchor,
     buffer::{TextBuffer, TextPosition},
     mame::TerminalFrame,
     state::State,
@@ -16,16 +15,14 @@ pub struct GrepMode {
     pub action: GrepAction,
     pub query: Vec<char>,
     pub cursor: usize,
-    pub original_position: CursorAnchor,
 }
 
 impl GrepMode {
-    pub fn new(action: GrepAction, original_position: CursorAnchor) -> Self {
+    pub fn new(action: GrepAction) -> Self {
         Self {
             action,
             query: Vec::new(),
             cursor: 0,
-            original_position,
         }
     }
 
