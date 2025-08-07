@@ -22,7 +22,6 @@
       "C-x": "ext-mode",
       "M-g": "goto-mode",
       "M-,": "jump",
-      "M-/": "complement",
       "<VISIBLE>": "insert",
       "<DELETE>": "delete",
       "<BACKSPACE>": "backspace",
@@ -136,10 +135,6 @@
     },
     "jump": {
       "type": "cursor-jump"
-    },
-    "complement": {
-      "type": "complement",
-      "command": "grep"
     },
     "goto": [
       {

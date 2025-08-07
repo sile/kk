@@ -186,7 +186,6 @@ impl App {
                 }
             }
             Action::GotoLine => self.state.handle_goto_line().or_fail()?,
-            Action::Complement(_) => todo!(),
         }
         Ok(())
     }
