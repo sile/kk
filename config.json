@@ -72,8 +72,9 @@
       }
     },
     "ext": {
-      "C-g": "goto",
-      "C-s": "save"
+      "C-g": "cancel",
+      "C-s": "save",
+      "g": "goto"
     },
     "rust": {
       "C-g": "cancel",
@@ -128,9 +129,18 @@
     "jump": {
       "type": "cursor-jump"
     },
-    "godo": {
-      "type": "goto-line"
-    },
+    "goto": [
+      {
+        "type": "goto-line"
+      },
+      {
+        "type": "cancel"
+      },
+      {
+        "type": "echo",
+        "message": "Moved!"
+      }
+    ],
     "save": [
       {
         "type": "cursor-anchor"

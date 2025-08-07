@@ -1,4 +1,8 @@
-use std::{io::Write, num::NonZeroUsize, path::PathBuf};
+use std::{
+    io::Write,
+    num::NonZeroUsize,
+    path::{Path, PathBuf},
+};
 
 use orfail::OrFail;
 
@@ -65,6 +69,38 @@ pub struct CursorAnchor {
     pub path: PathBuf,
     pub line: NonZeroUsize,
     pub char: NonZeroUsize,
+}
+
+impl CursorAnchor {
+    pub fn parse_for_goto(s: &str, current_file: &Path) -> Option<Self> {
+        let s = s.trim();
+        if s.is_empty() {
+            return None;
+        };
+
+        // FORMAT: <LINE>
+        if let Ok(line) = s.parse::<NonZeroUsize>() {
+            return Some(Self {
+                path: current_file.to_path_buf(),
+                line,
+                char: NonZeroUsize::MIN,
+            });
+        }
+
+        let mut tokens = s.split(':');
+        let path: PathBuf = tokens.next()?.parse().ok()?;
+        let line: NonZeroUsize = tokens.next()?.parse().ok()?;
+        let maybe_char_str = tokens.next();
+
+        let char = if let Some(char) = maybe_char_str.and_then(|s| s.parse::<NonZeroUsize>().ok()) {
+            // FORMAT: <FILE>:<LINE>:<CHAR>
+            char
+        } else {
+            // FORMAT: <FILE>:<LINE>
+            NonZeroUsize::MIN
+        };
+        Some(Self { path, line, char })
+    }
 }
 
 impl std::fmt::Display for CursorAnchor {

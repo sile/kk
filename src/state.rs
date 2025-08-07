@@ -865,4 +865,15 @@ impl State {
 
         self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
     }
+
+    pub fn handle_goto_line(&mut self) -> orfail::Result<()> {
+        let text = self.clipboard.read().or_fail()?;
+        let Some(anchor) = CursorAnchor::parse_for_goto(&text, &self.path) else {
+            self.set_message("No goto anchor in the clipboard");
+            return Ok(());
+        };
+
+        self.restore_anchor(&anchor).or_fail()?;
+        Ok(())
+    }
 }

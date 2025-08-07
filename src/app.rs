@@ -37,7 +37,7 @@ impl App {
             state: State::new(path).or_fail()?,
             anchor_log: CursorAnchorLog::default(),
             config: Config::default(),
-            text_area: TextAreaRenderer,
+             text_area: TextAreaRenderer,
             message_line: MessageLineRenderer,
             status_line: StatusLineRenderer,
             legend: LegendRenderer,
@@ -49,7 +49,7 @@ impl App {
         let mut dirty = true;
         self.state.set_message("Started");
 
-        while !self.exit {
+         while !self.exit {
             if dirty {
                 self.render().or_fail()?;
                 dirty = false;
@@ -178,7 +178,7 @@ impl App {
                     self.state.set_message("No grep hits available");
                 }
             }
-            Action::GotoLine => todo!(),
+            Action::GotoLine => self.state.handle_goto_line().or_fail()?,
             Action::Complement(_) => todo!(),
         }
         Ok(())
