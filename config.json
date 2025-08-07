@@ -20,6 +20,7 @@
       "C-r": "rust-mode",
       "M-j": "json-mode",
       "C-x": "ext-mode",
+      "M-g": "goto-mode",
       "M-,": "jump",
       "M-/": "complement",
       "<VISIBLE>": "insert",
@@ -75,6 +76,10 @@
     "ext": {
       "C-g": "cancel",
       "C-s": "save",
+      "g": "goto"
+    },
+    "goto": {
+      "C-g": "cancel",
       "g": "goto"
     },
     "rust": {
@@ -231,6 +236,10 @@
     "ext-mode": {
       "type": "context-set",
       "name": "ext"
+    },
+    "goto-mode": {
+      "type": "context-set",
+      "name": "goto"
     },
     "rust-mode": {
       "type": "context-set",
