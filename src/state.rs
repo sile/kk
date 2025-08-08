@@ -948,6 +948,7 @@ impl State {
         }
 
         // Continue moving left while we encounter skip_chars
+        // TODO: Move to end of previous line if need
         if let Some(line) = self.buffer.text.get(current_row) {
             while current_col > 0 {
                 if let Some(ch) = line.char_at_col(current_col) {

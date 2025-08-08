@@ -7,7 +7,7 @@ use crate::{action::ActionName, mame::KeyPattern};
 
 #[derive(Debug)]
 pub struct KeybindingsContext {
-    stack: Vec<String>,
+    stack: Vec<String>, // TODO: s/Vec<String>/String/
 }
 
 impl KeybindingsContext {

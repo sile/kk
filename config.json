@@ -66,6 +66,7 @@
       "<TAB>": "next-hit",
       "C-r": "prev-hit",
       "<BACKTAB>": "prev-hit",
+      "M-m": "mark-hit",
       "__hidden__": {
         "C-b": "left",
         "C-f": "right",
@@ -268,6 +269,31 @@
     "prev-hit": {
       "type": "grep-prev-hit"
     },
+    "mark-hit": [
+      {
+        "type": "cancel"
+      },
+      {
+        "type": "cursor-left-skip-chars",
+        "chars": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+      },
+      {
+        "type": "cursor-right"
+      },
+      {
+        "type": "mark-set"
+      },
+      {
+        "type": "cursor-right-skip-chars",
+        "chars": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+      },
+      {
+        "type": "mark-copy"
+      },
+      {
+        "type": "cursor-jump"
+      }
+    ],
     "ext-mode": {
       "type": "context-set",
       "name": "ext"
