@@ -924,4 +924,83 @@ impl State {
         self.restore_anchor(&anchor).or_fail()?;
         Ok(())
     }
+
+    pub fn handle_cursor_left_skip_chars(&mut self, skip_chars: &str) {
+        self.finish_editing();
+
+        let current_row = self.cursor.row;
+        let mut current_col = self.cursor.col;
+
+        // First, move left at least once
+        if current_col > 0 {
+            current_col -= 1;
+        } else if current_row > 0 {
+            // Move to end of previous line
+            self.cursor.row = current_row - 1;
+            if let Some(line) = self.buffer.text.get(self.cursor.row) {
+                current_col = line.0.len();
+            }
+            self.cursor.col = current_col;
+            return;
+        } else {
+            // Already at the beginning of the buffer
+            return;
+        }
+
+        // Continue moving left while we encounter skip_chars
+        if let Some(line) = self.buffer.text.get(current_row) {
+            while current_col > 0 {
+                if let Some(ch) = line.char_at_col(current_col) {
+                    if !skip_chars.contains(ch) {
+                        break;
+                    }
+                    current_col -= 1;
+                } else {
+                    break;
+                }
+            }
+
+            self.cursor.col = current_col;
+            self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
+        }
+    }
+
+    pub fn handle_cursor_right_skip_chars(&mut self, skip_chars: &str) {
+        self.finish_editing();
+
+        let current_row = self.cursor.row;
+        let mut current_col = self.cursor.col;
+
+        if let Some(line) = self.buffer.text.get(current_row) {
+            let line_cols = self.buffer.cols(current_row);
+
+            // First, move right at least once
+            if current_col < line_cols {
+                current_col += 1;
+            } else if current_row < self.buffer.rows() {
+                // Move to beginning of next line
+                self.cursor.row = current_row + 1;
+                self.cursor.col = 0;
+                return;
+            } else {
+                // Already at the end of the buffer
+                return;
+            }
+
+            // Continue moving right while we encounter skip_chars
+            while current_col < line_cols {
+                if let Some(ch) = line.char_at_col(current_col) {
+                    if !skip_chars.contains(ch) {
+                        break;
+                    }
+                    current_col += 1;
+                } else {
+                    break;
+                }
+            }
+
+            self.cursor.col = current_col;
+            self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, false);
+        }
+    }
 }

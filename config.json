@@ -22,6 +22,7 @@
       "C-x": "ext-mode",
       "M-g": "goto-mode",
       "M-,": "jump",
+      "M-m": "mark-ident",
       "<VISIBLE>": "insert",
       "<DELETE>": "delete",
       "<BACKSPACE>": "backspace",
@@ -122,6 +123,22 @@
       },
       {
         "type": "cursor-line-end"
+      }
+    ],
+    "mark-ident": [
+      {
+        "type": "cursor-left-skip-chars",
+        "chars": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+      },
+      {
+        "type": "cursor-right"
+      },
+      {
+        "type": "mark-set"
+      },
+      {
+        "type": "cursor-right-skip-chars",
+        "chars": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
       }
     ],
     "cut": {

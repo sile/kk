@@ -22,6 +22,8 @@ pub enum Action {
     CursorSkipSpaces,
     CursorUpSkipSpaces,
     CursorDownSkipSpaces,
+    CursorLeftSkipChars(SkipChars),
+    CursorRightSkipChars(SkipChars),
     ViewRecenter,
     NewlineInsert,
     CharInsert,
@@ -73,6 +75,8 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
             "cursor-skip-spaces" => Ok(Self::CursorSkipSpaces),
             "cursor-up-skip-spaces" => Ok(Self::CursorUpSkipSpaces),
             "cursor-down-skip-spaces" => Ok(Self::CursorDownSkipSpaces),
+            "cursor-left-skip-chars" => SkipChars::try_from(value).map(Self::CursorLeftSkipChars),
+            "cursor-right-skip-chars" => SkipChars::try_from(value).map(Self::CursorRightSkipChars),
             "view-recenter" => Ok(Self::ViewRecenter),
             "newline-insert" => Ok(Self::NewlineInsert),
             "char-insert" => Ok(Self::CharInsert),
@@ -183,6 +187,21 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for EchoAction {
     fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
         Ok(Self {
             message: value.to_member("message")?.required()?.try_into()?,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SkipChars {
+    pub chars: String,
+}
+
+impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for SkipChars {
+    type Error = nojson::JsonParseError;
+
+    fn try_from(value: nojson::RawJsonValue<'text, 'raw>) -> Result<Self, Self::Error> {
+        Ok(Self {
+            chars: value.to_member("chars")?.required()?.try_into()?,
         })
     }
 }
