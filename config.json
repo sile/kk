@@ -12,12 +12,12 @@
       "M->": "EOF",
       "C-l": "recenter",
       "C-s": "grep",
+      "C-r": "rgrep",
       "C- ": "mark",
       "C-w": "cut",
       "M-w": "copy",
       "C-y": "paste",
       "C-k": "kill-line",
-      "C-r": "rust-mode",
       "M-j": "json-mode",
       "C-x": "ext-mode",
       "M-g": "goto-mode",
@@ -88,11 +88,6 @@
       "g": "goto",
       "p": "up-same-level",
       "n": "down-same-level"
-    },
-    "rust": {
-      "C-g": "cancel",
-      "C-f": "rustfmt",
-      "f": "rustfmt"
     },
     "json": {
       "C-g": "cancel",
@@ -268,6 +263,20 @@
         ]
       }
     ],
+    "rgrep": [
+      {
+        "type": "cursor-anchor"
+      },
+      {
+        "type": "grep",
+        "command": "grep",
+        "args": [
+          "-m100",
+          "-bio"
+        ],
+        "forward": false
+      }
+    ],
     "next-hit": {
       "type": "grep-next-hit"
     },
@@ -312,10 +321,6 @@
     "goto-mode": {
       "type": "context-set",
       "name": "goto"
-    },
-    "rust-mode": {
-      "type": "context-set",
-      "name": "rust"
     },
     "json-mode": {
       "type": "context-set",

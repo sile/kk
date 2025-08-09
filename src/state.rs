@@ -260,7 +260,11 @@ impl State {
             Ok(highlight) => {
                 self.highlight = highlight;
                 if !self.highlight.contains(self.cursor) {
-                    self.handle_grep_next_hit();
+                    if grep.action.forward {
+                        self.handle_grep_next_hit();
+                    } else {
+                        self.handle_grep_prev_hit();
+                    }
                 }
                 self.set_message(format!("Hit: {}", self.highlight.items.len()));
             }
@@ -792,6 +796,11 @@ impl State {
     }
 
     pub fn handle_grep_next_hit(&mut self) {
+        let Some(grep) = &mut self.grep_mode else {
+            return;
+        };
+        grep.action.forward = true;
+
         self.finish_editing();
 
         let current_pos = self.cursor_position();
@@ -815,6 +824,11 @@ impl State {
     }
 
     pub fn handle_grep_prev_hit(&mut self) {
+        let Some(grep) = &mut self.grep_mode else {
+            return;
+        };
+        grep.action.forward = false;
+
         self.finish_editing();
 
         let current_pos = self.cursor_position();
