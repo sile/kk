@@ -263,6 +263,7 @@
         "type": "grep",
         "command": "grep",
         "args": [
+          "-m100",
           "-bio"
         ]
       }

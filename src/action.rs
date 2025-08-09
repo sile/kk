@@ -149,6 +149,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for ExternalCommand
 pub struct GrepAction {
     pub command: String,
     pub args: Vec<String>,
+    pub forward: bool,
 }
 
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for GrepAction {
@@ -160,6 +161,10 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for GrepAction {
             args: value
                 .to_member("args")?
                 .map(Vec::try_from)?
+                .unwrap_or_default(),
+            forward: value
+                 .to_member("forward")?
+                .map(bool::try_from)?
                 .unwrap_or_default(),
         })
     }
