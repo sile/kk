@@ -104,7 +104,9 @@ impl App {
             }
             Action::Cancel => {
                 self.state.mark = None;
-                self.state.grep_mode = None;
+                if let Some(grep) = self.state.grep_mode.take() {
+                    grep.save_query().or_fail()?;
+                }
                 self.state.highlight = Highlight::default();
                 self.state.context.enter("__main__");
                 self.state.set_message("Canceled");

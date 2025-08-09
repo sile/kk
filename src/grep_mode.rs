@@ -15,6 +15,7 @@ pub struct GrepMode {
     pub action: GrepAction,
     pub query: Vec<char>,
     pub cursor: usize,
+    query_history_index: Option<usize>,
 }
 
 impl GrepMode {
@@ -23,6 +24,7 @@ impl GrepMode {
             action,
             query: Vec::new(),
             cursor: 0,
+            query_history_index: None,
         }
     }
 
@@ -64,6 +66,36 @@ impl GrepMode {
         std::fs::write(dir.join(".kk.highlight"), &output).or_fail()?;
 
         Highlight::parse(&output, &buffer).or_fail()
+    }
+
+    pub fn prev_query(&self) -> orfail::Result<()> {
+        // TODO: optimize
+        let path = self.query_history_path();
+        todo!()
+    }
+
+    pub fn next_query(&self) -> orfail::Result<()> {
+        // TODO: optimize
+        let path = self.query_history_path();
+        todo!()
+    }
+
+    pub fn save_query(&self) -> orfail::Result<()> {
+        let path = self.query_history_path();
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .or_fail()?;
+        writeln!(file, "{}", self.query.iter().collect::<String>()).or_fail()?;
+        Ok(())
+    }
+
+    fn query_history_path(&self) -> PathBuf {
+        let dir = std::env::var_os("HOME") // TODO
+            .map(PathBuf::from)
+            .unwrap_or_default();
+        dir.join(".kk.grep-queries")
     }
 
     fn execute_command(&self, buffer: &str) -> orfail::Result<String> {
