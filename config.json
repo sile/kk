@@ -66,10 +66,14 @@
       "<TAB>": "next-hit",
       "C-r": "prev-hit",
       "<BACKTAB>": "prev-hit",
+      "<UP>": "prev-query",
+      "<DOWN>": "next-query",
       "M-m": "mark-hit",
       "__hidden__": {
         "C-b": "left",
         "C-f": "right",
+        "C-p": "prev-query",
+        "C-n": "next-query",
         "C-d": "delete",
         "C-h": "backspace"
       }
@@ -268,6 +272,12 @@
     },
     "prev-hit": {
       "type": "grep-prev-hit"
+    },
+    "next-query": {
+      "type": "grep-next-query"
+    },
+    "prev-query": {
+      "type": "grep-prev-query"
     },
     "mark-hit": [
       {

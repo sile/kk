@@ -1004,4 +1004,48 @@ impl State {
             self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, false);
         }
     }
+
+    pub fn handle_grep_next_query(&mut self) {
+        let Some(grep) = &mut self.grep_mode else {
+            self.set_message("Not in grep mode");
+            return;
+        };
+
+        match grep.next_query() {
+            Ok(Some(query)) => {
+                grep.query = query.chars().collect();
+                grep.cursor = grep.query.len();
+                self.regrep();
+                self.set_message("Next query");
+            }
+            Ok(None) => {
+                self.set_message("No next query");
+            }
+            Err(e) => {
+                self.set_message(format!("Error loading next query: {}", e));
+            }
+        }
+    }
+
+    pub fn handle_grep_prev_query(&mut self) {
+        let Some(grep) = &mut self.grep_mode else {
+            self.set_message("Not in grep mode");
+            return;
+        };
+
+        match grep.prev_query() {
+            Ok(Some(query)) => {
+                grep.query = query.chars().collect();
+                grep.cursor = grep.query.len();
+                self.regrep();
+                self.set_message("Previous query");
+            }
+            Ok(None) => {
+                self.set_message("No previous query");
+            }
+            Err(e) => {
+                self.set_message(format!("Error loading previous query: {}", e));
+            }
+        }
+    }
 }

@@ -186,6 +186,12 @@ impl App {
                     self.state.set_message("No grep hits available");
                 }
             }
+            Action::GrepNextQuery => {
+                self.state.handle_grep_next_query();
+            }
+            Action::GrepPrevQuery => {
+                self.state.handle_grep_prev_query();
+            }
             Action::GotoLine => self.state.handle_goto_line().or_fail()?,
             Action::CursorLeftSkipChars(c) => self.state.handle_cursor_left_skip_chars(&c.chars),
             Action::CursorRightSkipChars(c) => self.state.handle_cursor_right_skip_chars(&c.chars),
