@@ -26,5 +26,5 @@ Intentionally Unsupported Features
 - Syntax Highlight
 - Plugin / Extension System
 - Multi (split) windows
-- LSP (TBD)
-  - go-to-definition and completion would be necessary
+- LSP
+
