@@ -68,16 +68,35 @@ impl GrepMode {
         Highlight::parse(&output, &buffer).or_fail()
     }
 
-    pub fn prev_query(&self) -> orfail::Result<()> {
+    pub fn prev_query(&mut self) -> orfail::Result<Option<String>> {
         // TODO: optimize
+        let Some(i) = self.query_history_index.and_then(|i| i.checked_sub(1)) else {
+            self.query_history_index = None;
+            return Ok(None);
+        };
+
         let path = self.query_history_path();
-        todo!()
+        let text = std::fs::read_to_string(&path).or_fail()?;
+        let Some(query) = text.lines().nth_back(i) else {
+            self.query_history_index = None;
+            return Ok(None);
+        };
+        self.query_history_index = Some(i);
+        Ok(Some(query.to_owned()))
     }
 
-    pub fn next_query(&self) -> orfail::Result<()> {
+    pub fn next_query(&mut self) -> orfail::Result<Option<String>> {
         // TODO: optimize
+        let i = self.query_history_index.map(|i| i + 1).unwrap_or(0);
+
         let path = self.query_history_path();
-        todo!()
+        let text = std::fs::read_to_string(&path).or_fail()?;
+        let Some(query) = text.lines().nth_back(i) else {
+            self.query_history_index = None;
+            return Ok(None);
+        };
+        self.query_history_index = Some(i);
+        Ok(Some(query.to_owned()))
     }
 
     pub fn save_query(&self) -> orfail::Result<()> {
