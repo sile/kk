@@ -5,6 +5,7 @@ use orfail::OrFail;
 #[derive(Debug)]
 pub struct Clipboard {
     path: PathBuf,
+    pub summary_line: String,
 }
 
 impl Clipboard {
@@ -16,7 +17,10 @@ impl Clipboard {
         }
     }
 
-    pub fn write(&self, content: &str) -> orfail::Result<()> {
+    pub fn write(&mut self, content: &str) -> orfail::Result<()> {
+        // TODO: Update when the file is modified
+        self.summary_line = content.lines().next().unwrap_or_default().to_owned();
+
         // TODO: File::lock()
         std::fs::write(&self.path, content).or_fail()
     }
@@ -29,6 +33,7 @@ impl Default for Clipboard {
             .unwrap_or_default();
         Self {
             path: dir.join(".kk.clipboard"),
+            summary_line: String::new(),
         }
     }
 }

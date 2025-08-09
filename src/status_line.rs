@@ -23,8 +23,8 @@ impl StatusLineRenderer {
         let context = state.context.group_path();
         write!(
             frame,
-            "{style} {dirty} [{path}:{row}({rows}):{col}({cols})] {context}{}{reset}",
-            filler
+            "{style} {dirty} [{path}:{row}({rows}):{col}({cols})] {context} | {}{}{reset}",
+            state.clipboard.summary_line, filler
         )
         .or_fail()?;
 
