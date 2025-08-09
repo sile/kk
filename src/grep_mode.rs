@@ -68,7 +68,7 @@ impl GrepMode {
         Highlight::parse(&output, &buffer).or_fail()
     }
 
-    pub fn prev_query(&mut self) -> orfail::Result<Option<String>> {
+    pub fn next_query(&mut self) -> orfail::Result<Option<String>> {
         // TODO: optimize
         let Some(i) = self.query_history_index.and_then(|i| i.checked_sub(1)) else {
             self.query_history_index = None;
@@ -85,7 +85,7 @@ impl GrepMode {
         Ok(Some(query.to_owned()))
     }
 
-    pub fn next_query(&mut self) -> orfail::Result<Option<String>> {
+    pub fn prev_query(&mut self) -> orfail::Result<Option<String>> {
         // TODO: optimize
         let i = self.query_history_index.map(|i| i + 1).unwrap_or(0);
 
