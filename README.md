@@ -13,13 +13,18 @@ kk is an abbreviation for "KaKu (書く)" (meaning "to write" in Japanese).
 Features
 --------
 
-- Black and white e-ink display friendly
+- E-ink display friendly with black and white interface
 - No implicit behaviors
-  - Almost every actions are explicitly defined by the config file and triggered by user's key input
-  - No background tasks
-- Not environment, just a writing tool
-- File oriented (e.g, clipboard, cursor position, ...)
-  - Easily integrated with other command-line tools
+  - Nearly all actions are explicitly defined in the configuration file and triggered by user key input
+  - No background tasks running
+- Not an environment, just a writing tool
+  - I use kk in combination with the following tools:
+    - tmux (for multi-window management)
+    - mamediff (for git diff management)
+    - mamegrep (for multi-file search)
+    - niho (for Japanese text input)
+- File-oriented design (e.g., clipboard, cursor position, etc.)
+  - Easy integration with other command-line tools
 
 Intentionally Unsupported Features
 ---------------------------------
