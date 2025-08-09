@@ -4,9 +4,11 @@ kk
 [![kk](https://img.shields.io/crates/v/kk.svg)](https://crates.io/crates/kk)
 ![License](https://img.shields.io/crates/l/kk)
 
+**WIP** 
+
 A TUI text editor.
 
-**WIP** 
+kk is an abbreviation for "KaKu (書く)" (meaning "to write" in Japanese).
 
 Features
 --------
