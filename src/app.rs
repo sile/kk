@@ -46,26 +46,16 @@ impl App {
     }
 
     pub fn run(mut self) -> orfail::Result<()> {
-        let mut dirty = true;
         self.state.set_message("Started");
 
         while !self.exit {
-            if dirty {
-                self.render().or_fail()?;
-                dirty = false;
-            }
+            self.render().or_fail()?;
 
             match self.terminal.poll_event(&[], &[], None).or_fail()? {
                 Some(TerminalEvent::Input(input)) => {
-                    let TerminalInput::Key(key) = input else {
-                        unreachable!()
-                    };
-                    self.handle_key_input(key).or_fail()?;
-                    dirty = true;
+                    self.handle_terminal_input(input).or_fail()?;
                 }
-                Some(TerminalEvent::Resize(_size)) => {
-                    dirty = true;
-                }
+                Some(TerminalEvent::Resize(_size)) => {}
                 Some(TerminalEvent::FdReady { .. }) => {
                     unreachable!()
                 }
@@ -73,6 +63,14 @@ impl App {
             }
         }
 
+        Ok(())
+    }
+
+    fn handle_terminal_input(&mut self, input: TerminalInput) -> orfail::Result<()> {
+        let TerminalInput::Key(key) = input else {
+            unreachable!()
+        };
+        self.handle_key_input(key).or_fail()?;
         Ok(())
     }
 
