@@ -22,6 +22,7 @@ Features
     - tmux (for multi-window management)
     - mamediff (for git diff management)
     - mamegrep (for multi-file search)
+    - daberu (for LLM)
     - niho (for Japanese text input)
 - File-oriented design (e.g., clipboard, cursor position, etc.)
   - Easy integration with other command-line tools
