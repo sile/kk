@@ -66,7 +66,7 @@ impl Default for CursorAnchorLog {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CursorAnchor {
-    pub path: PathBuf,
+    pub path: PathBuf, // TODO: make the path absolute
     pub line: NonZeroUsize,
     pub char: NonZeroUsize,
 }
