@@ -163,9 +163,9 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for GrepAction {
                 .map(Vec::try_from)?
                 .unwrap_or_default(),
             forward: value
-                 .to_member("forward")?
+                .to_member("forward")?
                 .map(bool::try_from)?
-                .unwrap_or_default(),
+                .unwrap_or(true),
         })
     }
 }
