@@ -54,6 +54,16 @@ impl App {
             match self.terminal.poll_event(&[], &[], None).or_fail()? {
                 Some(TerminalEvent::Input(input)) => {
                     self.handle_terminal_input(input).or_fail()?;
+
+                    // Handle buffered events before rendering
+                    let timeout = std::time::Duration::ZERO;
+                    while let Some(TerminalEvent::Input(input)) = self
+                        .terminal
+                        .poll_event(&[], &[], Some(timeout))
+                        .or_fail()?
+                    {
+                        self.handle_terminal_input(input).or_fail()?;
+                    }
                 }
                 Some(TerminalEvent::Resize(_size)) => {}
                 Some(TerminalEvent::FdReady { .. }) => {
