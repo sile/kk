@@ -524,6 +524,28 @@ impl State {
     }
 
     pub fn handle_clipboard_paste(&mut self) -> orfail::Result<()> {
+        if let Some(grep) = &mut self.grep_mode {
+            let text = self.clipboard.read().or_fail()?;
+
+            if text.is_empty() {
+                self.set_message("Clipboard is empty");
+                return Ok(());
+            }
+
+            // Insert clipboard text at current cursor position in grep query
+            for ch in text.chars() {
+                // Skip control characters and newlines in grep query
+                if !ch.is_control() {
+                    grep.query.insert(grep.cursor, ch);
+                    grep.cursor += 1;
+                }
+            }
+
+            // Re-run the grep with updated query
+            self.regrep();
+            return Ok(());
+        };
+
         self.finish_editing();
 
         let text = self.clipboard.read().or_fail()?;
