@@ -203,6 +203,7 @@ impl App {
             Action::GotoLine => self.state.handle_goto_line().or_fail()?,
             Action::CursorLeftSkipChars(c) => self.state.handle_cursor_left_skip_chars(&c.chars),
             Action::CursorRightSkipChars(c) => self.state.handle_cursor_right_skip_chars(&c.chars),
+            Action::GrepReplaceHit => self.state.handle_grep_replace_hit().or_fail()?,
         }
         Ok(())
     }

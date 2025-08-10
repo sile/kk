@@ -1084,4 +1084,93 @@ impl State {
             }
         }
     }
+
+    pub fn handle_grep_replace_hit(&mut self) -> orfail::Result<()> {
+        if self.grep_mode.is_none() {
+            self.set_message("Not in grep mode");
+            return Ok(());
+        };
+
+        if self.highlight.items.is_empty() {
+            self.set_message("No grep hits available");
+            return Ok(());
+        }
+
+        // Find the current hit that contains the cursor
+        let current_pos = self.cursor_position();
+        let current_hit = self
+            .highlight
+            .items
+            .iter()
+            .copied()
+            .find(|item| item.start_position <= current_pos && current_pos < item.end_position);
+
+        let Some(hit) = current_hit else {
+            self.set_message("Cursor is not on a grep hit");
+            return Ok(());
+        };
+
+        // Get clipboard content
+        let replacement_text = self.clipboard.read().or_fail()?;
+        if replacement_text.is_empty() {
+            self.set_message("Clipboard is empty");
+            return Ok(());
+        }
+
+        self.start_editing();
+
+        // Delete the current hit
+        self.delete_text_in_range(hit.start_position, hit.end_position);
+
+        // Move cursor to the start of the deleted hit
+        self.cursor = hit.start_position;
+
+        // Insert the clipboard content
+        let lines: Vec<&str> = replacement_text.lines().collect();
+
+        if lines.is_empty() {
+            // Empty replacement
+            self.set_message("Replaced hit with empty text");
+        } else if lines.len() == 1 {
+            // Single line replacement
+            let line = lines[0];
+            for ch in line.chars() {
+                self.cursor = self.buffer.insert_char_at(self.cursor, ch);
+            }
+            self.set_message(format!("Replaced hit with {} characters", line.len()));
+        } else {
+            // Multi-line replacement
+            let mut total_chars = 0;
+
+            // Insert first line
+            for ch in lines[0].chars() {
+                self.cursor = self.buffer.insert_char_at(self.cursor, ch);
+                total_chars += 1;
+            }
+
+            // Insert newline and subsequent lines
+            for line in &lines[1..] {
+                self.cursor = self.buffer.insert_newline_at(self.cursor);
+                total_chars += 1; // Count the newline
+
+                for ch in line.chars() {
+                    self.cursor = self.buffer.insert_char_at(self.cursor, ch);
+                    total_chars += 1;
+                }
+            }
+
+            self.set_message(format!(
+                "Replaced hit with {} characters across {} lines",
+                total_chars,
+                lines.len()
+            ));
+        }
+
+        self.finish_editing();
+
+        // Re-run grep to update highlights after the replacement
+        self.regrep();
+
+        Ok(())
+    }
 }

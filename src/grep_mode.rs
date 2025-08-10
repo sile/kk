@@ -155,7 +155,7 @@ impl GrepMode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct HighlightItem {
     pub start_position: TextPosition,
     pub end_position: TextPosition,

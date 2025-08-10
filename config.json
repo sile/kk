@@ -69,6 +69,7 @@
       "<UP>": "prev-query",
       "<DOWN>": "next-query",
       "M-m": "mark-hit",
+      "C-v": "replace-hit",
       "__hidden__": {
         "C-b": "left",
         "C-f": "right",
@@ -282,6 +283,9 @@
     },
     "prev-hit": {
       "type": "grep-prev-hit"
+    },
+    "replace-hit": {
+      "type": "grep-replace-hit"
     },
     "next-query": {
       "type": "grep-next-query"

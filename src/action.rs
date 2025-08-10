@@ -40,6 +40,7 @@ pub enum Action {
     GrepPrevHit,
     GrepNextQuery,
     GrepPrevQuery,
+    GrepReplaceHit,
     ContextSet(ContextSetAction),
     Echo(EchoAction),
     GotoLine,
@@ -97,6 +98,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
             "grep-prev-hit" => Ok(Self::GrepPrevHit),
             "grep-next-query" => Ok(Self::GrepNextQuery),
             "grep-prev-query" => Ok(Self::GrepPrevQuery),
+            "grep-replace-hit" => Ok(Self::GrepReplaceHit),
             "goto-line" => Ok(Self::GotoLine),
             ty => Err(value.invalid(format!("unknown command type: {ty:?}"))),
         }
