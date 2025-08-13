@@ -10,8 +10,8 @@ repository = "https://github.com/sile/kk"
 readme = "README.md"
 
 [dependencies]
+mame = { path = "../mame/" } # TODO
 noargs = "0.4.1"
 nojson = "0.3.2"
 orfail = "1.1.0"
 tuinix = "0.3.0"
-unicode-width = "0.2.1"

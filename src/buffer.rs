@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use orfail::OrFail;
-use unicode_width::UnicodeWidthChar;
 
 #[derive(Debug, Default, Clone)]
 pub struct TextBuffer {
@@ -152,7 +151,7 @@ impl TextBuffer {
             // Return new cursor position
             TextPosition {
                 row: pos.row,
-                col: pos.col + ch.width().unwrap_or_default(),
+                col: pos.col + mame::char_cols(ch),
             }
         } else {
             pos
@@ -174,7 +173,7 @@ impl TextBuffer {
                 if current_col >= col {
                     return Some(i);
                 }
-                current_col += unicode_width::UnicodeWidthChar::width(ch).unwrap_or_default();
+                current_col += mame::char_cols(ch);
             }
             Some(line.0.len())
         } else {
@@ -243,7 +242,7 @@ impl TextLine {
         let mut col = 0;
         self.0.iter().map(move |&ch| {
             let current_col = col;
-            col += ch.width().unwrap_or_default();
+            col += mame::char_cols(ch);
             (current_col, ch)
         })
     }
@@ -254,7 +253,7 @@ impl TextLine {
             if current_col == col {
                 return Some(ch);
             }
-            current_col += ch.width().unwrap_or_default();
+            current_col += mame::char_cols(ch);
             if current_col > col {
                 break;
             }
@@ -263,13 +262,13 @@ impl TextLine {
     }
 
     fn cols(&self) -> usize {
-        self.0.iter().filter_map(|c| c.width()).sum()
+        self.0.iter().copied().map(mame::char_cols).sum()
     }
 
     fn adjust_to_char_boundary(&self, col: usize, floor: bool) -> usize {
         let mut start = 0;
-        for ch in &self.0 {
-            let end = start + ch.width().unwrap_or_default();
+        for &ch in &self.0 {
+            let end = start + mame::char_cols(ch);
             if start == col {
                 return col;
             } else if col < end {
@@ -287,7 +286,7 @@ impl TextLine {
                 self.0.remove(i);
                 return true;
             }
-            current_col += ch.width().unwrap_or_default();
+            current_col += mame::char_cols(ch);
             if current_col > col {
                 break;
             }
@@ -298,7 +297,7 @@ impl TextLine {
     fn find_char_before(&self, col: usize) -> usize {
         let mut current_col = 0;
         for &ch in &self.0 {
-            let next_col = current_col + ch.width().unwrap_or_default();
+            let next_col = current_col + mame::char_cols(ch);
             if next_col >= col {
                 return current_col;
             }
@@ -316,7 +315,7 @@ impl TextLine {
                 char_index = i;
                 break;
             }
-            current_col += existing_ch.width().unwrap_or_default();
+            current_col += mame::char_cols(existing_ch);
             char_index = i + 1;
         }
 
@@ -329,7 +328,7 @@ impl TextLine {
             if current_col >= col {
                 return i;
             }
-            current_col += ch.width().unwrap_or_default();
+            current_col += mame::char_cols(ch);
         }
         self.0.len()
     }
@@ -344,7 +343,7 @@ impl TextLine {
             if i >= char_index {
                 return col;
             }
-            col += ch.width().unwrap_or_default();
+            col += mame::char_cols(ch);
         }
         col
     }

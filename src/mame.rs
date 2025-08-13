@@ -1,15 +1,6 @@
 use tuinix::{KeyCode, KeyInput};
 
-pub type TerminalFrame = tuinix::TerminalFrame<UnicodeCharWidthEstimator>;
-
-#[derive(Debug, Default)]
-pub struct UnicodeCharWidthEstimator;
-
-impl tuinix::EstimateCharWidth for UnicodeCharWidthEstimator {
-    fn estimate_char_width(&self, c: char) -> usize {
-        unicode_width::UnicodeWidthChar::width(c).unwrap_or(0)
-    }
-}
+pub type TerminalFrame = mame::UnicodeTerminalFrame;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum KeyPattern {

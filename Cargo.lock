@@ -6,11 +6,11 @@ version = 4
 name = "kk"
 version = "0.0.1"
 dependencies = [
+ "mame",
  "noargs",
  "nojson",
  "orfail",
  "tuinix",
- "unicode-width",
 ]
 
 [[package]]
@@ -18,6 +18,15 @@ name = "libc"
 version = "0.2.174"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
+
+[[package]]
+name = "mame"
+version = "0.0.0"
+dependencies = [
+ "nojson",
+ "tuinix",
+ "unicode-width",
+]
 
 [[package]]
 name = "noargs"

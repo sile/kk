@@ -207,7 +207,7 @@ fn byte_offset_to_text_position(text: &str, offset: usize) -> orfail::Result<Tex
             row += 1;
             col = 0;
         } else {
-            col += unicode_width::UnicodeWidthChar::width(ch).unwrap_or_default();
+            col += mame::char_cols(ch);
         }
 
         current_offset += ch.len_utf8();
