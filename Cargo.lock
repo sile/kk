@@ -15,9 +15,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.174"
+version = "0.2.175"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
+checksum = "6a82ae493e598baaea5209805c49bbf2ea7de956d50d7da0da1164f9c6d28543"
 
 [[package]]
 name = "mame"
@@ -36,9 +36,9 @@ checksum = "fe77e710319d3ff009f93efc433d879e80e6336f5b87ace6d6db7ca5951085c3"
 
 [[package]]
 name = "nojson"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65e3fa72cb03854073e16eb51d58461723cd2a2ece63ea78f43371cfadeb3b58"
+checksum = "38bed7c5d57ed18da2fc2d4dd57a71ea01f0a152ee195dc1fb6b868e7e8a75d9"
 
 [[package]]
 name = "orfail"
