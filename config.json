@@ -92,7 +92,7 @@
     },
     "json": {
       "C-g": "cancel",
-      "f": "jqfmt"
+      "f": "jcfmt"
     }
   },
   "keylabels": {
@@ -359,7 +359,7 @@
         "message": "Formatted!"
       }
     ],
-    "jqfmt": [
+    "jcfmt": [
       {
         "type": "buffer-save"
       },
@@ -368,7 +368,7 @@
         "command": "fish",
         "args": [
           "-c",
-          "jq . $KK_CURRENT_FILE | sponge $KK_CURRENT_FILE"
+          "cat $KK_CURRENT_FILE | jcfmt | sponge $KK_CURRENT_FILE"
         ]
       },
       {
