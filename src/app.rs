@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use mame::{KeyMatcher as KeyPattern, UnicodeTerminalFrame as TerminalFrame};
 use orfail::OrFail;
 use tuinix::{KeyInput, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
@@ -9,7 +10,6 @@ use crate::{
     config::Config,
     grep_mode::{GrepMode, GrepQueryRenderer, Highlight},
     legend::LegendRenderer,
-    mame::{KeyPattern, TerminalFrame},
     message_line::MessageLineRenderer,
     state::State,
     status_line::StatusLineRenderer,

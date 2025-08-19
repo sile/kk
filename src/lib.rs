@@ -7,7 +7,6 @@ pub mod config;
 pub mod grep_mode;
 pub mod keybindings;
 pub mod legend;
-pub mod mame;
 pub mod message_line;
 pub mod state;
 pub mod status_line;
