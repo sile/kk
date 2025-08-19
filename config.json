@@ -23,7 +23,7 @@
       "M-g": "goto-mode",
       "M-,": "jump",
       "M-m": "mark-ident",
-      "<VISIBLE>": "insert",
+      "<PRINTABLE>": "insert",
       "<DELETE>": "delete",
       "<BACKSPACE>": "backspace",
       "<ENTER>": "newline",
@@ -42,8 +42,8 @@
         "C-f": "right",
         "C-<LEFT>": "up",
         "C-<RIGHT>": "down",
-        "<PAGE_UP>": "page-up",
-        "<PAGE_DOWN>": "page-down",
+        "<PAGEUP>": "page-up",
+        "<PAGEDOWN>": "page-down",
         "C-d": "delete",
         "C-h": "backspace",
         "C-j": "newline",
@@ -55,7 +55,7 @@
       "C-g": "cancel",
       "<ENTER>": "cancel",
       "C-y": "paste",
-      "<VISIBLE>": "insert",
+      "<PRINTABLE>": "insert",
       "<DELETE>": "delete",
       "<BACKSPACE>": "backspace",
       "<LEFT>": "left",
@@ -103,7 +103,7 @@
     "<DELETE>": "⌦",
     "<BACKSPACE>": "⌫",
     "<ENTER>": "↵",
-    "<VISIBLE>": "🔤"
+    "<PRINTABLE>": "🔤"
   },
   "actions": {
     "quit": {
