@@ -1,9 +1,10 @@
 use std::fmt::Write;
 
+use mame::UnicodeTerminalFrame as TerminalFrame;
 use orfail::OrFail;
 use tuinix::TerminalStyle;
 
-use crate::{buffer::TextLine, buffer::TextPosition, mame::TerminalFrame, state::State};
+use crate::{buffer::TextLine, buffer::TextPosition, state::State};
 
 #[derive(Debug)]
 pub struct TextAreaRenderer;

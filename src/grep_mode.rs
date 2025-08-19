@@ -1,12 +1,12 @@
 use std::{fmt::Write, io::Write as _, path::PathBuf};
 
+use mame::UnicodeTerminalFrame as TerminalFrame;
 use orfail::OrFail;
 use tuinix::{TerminalPosition, TerminalRegion};
 
 use crate::{
     action::GrepAction,
     buffer::{TextBuffer, TextPosition},
-    mame::TerminalFrame,
     state::State,
 };
 

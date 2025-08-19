@@ -1,9 +1,10 @@
 use std::collections::BTreeMap;
 
+use mame::KeyMatcher as KeyPattern;
+
 use crate::{
     action::{Action, ActionName},
     keybindings::Keybindings,
-    mame::KeyPattern,
 };
 
 #[derive(Debug, Clone)]

@@ -1,9 +1,10 @@
 use std::collections::BTreeMap;
 
+use mame::KeyMatcher as KeyPattern;
 use orfail::OrFail;
 use tuinix::KeyInput;
 
-use crate::{action::ActionName, mame::KeyPattern};
+use crate::action::ActionName;
 
 #[derive(Debug)]
 pub struct KeybindingsContext {

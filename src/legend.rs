@@ -1,9 +1,10 @@
 use std::fmt::Write;
 
+use mame::UnicodeTerminalFrame as TerminalFrame;
 use orfail::OrFail;
 use tuinix::{TerminalPosition, TerminalRegion, TerminalSize};
 
-use crate::{config::Config, mame::TerminalFrame, state::State};
+use crate::{config::Config, state::State};
 
 #[derive(Debug)]
 pub struct LegendRenderer;

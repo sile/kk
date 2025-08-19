@@ -1,8 +1,9 @@
 use std::fmt::Write;
 
+use mame::UnicodeTerminalFrame as TerminalFrame;
 use orfail::OrFail;
 
-use crate::{mame::TerminalFrame, state::State};
+use crate::state::State;
 
 #[derive(Debug)]
 pub struct StatusLineRenderer;
