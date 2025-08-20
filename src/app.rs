@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use mame::{KeyMatcher as KeyPattern, UnicodeTerminalFrame as TerminalFrame};
+use mame::UnicodeTerminalFrame as TerminalFrame;
 use orfail::OrFail;
 use tuinix::{KeyInput, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
@@ -115,7 +115,7 @@ impl App {
                     grep.save_query().or_fail()?;
                 }
                 self.state.highlight = Highlight::default();
-                self.state.context.enter("__main__");
+                self.config.set_current_context("__main__"); // TODO: do not assume __main__
                 self.state.set_message("Canceled");
             }
             Action::BufferSave => self.state.handle_buffer_save().or_fail()?,
@@ -166,8 +166,9 @@ impl App {
                 }
             }
             Action::ContextSet(c) => {
-                self.state.context.enter(&c.name);
-                self.state.set_message(format!("New context: {}", c.name));
+                if self.config.set_current_context(&c.name) {
+                    self.state.set_message(format!("New context: {}", c.name));
+                }
             }
             Action::Echo(m) => {
                 self.state.set_message(&m.message);
@@ -176,7 +177,7 @@ impl App {
                 self.state.finish_editing();
                 self.state.grep_mode = Some(GrepMode::new(action));
                 self.state.mark = None;
-                self.state.context.enter("__grep__");
+                self.config.set_current_context("__grep__"); // TODO: do not assume __grep__
                 self.state.set_message("Entered grep mode");
             }
             Action::GrepNextHit => {
@@ -233,7 +234,9 @@ impl App {
 
         let region = frame_region.take_bottom(2).take_top(1);
         self.render_region(&mut frame, region, |frame| {
-            self.status_line.render(&self.state, frame).or_fail()
+            self.status_line
+                .render(&self.state, &self.config, frame)
+                .or_fail()
         })?;
 
         let region = frame_region.take_bottom(1);
@@ -241,11 +244,9 @@ impl App {
             self.message_line.render(&self.state, frame).or_fail()
         })?;
 
-        let region = self.legend.region(&self.config, &self.state, frame.size());
+        let region = self.legend.region(&self.config, frame.size());
         self.render_region(&mut frame, region, |frame| {
-            self.legend
-                .render(&self.config, &self.state, frame)
-                .or_fail()
+            self.legend.render(&self.config, frame).or_fail()
         })?;
 
         if let Some(grep) = &self.state.grep_mode {
