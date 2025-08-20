@@ -9,7 +9,6 @@ use crate::{
     buffer::{TextBuffer, TextPosition},
     clipboard::Clipboard,
     grep_mode::{GrepMode, Highlight},
-    keybindings::KeybindingsContext,
 };
 
 pub const MAX_HISTORY_SIZE: usize = 1000;
@@ -22,7 +21,6 @@ pub struct State {
     pub recenter_viewport: bool,
     pub buffer: TextBuffer,
     pub message: Option<String>,
-    pub context: KeybindingsContext,
     pub mark: Option<TextPosition>,
     pub clipboard: Clipboard,
     pub editing: bool,
@@ -43,7 +41,6 @@ impl State {
             recenter_viewport: false,
             buffer,
             message: None,
-            context: KeybindingsContext::default(),
             mark: None,
             clipboard: Clipboard::default(),
             editing: false,

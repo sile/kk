@@ -36,7 +36,7 @@ impl App {
             terminal,
             state: State::new(path).or_fail()?,
             anchor_log: CursorAnchorLog::default(),
-            config: Config::default(),
+            config: Config::load_str("<DEFAULT>", include_str!("../config.jsonc")).or_fail()?,
             text_area: TextAreaRenderer,
             message_line: MessageLineRenderer,
             status_line: StatusLineRenderer,
@@ -85,18 +85,17 @@ impl App {
     }
 
     fn handle_key_input(&mut self, key: KeyInput) -> orfail::Result<()> {
-        let Some(action_name) = self.config.keybindings.get(&self.state.context, key) else {
+        let Some(binding) = self.config.current_keymap().get_binding(key) else {
             self.state
-                .set_message(format!("No action found: '{}'", KeyPattern::Literal(key)));
+                .set_message(format!("No action found: '{}'", mame::display_key(key)));
             return Ok(());
         };
 
-        let action = self
-            .config
-            .actions
-            .get(action_name)
-            .or_fail_with(|()| format!("undefined action: {action_name:?}"))?;
-        self.handle_action(action.clone(), key).or_fail()?; // TODO: remove clone
+        // TODO: remove clone
+        for action in binding.actions.clone() {
+            self.handle_action(action, key).or_fail()?;
+        }
+
         Ok(())
     }
 

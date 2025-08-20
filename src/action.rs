@@ -1,5 +1,3 @@
-pub type ActionName = String;
-
 #[derive(Debug, Clone)]
 pub enum Action {
     Quit,
@@ -47,7 +45,9 @@ pub enum Action {
     Multiple(Vec<Action>),
 }
 
-impl mame::Action for Action {}
+impl mame::Action for Action {
+    // TODO: validate_action
+}
 
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
     type Error = nojson::JsonParseError;

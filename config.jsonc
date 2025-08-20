@@ -1,4 +1,7 @@
 {
+  "setup": {
+    "context": "__main__"
+  },
   "keybindings": {
     "__main__": {
       "C-c": "quit",
