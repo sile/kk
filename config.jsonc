@@ -4,54 +4,100 @@
   },
   "keybindings": {
     "__main__": {
-      "C-c": "quit",
-      "C-g": "cancel",
-      "M-s": "save",
-      "M-r": "reload",
-      "C-/": "undo",
-      "C-a": "SOL",
-      "C-e": "EOL",
-      "M-<": "SOF",
-      "M->": "EOF",
-      "C-l": "recenter",
-      "C-s": "grep",
-      "C-r": "rgrep",
-      "C- ": "mark",
-      "C-w": "cut",
-      "M-w": "copy",
-      "C-y": "paste",
-      "C-k": "kill-line",
-      "M-j": "json-mode",
-      "C-x": "ext-mode",
-      "M-g": "goto-mode",
-      "M-,": "jump",
-      "M-m": "mark-ident",
-      "<PRINTABLE>": "insert",
-      "<DELETE>": "delete",
-      "<BACKSPACE>": "backspace",
-      "<ENTER>": "newline",
-      "<UP>": "up",
-      "<DOWN>": "down",
-      "<LEFT>": "left",
-      "<RIGHT>": "right",
-      "<TAB>": "rustfmt",
-      "__hidden__": {
-        "C-0x7f": "undo",
-        "C-u": "undo",
-        "C-`": "mark",
-        "C-p": "up",
-        "C-n": "down",
-        "C-b": "left",
-        "C-f": "right",
-        "C-<LEFT>": "up",
-        "C-<RIGHT>": "down",
-        "<PAGEUP>": "page-up",
-        "<PAGEDOWN>": "page-down",
-        "C-d": "delete",
-        "C-h": "backspace",
-        "C-j": "newline",
-        "M-h": "niho",
-        "M-l": "mark-line"
+      "C-c": {"label": "C-c: quit", "actions": [{"type": "quit"}]},
+      "C-g": {"label": "C-g: cancel", "actions": [{"type": "cancel"}]},
+      "M-s": {"label": "M-s: save", "actions": [{"type": "buffer-save"}]},
+      "M-r": {"label": "M-r: reload", "actions": [{"type": "buffer-reload"}]},
+      "C-/": {
+        "label": "C-/: undo",
+        "aliases": ["C-0x7f", "C-u"],
+        "actions": [{"type": "buffer-undo"}]
+      },
+      "C-a": {"actions": [{"type": "cursor-line-start"}]},
+      "C-e": { "actions": [{"type": "cursor-line-end"}]},
+      "M-<": {"actions": [{"type": "cursor-buffer-start"}]},
+      "M->": { "actions": [{"type": "cursor-buffer-end"}]},
+      "C-l": {"label": "C-l: recenter", "actions": [{"type": "view-recenter"}]},
+      "C-s": {
+        "label": "C-s: grep",
+        "actions": [
+          {"type": "cursor-anchor"},
+          {"type": "grep", "command": "grep", "args": ["-m100", "-bio"]}
+        ]
+      },
+      "C-r": {
+        "label": "C-r: rgrep",
+        "actions": [
+          {"type": "cursor-anchor"},
+          {"type": "grep", "command": "grep", "args": ["-m100", "-bio"], "forward": false}
+        ]
+      },
+      "C- ": {"label": "C- : mark", "aliases": ["C-`"], "actions": [{"type": "mark-set"}]},
+      "C-w": {"label": "C-w: cut", "actions": [{"type": "mark-cut"}]},
+      "M-w": {"label": "M-w: copy", "actions": [{"type": "mark-copy"}]},
+      "C-y": {"label": "C-y: paste", "actions": [{"type": "clipboard-paste"}]},
+      "C-k": {"label": "C-k: kill-line", "actions": [{"type": "line-delete"}]},
+      "M-j": {"label": "M-j: json-mode", "actions": [{"type": "context-set", "name": "json"}]},
+      "C-x": {"label": "C-x: ext-mode", "actions": [{"type": "context-set", "name": "ext"}]},
+      "M-g": {"label": "M-g: goto-mode", "actions": [{"type": "context-set", "name": "goto"}]},
+      "M-,": {"label": "M-,: jump", "actions": [{"type": "cursor-jump"}]},
+      "M-m": {
+        "label": "M-m: mark-ident",
+        "actions": [
+          {"type": "cursor-left-skip-chars", "chars": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"},
+          {"type": "cursor-right"},
+          {"type": "mark-set"},
+          {"type": "cursor-right-skip-chars", "chars": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"}
+        ]
+      },
+      "<DELETE>": {
+        "aliases": ["C-d"],
+        "actions": [{"type": "char-delete-forward"}]
+      },
+      "<BACKSPACE>": {
+        "aliases": ["C-h"],
+        "actions": [{"type": "char-delete-backward"}]
+      },
+      "<ENTER>": {
+        "aliases": ["C-j"],
+        "actions": [{"type": "newline-insert"}]
+      },
+      "<UP>": {
+        "aliases": ["C-p", "C-<LEFT>"],
+        "actions": [{"type": "cursor-up"}]
+      },
+      "<DOWN>": {
+        "aliases": ["C-n", "C-<RIGHT>"],
+        "actions": [{"type": "cursor-down"}]
+      },
+      "<LEFT>": {
+        "aliases": ["C-b"],
+        "actions": [{"type": "cursor-left"}]
+      },
+      "<RIGHT>": {
+        "aliases": ["C-f"],
+        "actions": [{"type": "cursor-right"}]
+      },
+      "<TAB>": {
+        "actions": [
+          {"type": "buffer-save"},
+          {"type": "external-command", "command": "rustfmt", "args": ["--edition", "2024", {"var": "CURRENT_FILE"}]},
+          {"type": "buffer-reload"},
+          {"type": "cursor-skip-spaces"},
+          {"type": "cancel"},
+          {"type": "echo", "message": "Formatted!"}
+        ]
+      },
+      "<PRINTABLE>": {"actions": [{"type": "char-insert"}]},
+      "<PAGEUP>": {"actions": [{"type": "cursor-page-up"}]},
+      "<PAGEDOWN>": {"actions": [{"type": "cursor-page-down"}]},
+      "M-h": {
+        "label": "M-h: niho",
+        "actions": [{"type": "cursor-line-start"}, {"type": "mark-set"}, {"type": "cursor-line-end"}, {"type": "external-command", "command": "fish", "args": ["-c", "niho"]}]
+      },
+      "M-l": {
+        "label": "M-l: mark-line",
+        "actions": [{"type": "cursor-line-start"}, {"type": "mark-set"}, {"type": "cursor-line-end"}]
       }
     },
     "__grep__": {
@@ -109,9 +155,6 @@
     "<PRINTABLE>": "🔤"
   },
   "actions": {
-    "quit": {
-      "type": "quit"
-    },
     "cancel": {
       "type": "cancel"
     },
