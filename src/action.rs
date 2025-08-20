@@ -47,6 +47,8 @@ pub enum Action {
     Multiple(Vec<Action>),
 }
 
+impl mame::Action for Action {}
+
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
     type Error = nojson::JsonParseError;
 

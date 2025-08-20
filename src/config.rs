@@ -28,7 +28,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let nojson::Json(config) = include_str!("../config.json").parse().expect("bug");
+        let nojson::Json(config) = include_str!("../config.jsonc").parse().expect("bug");
         config
     }
 }
