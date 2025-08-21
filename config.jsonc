@@ -7,32 +7,32 @@
       {
         "keys": ["C-c"],
         "label": "C-c: quit",
-        "actions": [{"type": "quit"}]
+        "action": [{"type": "quit"}]
       },
       {
         "keys": ["C-g"],
         "label": "C-g: cancel",
-        "actions": [{"type": "cancel"}]
+        "action": [{"type": "cancel"}]
       },
       {
         "keys": ["M-r"],
         "label": "M-r: reload",
-        "actions": [{"type": "buffer-reload"}]
+        "action": [{"type": "buffer-reload"}]
       },
       {
         "keys": ["C-/", "C-0x7f", "C-u"],
         "label": "C-/: undo",
-        "actions": [{"type": "buffer-undo"}]
+        "action": [{"type": "buffer-undo"}]
       },
       {
         "keys": ["C-l"],
         "label": "C-l: recenter",
-        "actions": [{"type": "view-recenter"}]
+        "action": [{"type": "view-recenter"}]
       },
       {
         "keys": ["C-s"],
         "label": "C-s: grep",
-        "actions": [
+        "action": [
           {"type": "cursor-anchor"},
           {"type": "grep", "command": "grep", "args": ["-m100", "-bio"]}
         ]
@@ -40,7 +40,7 @@
       {
         "keys": ["C-r"],
         "label": "C-r: rgrep",
-        "actions": [
+        "action": [
           {"type": "cursor-anchor"},
           {"type": "grep", "command": "grep", "args": ["-m100", "-bio"], "forward": false}
         ]
@@ -48,52 +48,52 @@
       {
         "keys": ["C- ", "C-`"],
         "label": "C- : mark",
-        "actions": [{"type": "mark-set"}]
+        "action": [{"type": "mark-set"}]
       },
       {
         "keys": ["C-w"],
         "label": "C-w: cut",
-        "actions": [{"type": "mark-cut"}]
+        "action": [{"type": "mark-cut"}]
       },
       {
         "keys": ["M-w"],
         "label": "M-w: copy",
-        "actions": [{"type": "mark-copy"}]
+        "action": [{"type": "mark-copy"}]
       },
       {
         "keys": ["C-y"],
         "label": "C-y: paste",
-        "actions": [{"type": "clipboard-paste"}]
+        "action": [{"type": "clipboard-paste"}]
       },
       {
         "keys": ["C-k"],
         "label": "C-k: kill-line",
-        "actions": [{"type": "line-delete"}]
+        "action": [{"type": "line-delete"}]
       },
       {
         "keys": ["M-j"],
         "label": "M-j: json-mode",
-        "actions": [{"type": "context-set", "name": "json"}]
+        "action": [{"type": "context-set", "name": "json"}]
       },
       {
         "keys": ["C-x"],
         "label": "C-x: ext-mode",
-        "actions": [{"type": "context-set", "name": "ext"}]
+        "action": [{"type": "context-set", "name": "ext"}]
       },
       {
         "keys": ["M-g"],
         "label": "M-g: goto-mode",
-        "actions": [{"type": "context-set", "name": "goto"}]
+        "action": [{"type": "context-set", "name": "goto"}]
       },
       {
         "keys": ["M-,"],
         "label": "M-,: jump",
-        "actions": [{"type": "cursor-jump"}]
+        "action": [{"type": "cursor-jump"}]
       },
       {
         "keys": ["M-m"],
         "label": "M-m: mark-ident",
-        "actions": [
+        "action": [
           {"type": "cursor-left-skip-chars", "chars": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"},
           {"type": "cursor-right"},
           {"type": "mark-set"},
@@ -103,60 +103,60 @@
       {
         "keys": ["M-h"],
         "label": "M-h: niho",
-        "actions": [{"type": "cursor-line-start"}, {"type": "mark-set"}, {"type": "cursor-line-end"}, {"type": "external-command", "command": "fish", "args": ["-c", "niho"]}]
+        "action": [{"type": "cursor-line-start"}, {"type": "mark-set"}, {"type": "cursor-line-end"}, {"type": "external-command", "command": "fish", "args": ["-c", "niho"]}]
       },
       {
         "keys": ["M-l"],
         "label": "M-l: mark-line",
-        "actions": [{"type": "cursor-line-start"}, {"type": "mark-set"}, {"type": "cursor-line-end"}]
+        "action": [{"type": "cursor-line-start"}, {"type": "mark-set"}, {"type": "cursor-line-end"}]
       },
       {
         "keys": ["C-a"],
-        "actions": [{"type": "cursor-line-start"}]
+        "action": [{"type": "cursor-line-start"}]
       },
       {
         "keys": ["C-e"],
-        "actions": [{"type": "cursor-line-end"}]
+        "action": [{"type": "cursor-line-end"}]
       },
       {
         "keys": ["M-<"],
-        "actions": [{"type": "cursor-buffer-start"}]
+        "action": [{"type": "cursor-buffer-start"}]
       },
       {
         "keys": ["M->"],
-        "actions": [{"type": "cursor-buffer-end"}]
+        "action": [{"type": "cursor-buffer-end"}]
       },
       {
         "keys": ["<DELETE>", "C-d"],
-        "actions": [{"type": "char-delete-forward"}]
+        "action": [{"type": "char-delete-forward"}]
       },
       {
         "keys": ["<BACKSPACE>", "C-h"],
-        "actions": [{"type": "char-delete-backward"}]
+        "action": [{"type": "char-delete-backward"}]
       },
       {
         "keys": ["<ENTER>", "C-j"],
-        "actions": [{"type": "newline-insert"}]
+        "action": [{"type": "newline-insert"}]
       },
       {
         "keys": ["<UP>", "C-p", "C-<LEFT>"],
-        "actions": [{"type": "cursor-up"}]
+        "action": [{"type": "cursor-up"}]
       },
       {
         "keys": ["<DOWN>", "C-n", "C-<RIGHT>"],
-        "actions": [{"type": "cursor-down"}]
+        "action": [{"type": "cursor-down"}]
       },
       {
         "keys": ["<LEFT>", "C-b"],
-        "actions": [{"type": "cursor-left"}]
+        "action": [{"type": "cursor-left"}]
       },
       {
         "keys": ["<RIGHT>", "C-f"],
-        "actions": [{"type": "cursor-right"}]
+        "action": [{"type": "cursor-right"}]
       },
       {
         "keys": ["<TAB>"],
-        "actions": [
+        "action": [
           {"type": "buffer-save"},
           {"type": "external-command", "command": "rustfmt", "args": ["--edition", "2024", {"var": "CURRENT_FILE"}]},
           {"type": "buffer-reload"},
@@ -167,42 +167,42 @@
       },
       {
         "keys": ["<PRINTABLE>"],
-        "actions": [{"type": "char-insert"}]
+        "action": [{"type": "char-insert"}]
       },
       {
         "keys": ["<PAGEUP>"],
-        "actions": [{"type": "cursor-page-up"}]
+        "action": [{"type": "cursor-page-up"}]
       },
       {
         "keys": ["<PAGEDOWN>"],
-        "actions": [{"type": "cursor-page-down"}]
+        "action": [{"type": "cursor-page-down"}]
       },
     ],
     "__grep__": [
       {
         "keys": ["C-g", "<ENTER>"],
         "label": "C-g: cancel",
-        "actions": [{"type": "cancel"}]
+        "action": [{"type": "cancel"}]
       },
       {
         "keys": ["C-y"],
         "label": "C-y: paste",
-        "actions": [{"type": "clipboard-paste"}]
+        "action": [{"type": "clipboard-paste"}]
       },
       {
         "keys": ["C-s", "<TAB>"],
         "label": "C-s: next-hit",
-        "actions": [{"type": "grep-next-hit"}]
+        "action": [{"type": "grep-next-hit"}]
       },
       {
         "keys": ["C-r", "<BACKTAB>"],
         "label": "C-r: prev-hit",
-        "actions": [{"type": "grep-prev-hit"}]
+        "action": [{"type": "grep-prev-hit"}]
       },
       {
         "keys": ["M-m"],
         "label": "M-m: mark-hit",
-        "actions": [
+        "action": [
           {"type": "cancel"},
           {"type": "cursor-left-skip-chars", "chars": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"},
           {"type": "cursor-right"},
@@ -215,118 +215,118 @@
       {
         "keys": ["C-v"],
         "label": "C-v: replace-hit",
-        "actions": [{"type": "grep-replace-hit"}]
+        "action": [{"type": "grep-replace-hit"}]
       },
       {
         "keys": ["<PRINTABLE>"],
-        "actions": [{"type": "char-insert"}]
+        "action": [{"type": "char-insert"}]
       },
       {
         "keys": ["<DELETE>", "C-d"],
-        "actions": [{"type": "char-delete-forward"}]
+        "action": [{"type": "char-delete-forward"}]
       },
       {
         "keys": ["<BACKSPACE>", "C-h"],
-        "actions": [{"type": "char-delete-backward"}]
+        "action": [{"type": "char-delete-backward"}]
       },
       {
         "keys": ["<LEFT>", "C-b"],
-        "actions": [{"type": "cursor-left"}]
+        "action": [{"type": "cursor-left"}]
       },
       {
         "keys": ["<RIGHT>", "C-f"],
-        "actions": [{"type": "cursor-right"}]
+        "action": [{"type": "cursor-right"}]
       },
       {
         "keys": ["C-a"],
-        "actions": [{"type": "cursor-line-start"}]
+        "action": [{"type": "cursor-line-start"}]
       },
       {
         "keys": ["C-e"],
-        "actions": [{"type": "cursor-line-end"}]
+        "action": [{"type": "cursor-line-end"}]
       },
       {
         "keys": ["<UP>", "C-p"],
-        "actions": [{"type": "grep-prev-query"}]
+        "action": [{"type": "grep-prev-query"}]
       },
       {
         "keys": ["<DOWN>", "C-n"],
-        "actions": [{"type": "grep-next-query"}]
+        "action": [{"type": "grep-next-query"}]
       },
       {
         "keys": ["C-b", "<LEFT>"],
-        "actions": [{"type": "cursor-left"}]
+        "action": [{"type": "cursor-left"}]
       },
       {
         "keys": ["C-f", "<RIGHT>"],
-        "actions": [{"type": "cursor-right"}]
+        "action": [{"type": "cursor-right"}]
       },
       {
         "keys": ["C-p", "<UP>"],
-        "actions": [{"type": "grep-prev-query"}]
+        "action": [{"type": "grep-prev-query"}]
       },
       {
         "keys": ["C-n", "<DOWN>"],
-        "actions": [{"type": "grep-next-query"}]
+        "action": [{"type": "grep-next-query"}]
       },
       {
         "keys": ["C-d", "<DELETE>"],
-        "actions": [{"type": "char-delete-forward"}]
+        "action": [{"type": "char-delete-forward"}]
       },
       {
         "keys": ["C-h", "<BACKSPACE>"],
-        "actions": [{"type": "char-delete-backward"}]
+        "action": [{"type": "char-delete-backward"}]
       }
     ],
     "ext": [
       {
         "keys": ["C-g"],
         "label": "C-g: cancel",
-        "actions": [{"type": "cancel"}]
+        "action": [{"type": "cancel"}]
       },
       {
         "keys": ["C-s"],
         "label": "C-s: save",
-        "actions": [{"type": "buffer-save"}, {"type": "cancel"}, {"type": "echo", "message": "Saved!"}]
+        "action": [{"type": "buffer-save"}, {"type": "cancel"}, {"type": "echo", "message": "Saved!"}]
       },
       {
         "keys": ["g"],
         "label": "g: goto-mode",
-        "actions": [{"type": "context-set", "name": "goto"}]
+        "action": [{"type": "context-set", "name": "goto"}]
       }
     ],
     "goto": [
       {
         "keys": ["C-g"],
         "label": "C-g: cancel",
-        "actions": [{"type": "cancel"}]
+        "action": [{"type": "cancel"}]
       },
       {
         "keys": ["g"],
         "label": "g: goto",
-        "actions": [{"type": "goto-line"}, {"type": "cancel"}, {"type": "echo", "message": "Moved!"}]
+        "action": [{"type": "goto-line"}, {"type": "cancel"}, {"type": "echo", "message": "Moved!"}]
       },
       {
         "keys": ["p"],
         "label": "p: up-same-level",
-        "actions": [{"type": "cursor-up-skip-spaces"}, {"type": "cancel"}]
+        "action": [{"type": "cursor-up-skip-spaces"}, {"type": "cancel"}]
       },
       {
         "keys": ["n"],
         "label": "n: down-same-level",
-        "actions": [{"type": "cursor-down-skip-spaces"}, {"type": "cancel"}]
+        "action": [{"type": "cursor-down-skip-spaces"}, {"type": "cancel"}]
       }
     ],
     "json": [
       {
         "keys": ["C-g"],
         "label": "C-g: cancel",
-        "actions": [{"type": "cancel"}]
+        "action": [{"type": "cancel"}]
       },
       {
         "keys": ["f"],
         "label": "f: jcfmt",
-        "actions": [{"type": "buffer-save"}, {"type": "external-command", "command": "fish", "args": ["-c", "cat $KK_CURRENT_FILE | jcfmt | sponge $KK_CURRENT_FILE"]}, {"type": "buffer-reload"}, {"type": "cursor-skip-spaces"}, {"type": "cancel"}, {"type": "echo", "message": "Formatted!"}]
+        "action": [{"type": "buffer-save"}, {"type": "external-command", "command": "fish", "args": ["-c", "cat $KK_CURRENT_FILE | jcfmt | sponge $KK_CURRENT_FILE"]}, {"type": "buffer-reload"}, {"type": "cursor-skip-spaces"}, {"type": "cancel"}, {"type": "echo", "message": "Formatted!"}]
       }
     ],
   }
