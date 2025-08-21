@@ -92,8 +92,9 @@ impl App {
         };
 
         // TODO: remove clone
-        let action = binding.action.clone();
-        self.handle_action(action, key).or_fail()?;
+        if let Some(action) = binding.action.clone() {
+            self.handle_action(action, key).or_fail()?;
+        }
 
         Ok(())
     }

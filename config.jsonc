@@ -12,7 +12,8 @@
       {
         "keys": ["C-g"],
         "label": "C-g: cancel",
-        "action": [{"type": "cancel"}]
+        "action": [{"type": "cancel"}],
+        "context": "__main__",
       },
       {
         "keys": ["M-r"],
