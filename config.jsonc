@@ -2,11 +2,15 @@
   "setup": {
     "context": "__main__"
   },
-  "constants": {
-    "GREP_COMMON_ARGS": ["-m", {"val": "MAX_GREP_LINES"}, "-bio"]
-  },
-  "environment": {
-    "MAX_GREP_LINES": {"default": "100"}
+  "variables": {
+    "MAX_GREP_LINES": {
+      "type": "env",
+      "default": "100"
+    },
+    "GREP_COMMON_ARGS": {
+      "type": "const",
+      "value": ["-m", {"ref": "MAX_GREP_LINES"}, "-bio"]
+    },
   },
   "keybindings": {
     "__main__": [
@@ -42,7 +46,7 @@
         "action": [
           {"type": "cursor-anchor"},
           {"type": "grep", "command": "grep", "args": ["-m100", "-bio"]}
-          // {"type": "grep", "command": "grep", "args": {"val": "GREP_COMMON_ARGS"}}
+          // {"type": "grep", "command": "grep", "args": {"ref": "GREP_COMMON_ARGS"}}
         ]
       },
       {
