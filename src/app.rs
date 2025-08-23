@@ -9,7 +9,6 @@ use crate::{
     anchor::CursorAnchorLog,
     config::Config,
     grep_mode::{GrepMode, GrepQueryRenderer, Highlight},
-    legend::LegendRenderer,
     message_line::MessageLineRenderer,
     state::State,
     status_line::StatusLineRenderer,
@@ -25,7 +24,6 @@ pub struct App {
     text_area: TextAreaRenderer,
     message_line: MessageLineRenderer,
     status_line: StatusLineRenderer,
-    legend: LegendRenderer,
     exit: bool,
 }
 
@@ -40,7 +38,6 @@ impl App {
             text_area: TextAreaRenderer,
             message_line: MessageLineRenderer,
             status_line: StatusLineRenderer,
-            legend: LegendRenderer,
             exit: false,
         })
     }
@@ -233,9 +230,7 @@ impl App {
 
         let region = frame_region.take_bottom(2).take_top(1);
         self.render_region(&mut frame, region, |frame| {
-            self.status_line
-                .render(&self.state, &self.config, frame)
-                .or_fail()
+            self.status_line.render(&self.state, frame).or_fail()
         })?;
 
         let region = frame_region.take_bottom(1);
@@ -243,10 +238,20 @@ impl App {
             self.message_line.render(&self.state, frame).or_fail()
         })?;
 
-        let region = self.legend.region(&self.config, frame.size());
-        self.render_region(&mut frame, region, |frame| {
-            self.legend.render(&self.config, frame).or_fail()
-        })?;
+        let legend_frame = mame::render_legend(
+            self.config.current_context(),
+            self.config
+                .current_keymap()
+                .bindings()
+                .filter_map(|b| b.label.as_ref()),
+        );
+        if frame_region.contains(legend_frame.size().to_region().bottom_right()) {
+            let position = frame_region
+                .take_top(legend_frame.size().rows)
+                .take_right(legend_frame.size().cols)
+                .position;
+            frame.draw(position, &legend_frame);
+        }
 
         if let Some(grep) = &self.state.grep_mode {
             self.terminal
