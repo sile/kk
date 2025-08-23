@@ -91,9 +91,15 @@ impl App {
             return Ok(());
         };
 
+        let next_context = binding.context.clone();
+
         // TODO: remove clone
         if let Some(action) = binding.action.clone() {
             self.handle_action(action, key).or_fail()?;
+        }
+
+        if let Some(context) = next_context {
+            self.config.set_current_context(&context);
         }
 
         Ok(())
@@ -163,11 +169,6 @@ impl App {
                 if let Some(anchor) = self.anchor_log.prev_anchor(&current).or_fail()? {
                     self.state.restore_anchor(&anchor).or_fail()?;
                     self.state.set_message(format!("Jump: {anchor}"));
-                }
-            }
-            Action::ContextSet(c) => {
-                if self.config.set_current_context(&c.name) {
-                    self.state.set_message(format!("New context: {}", c.name));
                 }
             }
             Action::Echo(m) => {

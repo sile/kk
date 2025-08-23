@@ -88,17 +88,17 @@
       {
         "keys": ["M-j"],
         "label": "M-j: json-mode",
-        "action": [{"type": "context-set", "name": "json"}]
+        "context": "json",
       },
       {
         "keys": ["C-x"],
         "label": "C-x: ext-mode",
-        "action": [{"type": "context-set", "name": "ext"}]
+        "context": "ext",
       },
       {
         "keys": ["M-g"],
         "label": "M-g: goto-mode",
-        "action": [{"type": "context-set", "name": "goto"}]
+        "context": "goto",
       },
       {
         "keys": ["M-,"],
@@ -197,7 +197,8 @@
       {
         "keys": ["C-g", "<ENTER>"],
         "label": "C-g: cancel",
-        "action": [{"type": "cancel"}]
+        "action": [{"type": "cancel"}],
+        "context": "__main__",
       },
       {
         "keys": ["C-y"],
@@ -225,7 +226,8 @@
           {"type": "cursor-right-skip-chars", "chars": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"},
           {"type": "mark-copy"},
           {"type": "cursor-jump"}
-        ]
+        ],
+        "context": "__main__",
       },
       {
         "keys": ["C-v"],
@@ -298,30 +300,29 @@
       {
         "keys": ["C-s"],
         "label": "C-s: save",
-        "action": [{"type": "buffer-save"}, {"type": "cancel"}, {"type": "echo", "message": "Saved!"}]
+        "action": [{"type": "buffer-save"}, {"type": "cancel"}, {"type": "echo", "message": "Saved!"}],
+        "context": "__main__",
       },
-      {
-        "keys": ["g"],
-        "label": "g: goto-mode",
-        "action": [{"type": "context-set", "name": "goto"}]
-      }
     ],
     "goto": [
       {"ref": "/CANCEL"},
       {
         "keys": ["g"],
         "label": "g: goto",
-        "action": [{"type": "goto-line"}, {"type": "cancel"}, {"type": "echo", "message": "Moved!"}]
+        "action": [{"type": "goto-line"}, {"type": "cancel"}, {"type": "echo", "message": "Moved!"}],
+        "context": "__main__",
       },
       {
         "keys": ["p"],
         "label": "p: up-same-level",
-        "action": [{"type": "cursor-up-skip-spaces"}, {"type": "cancel"}]
+        "action": [{"type": "cursor-up-skip-spaces"}, {"type": "cancel"}],
+        "context": "__main__",
       },
       {
         "keys": ["n"],
         "label": "n: down-same-level",
-        "action": [{"type": "cursor-down-skip-spaces"}, {"type": "cancel"}]
+        "action": [{"type": "cursor-down-skip-spaces"}, {"type": "cancel"}],
+        "context": "__main__",
       }
     ],
     "json": [
@@ -329,7 +330,8 @@
       {
         "keys": ["f"],
         "label": "f: jcfmt",
-        "action": [{"type": "buffer-save"}, {"type": "external-command", "command": "fish", "args": ["-c", "cat $KK_CURRENT_FILE | jcfmt | sponge $KK_CURRENT_FILE"]}, {"type": "buffer-reload"}, {"type": "cursor-skip-spaces"}, {"type": "cancel"}, {"type": "echo", "message": "Formatted!"}]
+        "action": [{"type": "buffer-save"}, {"type": "external-command", "command": "fish", "args": ["-c", "cat $KK_CURRENT_FILE | jcfmt | sponge $KK_CURRENT_FILE"]}, {"type": "buffer-reload"}, {"type": "cursor-skip-spaces"}, {"type": "cancel"}, {"type": "echo", "message": "Formatted!"}],
+        "context": "__main__",
       }
     ],
   }
