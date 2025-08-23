@@ -50,7 +50,8 @@
         "action": [
           {"type": "cursor-anchor"},
           {"type": "grep", "command": "grep", "args": {"ref": "GREP_ARGS"}}
-        ]
+        ],
+        "context": "__grep__",
       },
       {
         "keys": ["C-r"],
@@ -58,7 +59,8 @@
         "action": [
           {"type": "cursor-anchor"},
           {"type": "grep", "command": "grep", "args": {"ref": "GREP_ARGS"}, "forward": false}
-        ]
+        ],
+        "context": "__grep__",
       },
       {
         "keys": ["C- ", "C-`"],

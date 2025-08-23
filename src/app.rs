@@ -121,7 +121,6 @@ impl App {
                     grep.save_query().or_fail()?;
                 }
                 self.state.highlight = Highlight::default();
-                self.config.set_current_context("__main__"); // TODO: do not assume __main__
                 self.state.set_message("Canceled");
             }
             Action::BufferSave => self.state.handle_buffer_save().or_fail()?,
@@ -178,7 +177,6 @@ impl App {
                 self.state.finish_editing();
                 self.state.grep_mode = Some(GrepMode::new(action));
                 self.state.mark = None;
-                self.config.set_current_context("__grep__"); // TODO: do not assume __grep__
                 self.state.set_message("Entered grep mode");
             }
             Action::GrepNextHit => {
