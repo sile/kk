@@ -7,9 +7,18 @@
       "type": "env",
       "default": "100"
     },
-    "GREP_COMMON_ARGS": {
+    "GREP_ARGS": {
       "type": "const",
       "value": ["-m", {"ref": "MAX_GREP_LINES"}, "-bio"]
+    },
+    "ACTION_CANCEL": {
+      "type": "const",
+      "value": {
+        "keys": ["C-g"],
+        "label": "C-g: cancel",
+        "action": {"type": "cancel"},
+        "context": "__main__",
+      }
     },
   },
   "keybindings": {
@@ -19,12 +28,7 @@
         "label": "C-c: quit",
         "action": [{"type": "quit"}]
       },
-      {
-        "keys": ["C-g"],
-        "label": "C-g: cancel",
-        "action": [{"type": "cancel"}],
-        "context": "__main__",
-      },
+      {"ref": "ACTION_CANCEL"},
       {
         "keys": ["M-r"],
         "label": "M-r: reload",
@@ -45,7 +49,7 @@
         "label": "C-s: grep",
         "action": [
           {"type": "cursor-anchor"},
-          {"type": "grep", "command": "grep", "args": {"ref": "GREP_COMMON_ARGS"}}
+          {"type": "grep", "command": "grep", "args": {"ref": "GREP_ARGS"}}
         ]
       },
       {
@@ -53,7 +57,7 @@
         "label": "C-r: rgrep",
         "action": [
           {"type": "cursor-anchor"},
-          {"type": "grep", "command": "grep", "args": ["-m100", "-bio"], "forward": false}
+          {"type": "grep", "command": "grep", "args": {"ref": "GREP_ARGS"}, "forward": false}
         ]
       },
       {
@@ -290,11 +294,7 @@
       }
     ],
     "ext": [
-      {
-        "keys": ["C-g"],
-        "label": "C-g: cancel",
-        "action": [{"type": "cancel"}]
-      },
+      {"ref": "ACTION_CANCEL"},
       {
         "keys": ["C-s"],
         "label": "C-s: save",
@@ -307,11 +307,7 @@
       }
     ],
     "goto": [
-      {
-        "keys": ["C-g"],
-        "label": "C-g: cancel",
-        "action": [{"type": "cancel"}]
-      },
+      {"ref": "ACTION_CANCEL"},
       {
         "keys": ["g"],
         "label": "g: goto",
@@ -329,11 +325,7 @@
       }
     ],
     "json": [
-      {
-        "keys": ["C-g"],
-        "label": "C-g: cancel",
-        "action": [{"type": "cancel"}]
-      },
+      {"ref": "ACTION_CANCEL"},
       {
         "keys": ["f"],
         "label": "f: jcfmt",
