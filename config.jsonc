@@ -45,8 +45,7 @@
         "label": "C-s: grep",
         "action": [
           {"type": "cursor-anchor"},
-          {"type": "grep", "command": "grep", "args": ["-m100", "-bio"]}
-          // {"type": "grep", "command": "grep", "args": {"ref": "GREP_COMMON_ARGS"}}
+          {"type": "grep", "command": "grep", "args": {"ref": "GREP_COMMON_ARGS"}}
         ]
       },
       {
