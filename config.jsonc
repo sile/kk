@@ -11,7 +11,7 @@
       "type": "const",
       "value": ["-m", {"ref": "MAX_GREP_LINES"}, "-bio"]
     },
-    "ACTION_CANCEL": {
+    "/CANCEL": {
       "type": "const",
       "value": {
         "keys": ["C-g"],
@@ -28,7 +28,7 @@
         "label": "C-c: quit",
         "action": [{"type": "quit"}]
       },
-      {"ref": "ACTION_CANCEL"},
+      {"ref": "/CANCEL"},
       {
         "keys": ["M-r"],
         "label": "M-r: reload",
@@ -294,7 +294,7 @@
       }
     ],
     "ext": [
-      {"ref": "ACTION_CANCEL"},
+      {"ref": "/CANCEL"},
       {
         "keys": ["C-s"],
         "label": "C-s: save",
@@ -307,7 +307,7 @@
       }
     ],
     "goto": [
-      {"ref": "ACTION_CANCEL"},
+      {"ref": "/CANCEL"},
       {
         "keys": ["g"],
         "label": "g: goto",
@@ -325,7 +325,7 @@
       }
     ],
     "json": [
-      {"ref": "ACTION_CANCEL"},
+      {"ref": "/CANCEL"},
       {
         "keys": ["f"],
         "label": "f: jcfmt",
