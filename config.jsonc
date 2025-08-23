@@ -1,6 +1,6 @@
 {
   "setup": {
-    "context": "__main__"
+    "context": "@main"
   },
   "variables": {
     "MAX_GREP_LINES": {
@@ -17,12 +17,12 @@
         "keys": ["C-g"],
         "label": "C-g: cancel",
         "action": {"type": "cancel"},
-        "context": "__main__",
+        "context": "@main",
       }
     },
   },
   "keybindings": {
-    "__main__": [
+    "@main": [
       {
         "keys": ["C-c"],
         "label": "C-c: quit",
@@ -51,7 +51,7 @@
           {"type": "cursor-anchor"},
           {"type": "grep", "command": "grep", "args": {"ref": "GREP_ARGS"}}
         ],
-        "context": "__grep__",
+        "context": "@grep",
       },
       {
         "keys": ["C-r"],
@@ -60,7 +60,7 @@
           {"type": "cursor-anchor"},
           {"type": "grep", "command": "grep", "args": {"ref": "GREP_ARGS"}, "forward": false}
         ],
-        "context": "__grep__",
+        "context": "@grep",
       },
       {
         "keys": ["C- ", "C-`"],
@@ -90,17 +90,17 @@
       {
         "keys": ["M-j"],
         "label": "M-j: json-mode",
-        "context": "json",
+        "context": "@json",
       },
       {
         "keys": ["C-x"],
         "label": "C-x: ext-mode",
-        "context": "ext",
+        "context": "@ext",
       },
       {
         "keys": ["M-g"],
         "label": "M-g: goto-mode",
-        "context": "goto",
+        "context": "@goto",
       },
       {
         "keys": ["M-,"],
@@ -195,12 +195,12 @@
         "action": [{"type": "cursor-page-down"}]
       },
     ],
-    "__grep__": [
+    "@grep": [
       {
         "keys": ["C-g", "<ENTER>"],
         "label": "C-g: cancel",
         "action": [{"type": "cancel"}],
-        "context": "__main__",
+        "context": "@main",
       },
       {
         "keys": ["C-y"],
@@ -229,7 +229,7 @@
           {"type": "mark-copy"},
           {"type": "cursor-jump"}
         ],
-        "context": "__main__",
+        "context": "@main",
       },
       {
         "keys": ["C-v"],
@@ -297,43 +297,43 @@
         "action": [{"type": "char-delete-backward"}]
       }
     ],
-    "ext": [
+    "@ext": [
       {"ref": "/CANCEL"},
       {
         "keys": ["C-s"],
         "label": "C-s: save",
         "action": [{"type": "buffer-save"}, {"type": "cancel"}, {"type": "echo", "message": "Saved!"}],
-        "context": "__main__",
+        "context": "@main",
       },
     ],
-    "goto": [
+    "@goto": [
       {"ref": "/CANCEL"},
       {
         "keys": ["g"],
         "label": "g: goto",
         "action": [{"type": "goto-line"}, {"type": "cancel"}, {"type": "echo", "message": "Moved!"}],
-        "context": "__main__",
+        "context": "@main",
       },
       {
         "keys": ["p"],
         "label": "p: up-same-level",
         "action": [{"type": "cursor-up-skip-spaces"}, {"type": "cancel"}],
-        "context": "__main__",
+        "context": "@main",
       },
       {
         "keys": ["n"],
         "label": "n: down-same-level",
         "action": [{"type": "cursor-down-skip-spaces"}, {"type": "cancel"}],
-        "context": "__main__",
+        "context": "@main",
       }
     ],
-    "json": [
+    "@json": [
       {"ref": "/CANCEL"},
       {
         "keys": ["f"],
         "label": "f: jcfmt",
         "action": [{"type": "buffer-save"}, {"type": "external-command", "command": "fish", "args": ["-c", "cat $KK_CURRENT_FILE | jcfmt | sponge $KK_CURRENT_FILE"]}, {"type": "buffer-reload"}, {"type": "cursor-skip-spaces"}, {"type": "cancel"}, {"type": "echo", "message": "Formatted!"}],
-        "context": "__main__",
+        "context": "@main",
       }
     ],
   }
