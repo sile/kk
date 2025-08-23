@@ -23,8 +23,13 @@ impl StatusLineRenderer {
         let cols = state.buffer.cols(cursor.row);
         write!(
             frame,
-            "{style} {dirty} [{path}:{row}({rows}):{col}({cols})] {}{}{reset}",
-            state.clipboard.summary_line, filler
+            "{style} {dirty} [{path}:{row}({rows}):{col}({cols})] {}{}{filler}{reset}",
+            if state.clipboard.summary_line.is_empty() {
+                ""
+            } else {
+                "📋"
+            },
+            state.clipboard.summary_line,
         )
         .or_fail()?;
 
