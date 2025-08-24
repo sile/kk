@@ -262,7 +262,7 @@ impl App {
 
             let (position, subframe) = preview.render_left_pane();
             frame.draw(position, &subframe);
-1
+
             let (position, subframe) = preview.render_right_pane();
             frame.draw(position, &subframe);
         }
