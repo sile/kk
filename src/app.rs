@@ -24,6 +24,7 @@ pub struct App {
     text_area: TextAreaRenderer,
     message_line: MessageLineRenderer,
     status_line: StatusLineRenderer,
+    file_preview: Option<mame::FilePreview>,
     exit: bool,
 }
 
@@ -38,6 +39,7 @@ impl App {
             text_area: TextAreaRenderer,
             message_line: MessageLineRenderer,
             status_line: StatusLineRenderer,
+            file_preview: None,
             exit: false,
         })
     }
@@ -210,8 +212,12 @@ impl App {
             Action::CursorLeftSkipChars(c) => self.state.handle_cursor_left_skip_chars(&c.chars),
             Action::CursorRightSkipChars(c) => self.state.handle_cursor_right_skip_chars(&c.chars),
             Action::GrepReplaceHit => self.state.handle_grep_replace_hit().or_fail()?,
-            Action::FilePreviewOpen(_) => todo!(),
-            Action::FilePreviewClose => todo!(),
+            Action::FilePreviewOpen(spec) => {
+                self.file_preview = Some(mame::FilePreview::new(&spec).or_fail()?);
+            }
+            Action::FilePreviewClose => {
+                self.file_preview = None;
+            }
         }
         Ok(())
     }
@@ -229,6 +235,7 @@ impl App {
         self.render_region(&mut frame, region, |frame| {
             self.text_area.render(&self.state, frame).or_fail()
         })?;
+        let text_area_region = region;
 
         let mut frame_region = frame.size().to_region();
         let mut grep_region = frame_region;
@@ -249,6 +256,16 @@ impl App {
         self.render_region(&mut frame, region, |frame| {
             self.message_line.render(&self.state, frame).or_fail()
         })?;
+
+        if let Some(preview) = &mut self.file_preview {
+            preview.set_parent_region(text_area_region);
+
+            let (position, subframe) = preview.render_left_pane();
+            frame.draw(position, &subframe);
+1
+            let (position, subframe) = preview.render_right_pane();
+            frame.draw(position, &subframe);
+        }
 
         let legend_frame = mame::render_legend(
             self.config.current_context(),
