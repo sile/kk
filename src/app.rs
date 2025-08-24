@@ -155,6 +155,16 @@ impl App {
             Action::ShellCommand(action) => {
                 self.state.handle_external_command(&action).or_fail()?
             }
+            Action::Command(cmd) => {
+                let output = cmd.execute().or_fail()?;
+                let name = cmd.name.display();
+                if let Some(code) = output.status.code() {
+                    self.state
+                        .set_message(format!("{name:?} command exited with status code {code}"));
+                } else {
+                    self.state.set_message(format!("{name:?} command exited"));
+                }
+            }
             Action::CursorAnchor => {
                 let anchor = self.state.current_cursor_anchor();
                 self.state.set_message(format!("Anchor: {anchor}"));

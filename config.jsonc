@@ -142,6 +142,19 @@
         "action": [{"type": "cursor-line-start"}, {"type": "mark-set"}, {"type": "cursor-line-end"}]
       },
       {
+        "keys": ["C-t"],
+        "label": "C-t: check",
+        "action": [
+          {
+            "type": "command",
+            "name": "cargo",
+            "args": ["check"],
+            "stdout": {"type": "file", "path": ".stdout"},
+            "stderr": {"type": "file", "path": ".stderr"},
+          },
+        ]
+      },
+      {
         "keys": ["C-a"],
         "action": [{"type": "cursor-line-start"}]
       },
