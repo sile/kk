@@ -149,9 +149,14 @@
             "type": "command",
             "name": "cargo",
             "args": ["check"],
-            "stdout": {"type": "file", "path": ".stdout"},
-            "stderr": {"type": "file", "path": ".stderr"},
+            "stdout": {"type": "file", "path": "target/stdout"},
+            "stderr": {"type": "file", "path": "target/stderr"},
           },
+          {
+            "type": "file-preview-open",
+            "left-pane": {"file": "target/stdout"},
+            "right-pane": {"file": "target/stderrr"},
+          }
         ]
       },
       {
