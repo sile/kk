@@ -200,6 +200,8 @@ impl App {
             Action::CursorLeftSkipChars(c) => self.state.handle_cursor_left_skip_chars(&c.chars),
             Action::CursorRightSkipChars(c) => self.state.handle_cursor_right_skip_chars(&c.chars),
             Action::GrepReplaceHit => self.state.handle_grep_replace_hit().or_fail()?,
+            Action::FilePreviewOpen(_) => todo!(),
+            Action::FilePreviewClose => todo!(),
         }
         Ok(())
     }

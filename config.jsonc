@@ -1,6 +1,15 @@
 {
   "setup": {
-    "context": "@main"
+    "context": "@main",
+    "action": {
+      "type": "preview",
+      "left_pane": {
+        "file": "foo.json"
+      },
+      "right_pane": {
+        "file": "foo.json"
+      },
+    },
   },
   "variables": {
     "MAX_GREP_LINES": {
@@ -120,7 +129,12 @@
       {
         "keys": ["M-h"],
         "label": "M-h: niho",
-        "action": [{"type": "cursor-line-start"}, {"type": "mark-set"}, {"type": "cursor-line-end"}, {"type": "external-command", "command": "fish", "args": ["-c", "niho"]}]
+        "action": [
+          {"type": "cursor-line-start"},
+          {"type": "mark-set"},
+          {"type": "cursor-line-end"},
+          {"type": "external-command", "command": "fish", "args": ["-c", "niho"]}
+        ]
       },
       {
         "keys": ["M-l"],
