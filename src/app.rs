@@ -158,8 +158,12 @@ impl App {
                 self.state.handle_external_command(&action).or_fail()?
             }
             Action::Command(cmd) => {
-                let output = cmd.execute().or_fail()?;
                 let name = cmd.name.display();
+                self.state
+                    .set_message(format!("Executing {name:?} command ..."));
+                self.render().or_fail()?;
+
+                let output = cmd.execute().or_fail()?;
                 if let Some(code) = output.status.code() {
                     self.state
                         .set_message(format!("{name:?} command exited with status code {code}"));
