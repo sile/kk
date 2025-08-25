@@ -1,6 +1,6 @@
 use std::{fmt::Write, io::Write as _, path::PathBuf};
 
-use mame::UnicodeTerminalFrame as TerminalFrame;
+use mame::terminal::UnicodeTerminalFrame as TerminalFrame;
 use orfail::OrFail;
 use tuinix::{TerminalPosition, TerminalRegion};
 
@@ -207,7 +207,7 @@ fn byte_offset_to_text_position(text: &str, offset: usize) -> orfail::Result<Tex
             row += 1;
             col = 0;
         } else {
-            col += mame::char_cols(ch);
+            col += mame::terminal::char_cols(ch);
         }
 
         current_offset += ch.len_utf8();

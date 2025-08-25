@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use mame::UnicodeTerminalFrame as TerminalFrame;
+use mame::terminal::UnicodeTerminalFrame as TerminalFrame;
 use orfail::OrFail;
 use tuinix::{KeyInput, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
@@ -85,8 +85,10 @@ impl App {
 
     fn handle_key_input(&mut self, key: KeyInput) -> orfail::Result<()> {
         let Some(binding) = self.config.current_keymap().get_binding(key) else {
-            self.state
-                .set_message(format!("No action found: '{}'", mame::display_key(key)));
+            self.state.set_message(format!(
+                "No action found: '{}'",
+                mame::fmt::display_key(key)
+            ));
             return Ok(());
         };
 
