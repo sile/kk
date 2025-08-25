@@ -156,7 +156,7 @@
           {
             "type": "file-preview-open",
             "left-pane": {"file": "target/stdout"},
-            "right-pane": {"file": "target/stderrr"},
+            "right-pane": {"file": "target/stderr"},
           }
         ]
       },
