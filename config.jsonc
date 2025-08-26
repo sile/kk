@@ -1,15 +1,6 @@
 {
   "setup": {
     "context": "@main",
-    "action": {
-      "type": "preview",
-      "left_pane": {
-        "file": "foo.json"
-      },
-      "right_pane": {
-        "file": "foo.json"
-      },
-    },
   },
   "variables": {
     "MAX_GREP_LINES": {
