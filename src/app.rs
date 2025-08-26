@@ -7,7 +7,6 @@ use tuinix::{KeyInput, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 use crate::{
     action::Action,
     anchor::CursorAnchorLog,
-    config::Config,
     grep_mode::{GrepMode, GrepQueryRenderer, Highlight},
     message_line::MessageLineRenderer,
     state::State,
@@ -18,13 +17,13 @@ use crate::{
 #[derive(Debug)]
 pub struct App {
     terminal: Terminal,
-    config: Config,
+    config: mame::action::ActionConfig<Action>,
     state: State,
     anchor_log: CursorAnchorLog,
     text_area: TextAreaRenderer,
     message_line: MessageLineRenderer,
     status_line: StatusLineRenderer,
-    file_preview: Option<mame::FilePreview>,
+    file_preview: Option<mame::preview::FilePreview>,
     exit: bool,
 }
 
@@ -35,7 +34,11 @@ impl App {
             terminal,
             state: State::new(path).or_fail()?,
             anchor_log: CursorAnchorLog::default(),
-            config: Config::load_str("<DEFAULT>", include_str!("../config.jsonc")).or_fail()?,
+            config: mame::action::ActionConfig::load_str(
+                "<DEFAULT>",
+                include_str!("../config.jsonc"),
+            )
+            .or_fail()?,
             text_area: TextAreaRenderer,
             message_line: MessageLineRenderer,
             status_line: StatusLineRenderer,
@@ -219,7 +222,7 @@ impl App {
             Action::CursorRightSkipChars(c) => self.state.handle_cursor_right_skip_chars(&c.chars),
             Action::GrepReplaceHit => self.state.handle_grep_replace_hit().or_fail()?,
             Action::FilePreviewOpen(spec) => {
-                self.file_preview = Some(mame::FilePreview::new(&spec).or_fail()?);
+                self.file_preview = Some(mame::preview::FilePreview::new(&spec).or_fail()?);
             }
             Action::FilePreviewClose => {
                 self.file_preview = None;
@@ -273,7 +276,7 @@ impl App {
             frame.draw(position, &subframe);
         }
 
-        let legend_frame = mame::render_legend(
+        let legend_frame = mame::legend::render_legend(
             self.config.current_context(),
             self.config
                 .current_keymap()

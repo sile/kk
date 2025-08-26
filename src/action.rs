@@ -42,14 +42,12 @@ pub enum Action {
     GrepReplaceHit,
     Echo(EchoAction),
     GotoLine,
-    FilePreviewOpen(mame::FilePreviewSpec),
+    FilePreviewOpen(mame::preview::FilePreviewSpec),
     FilePreviewClose,
     Multiple(Vec<Action>),
 }
 
-impl mame::Action for Action {
-    // TODO: validate_action
-}
+impl mame::action::Action for Action {}
 
 impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
     type Error = nojson::JsonParseError;
@@ -105,7 +103,7 @@ impl<'text, 'raw> TryFrom<nojson::RawJsonValue<'text, 'raw>> for Action {
             "grep-replace-hit" => Ok(Self::GrepReplaceHit),
             "goto-line" => Ok(Self::GotoLine),
             "file-preview-open" => {
-                mame::FilePreviewSpec::try_from(value).map(Self::FilePreviewOpen)
+                mame::preview::FilePreviewSpec::try_from(value).map(Self::FilePreviewOpen)
             }
             "file-preview-close" => Ok(Self::FilePreviewClose),
             ty => Err(value.invalid(format!("unknown command type: {ty:?}"))),
