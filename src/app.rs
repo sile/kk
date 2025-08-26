@@ -88,10 +88,8 @@ impl App {
 
     fn handle_key_input(&mut self, key: KeyInput) -> orfail::Result<()> {
         let Some(binding) = self.config.current_keymap().get_binding(key) else {
-            self.state.set_message(format!(
-                "No action found: '{}'",
-                mame::fmt::display_key(key)
-            ));
+            self.state
+                .set_message(format!("No action found: '{}'", mame::fmt::key(key)));
             return Ok(());
         };
 
