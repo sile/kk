@@ -34,7 +34,7 @@ impl App {
             terminal,
             state: State::new(path).or_fail()?,
             anchor_log: CursorAnchorLog::default(),
-            config: mame::action::ActionConfig::load_str(
+            config: mame::action::ActionConfig::load_from_str(
                 "<DEFAULT>",
                 include_str!("../config.jsonc"),
             )
@@ -237,12 +237,17 @@ impl App {
     fn render(&mut self) -> orfail::Result<()> {
         let mut frame = TerminalFrame::new(self.terminal.size());
 
+        let mut preview = self.file_preview.take();
         let region = self.text_area_region();
         self.state.adjust_viewport(region.size);
         self.render_region(&mut frame, region, |frame| {
-            self.text_area.render(&self.state, frame).or_fail()
+            self.text_area.render(&self.state, frame).or_fail()?;
+            if let Some(preview) = &mut preview {
+                preview.render(frame).or_fail()?;
+            }
+            Ok(())
         })?;
-        let text_area_region = region;
+        self.file_preview = preview;
 
         let mut frame_region = frame.size().to_region();
         let mut grep_region = frame_region;
@@ -264,30 +269,14 @@ impl App {
             self.message_line.render(&self.state, frame).or_fail()
         })?;
 
-        if let Some(preview) = &mut self.file_preview {
-            preview.set_parent_region(text_area_region);
-
-            let (position, subframe) = preview.render_left_pane();
-            frame.draw(position, &subframe);
-
-            let (position, subframe) = preview.render_right_pane();
-            frame.draw(position, &subframe);
-        }
-
-        let legend_frame = mame::legend::render_legend(
+        let legend = mame::legend::Legend::new(
             self.config.current_context(),
             self.config
                 .current_keymap()
                 .bindings()
                 .filter_map(|b| b.label.as_ref()),
         );
-        if frame_region.contains(legend_frame.size().to_region().bottom_right()) {
-            let position = frame_region
-                .take_top(legend_frame.size().rows)
-                .take_right(legend_frame.size().cols)
-                .position;
-            frame.draw(position, &legend_frame);
-        }
+        legend.render(&mut frame).or_fail()?;
 
         if let Some(grep) = &self.state.grep_mode {
             self.terminal
