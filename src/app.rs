@@ -162,16 +162,15 @@ impl App {
             }
             Action::Command(cmd) => {
                 let name = cmd.command_line();
-                self.state
-                    .set_message(format!("Executing `{name}` command ..."));
+                self.state.set_message(format!("Executing `$ {name}` ..."));
                 self.render().or_fail()?;
 
                 let output = cmd.execute().or_fail()?;
                 if let Some(code) = output.status.code() {
                     self.state
-                        .set_message(format!("[{code}] `{name}` command exited"));
+                        .set_message(format!("[{code}] `$ {name}` exited"));
                 } else {
-                    self.state.set_message(format!("`{name}` command exited"));
+                    self.state.set_message(format!("`$ {name}` exited"));
                 }
             }
             Action::CursorAnchor => {
