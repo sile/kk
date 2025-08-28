@@ -500,8 +500,8 @@ impl State {
                 start_line.0 = chars_to_keep;
             }
 
-            if start.row + 1 < self.buffer.text.len() {
-                if let Some(end_line) = self.buffer.text.get(start.row + 1).cloned() {
+            if start.row + 1 < self.buffer.text.len()
+                && let Some(end_line) = self.buffer.text.get(start.row + 1).cloned() {
                     let chars_to_keep: Vec<char> = end_line
                         .char_cols()
                         .filter(|(col, _)| *col >= end.col)
@@ -514,7 +514,6 @@ impl State {
 
                     self.buffer.text.remove(start.row + 1);
                 }
-            }
         }
 
         self.buffer.dirty = true;
@@ -612,7 +611,7 @@ impl State {
         for arg in &action.args {
             match arg {
                 ExternalCommandArg::Literal(a) => cmd.arg(a),
-                ExternalCommandArg::CurrentFile => cmd.arg(&self.path.display().to_string()),
+                ExternalCommandArg::CurrentFile => cmd.arg(self.path.display().to_string()),
             };
         }
 
@@ -641,12 +640,11 @@ impl State {
         };
 
         // Write to stdin if we have marked text
-        if let Some(mut stdin) = child.stdin.take() {
-            if let Some(text) = stdin_input {
+        if let Some(mut stdin) = child.stdin.take()
+            && let Some(text) = stdin_input {
                 use std::io::Write;
                 let _ = stdin.write_all(text.as_bytes());
             }
-        }
 
         let output = match child.wait_with_output() {
             Err(e) => {
@@ -764,8 +762,8 @@ impl State {
 
         if cursor_pos.col >= current_line_cols {
             // Cursor is at or past end of line - delete the newline (merge with next line)
-            if cursor_pos.row < self.buffer.rows().saturating_sub(1) {
-                if let Some(next_line) = self.buffer.text.get(cursor_pos.row + 1).cloned() {
+            if cursor_pos.row < self.buffer.rows().saturating_sub(1)
+                && let Some(next_line) = self.buffer.text.get(cursor_pos.row + 1).cloned() {
                     // Copy the newline to clipboard
                     self.clipboard.write("\n").or_fail()?;
 
@@ -776,7 +774,6 @@ impl State {
                     }
                     self.set_message("Killed newline");
                 }
-            }
         } else {
             // Delete from cursor to end of line and copy to clipboard
             if let Some(line) = self.buffer.text.get_mut(cursor_pos.row) {

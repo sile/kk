@@ -46,13 +46,12 @@ impl TextBuffer {
 
     pub fn delete_char_at(&mut self, pos: TextPosition) -> bool {
         // Store the character for undo before deleting
-        if let Some(line) = self.text.get(pos.row) {
-            if let Some(_ch) = line.char_at_col(pos.col) {
+        if let Some(line) = self.text.get(pos.row)
+            && let Some(_ch) = line.char_at_col(pos.col) {
                 self.delete_char_at_internal(pos);
                 self.dirty = true;
                 return true;
             }
-        }
 
         // Handle forward delete at line end (merge with next line)
         if pos.col >= self.cols(pos.row) && pos.row < self.text.len().saturating_sub(1) {
@@ -83,8 +82,8 @@ impl TextBuffer {
             // Find the character boundary before current position
             if let Some(line) = self.text.get(pos.row) {
                 let char_pos = line.find_char_before(pos.col);
-                if let Some(_ch) = line.char_at_col(char_pos) {
-                    if self.delete_char_at_internal(TextPosition {
+                if let Some(_ch) = line.char_at_col(char_pos)
+                    && self.delete_char_at_internal(TextPosition {
                         row: pos.row,
                         col: char_pos,
                     }) {
@@ -94,7 +93,6 @@ impl TextBuffer {
                             col: char_pos,
                         });
                     }
-                }
             }
         } else if pos.row > 0 {
             // Delete newline - merge with previous line
@@ -159,11 +157,7 @@ impl TextBuffer {
     }
 
     pub fn col_at_char_index(&self, row: usize, char_index: usize) -> Option<usize> {
-        if let Some(line) = self.text.get(row) {
-            Some(line.col_at_char_index(char_index))
-        } else {
-            None
-        }
+        self.text.get(row).map(|line| line.col_at_char_index(char_index))
     }
 
     pub fn char_index_at_col(&self, row: usize, col: usize) -> Option<usize> {

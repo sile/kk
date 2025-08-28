@@ -60,7 +60,7 @@ impl TextAreaRenderer {
                     col: current_col,
                 };
 
-                let is_marked = marked_region.as_ref().map_or(false, |(start, end)| {
+                let is_marked = marked_region.as_ref().is_some_and(|(start, end)| {
                     current_col >= *start && current_col < *end
                 });
                 let is_highlighted = state.highlight.contains(pos);
