@@ -161,17 +161,17 @@ impl App {
                 self.state.handle_external_command(&action).or_fail()?
             }
             Action::Command(cmd) => {
-                let name = cmd.name.display();
+                let name = cmd.command_line();
                 self.state
-                    .set_message(format!("Executing {name:?} command ..."));
+                    .set_message(format!("Executing `{name}` command ..."));
                 self.render().or_fail()?;
 
                 let output = cmd.execute().or_fail()?;
                 if let Some(code) = output.status.code() {
                     self.state
-                        .set_message(format!("{name:?} command exited with status code {code}"));
+                        .set_message(format!("[{code}] `{name}` command exited"));
                 } else {
-                    self.state.set_message(format!("{name:?} command exited"));
+                    self.state.set_message(format!("`{name}` command exited"));
                 }
             }
             Action::CursorAnchor => {

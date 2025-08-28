@@ -139,7 +139,7 @@
           {"type": "buffer-save"},
           {
             "type": "command",
-            "name": "cargo",
+            "command": "cargo",
             "args": ["check"],
             "stdout": {"type": "file", "path": "target/stdout"},
             "stderr": {"type": "file", "path": "target/stderr"},
