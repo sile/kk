@@ -93,6 +93,11 @@
         "context": "@json",
       },
       {
+        "keys": ["M-u"],
+        "label": "M-u: rust-mode",
+        "context": "@rust",
+      },
+      {
         "keys": ["C-x"],
         "label": "C-x: ext-mode",
         "context": "@ext",
@@ -359,6 +364,51 @@
         "action": [{"type": "buffer-save"}, {"type": "external-command", "command": "fish", "args": ["-c", "cat $KK_CURRENT_FILE | jcfmt | sponge $KK_CURRENT_FILE"]}, {"type": "buffer-reload"}, {"type": "cursor-skip-spaces"}, {"type": "cancel"}, {"type": "echo", "message": "Formatted!"}],
         "context": "@main",
       }
+    ],
+    "@rust": [
+      {"ref": "/CANCEL"},
+      {
+        "keys": ["x"],
+        "label": "x: fix",
+        "action": [
+          {"type": "buffer-save"},
+          {
+            "type": "command",
+            "command": "cargo",
+            "args": ["fix","--allow-dirty"],
+            "stdout": {"type": "file", "path": "target/stdout"},
+            "stderr": {"type": "file", "path": "target/stderr"},
+          },
+          {
+            "type": "file-preview-open",
+            "left-pane": {"file": "target/stdout"},
+            "right-pane": {"file": "target/stderr"},
+          },
+          {"type": "buffer-reload"},
+        ],
+        "context": "@main",
+      },
+      {
+        "keys": ["c"],
+        "label": "c: clippy",
+        "action": [
+          {"type": "buffer-save"},
+          {
+            "type": "command",
+            "command": "cargo",
+            "args": ["clippy"],
+            "stdout": {"type": "file", "path": "target/stdout"},
+            "stderr": {"type": "file", "path": "target/stderr"},
+          },
+          {
+            "type": "file-preview-open",
+            "left-pane": {"file": "target/stdout"},
+            "right-pane": {"file": "target/stderr"},
+          },
+          {"type": "buffer-reload"},
+        ],
+        "context": "@main",
+      },
     ],
   }
 }
