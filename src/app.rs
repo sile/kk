@@ -269,11 +269,12 @@ impl App {
         })?;
 
         let legend = mame::legend::Legend::new(
-            self.config.current_context(),
+            self.config.current_context().get(),
             self.config
                 .current_keymap()
                 .bindings()
-                .filter_map(|b| b.label.as_ref()),
+                .filter_map(|b| b.label.as_ref())
+                .map(|s| format!(" {s}")),
         );
         legend.render(&mut frame).or_fail()?;
 
