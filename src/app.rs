@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use mame::terminal::UnicodeTerminalFrame as TerminalFrame;
 use orfail::OrFail;
-use tuinix::{KeyInput, Terminal, TerminalEvent, TerminalInput, TerminalRegion};
+use tuinix::{Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
 use crate::{
     action::Action,
@@ -17,7 +17,8 @@ use crate::{
 #[derive(Debug)]
 pub struct App {
     terminal: Terminal,
-    config: mame::action::ActionConfig<Action>,
+    config: mame::action::BindingConfig<Action>,
+    context: mame::action::BindingContextName,
     state: State,
     anchor_log: CursorAnchorLog,
     text_area: TextAreaRenderer,
@@ -30,15 +31,17 @@ pub struct App {
 impl App {
     pub fn new(path: PathBuf) -> orfail::Result<Self> {
         let terminal = Terminal::new().or_fail()?;
+        let config = mame::action::BindingConfig::load_from_str(
+            "<DEFAULT>",
+            include_str!("../config.jsonc"),
+        )
+        .or_fail()?;
         Ok(Self {
             terminal,
             state: State::new(path).or_fail()?,
             anchor_log: CursorAnchorLog::default(),
-            config: mame::action::ActionConfig::load_from_str(
-                "<DEFAULT>",
-                include_str!("../config.jsonc"),
-            )
-            .or_fail()?,
+            context: config.initial_context().clone(),
+            config,
             text_area: TextAreaRenderer,
             message_line: MessageLineRenderer,
             status_line: StatusLineRenderer,
@@ -55,7 +58,7 @@ impl App {
 
             match self.terminal.poll_event(&[], &[], None).or_fail()? {
                 Some(TerminalEvent::Input(input)) => {
-                    self.handle_terminal_input(input).or_fail()?;
+                    self.handle_input(input).or_fail()?;
 
                     // Handle buffered events before rendering
                     let timeout = std::time::Duration::ZERO;
@@ -64,7 +67,7 @@ impl App {
                         .poll_event(&[], &[], Some(timeout))
                         .or_fail()?
                     {
-                        self.handle_terminal_input(input).or_fail()?;
+                        self.handle_input(input).or_fail()?;
                     }
                 }
                 Some(TerminalEvent::Resize(_size)) => {}
@@ -78,40 +81,35 @@ impl App {
         Ok(())
     }
 
-    fn handle_terminal_input(&mut self, input: TerminalInput) -> orfail::Result<()> {
-        let TerminalInput::Key(key) = input else {
-            unreachable!()
-        };
-        self.handle_key_input(key).or_fail()?;
-        Ok(())
-    }
-
-    fn handle_key_input(&mut self, key: KeyInput) -> orfail::Result<()> {
-        let Some(binding) = self.config.current_keymap().get_binding(key) else {
+    fn handle_input(&mut self, input: TerminalInput) -> orfail::Result<()> {
+        let Some(binding) = self
+            .config
+            .get_bindings(&self.context)
+            .and_then(|bindings| bindings.iter().find(|b| b.matches(input)))
+        else {
             self.state
-                .set_message(format!("No action found: '{}'", mame::fmt::key(key)));
+                .set_message(format!("No action found: '{}'", mame::fmt::input(input)));
             return Ok(());
         };
 
         let next_context = binding.context.clone();
 
-        // TODO: remove clone
         if let Some(action) = binding.action.clone() {
-            self.handle_action(action, key).or_fail()?;
+            self.handle_action(action, input).or_fail()?;
         }
 
         if let Some(context) = next_context {
-            self.config.set_current_context(&context);
+            self.context = context;
         }
 
         Ok(())
     }
 
-    fn handle_action(&mut self, action: Action, key: KeyInput) -> orfail::Result<()> {
+    fn handle_action(&mut self, action: Action, input: TerminalInput) -> orfail::Result<()> {
         match action {
             Action::Multiple(actions) => {
                 for action in actions {
-                    self.handle_action(action, key).or_fail()?;
+                    self.handle_action(action, input).or_fail()?;
                 }
             }
             Action::Quit => {
@@ -149,7 +147,11 @@ impl App {
             Action::CursorDownSkipSpaces => self.state.handle_cursor_down_skip_spaces(),
             Action::ViewRecenter => self.state.handle_view_recenter(),
             Action::NewlineInsert => self.state.handle_newline_insert(),
-            Action::CharInsert => self.state.handle_char_insert(key),
+            Action::CharInsert => {
+                if let TerminalInput::Key(key) = input {
+                    self.state.handle_char_insert(key);
+                }
+            }
             Action::CharDeleteBackward => self.state.handle_char_delete_backward(),
             Action::CharDeleteForward => self.state.handle_char_delete_forward(),
             Action::LineDelete => self.state.handle_line_delete().or_fail()?,
@@ -269,10 +271,11 @@ impl App {
         })?;
 
         let legend = mame::legend::Legend::new(
-            self.config.current_context().get(),
+            self.context.get(),
             self.config
-                .current_keymap()
-                .bindings()
+                .get_bindings(&self.context)
+                .into_iter()
+                .flatten()
                 .filter_map(|b| b.label.as_ref())
                 .map(|s| format!(" {s}")),
         );
