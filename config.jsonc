@@ -14,38 +14,38 @@
     "/CANCEL": {
       "type": "const",
       "value": {
-        "keys": ["C-g"],
+        "triggers": ["C-g"],
         "label": "C-g: cancel",
         "action": [{"type": "cancel"}, {"type": "file-preview-close"}],
         "context": "@main",
       }
     },
   },
-  "keybindings": {
+  "bindings": {
     "@main": [
       {
-        "keys": ["C-c"],
+        "triggers": ["C-c"],
         "label": "C-c: quit",
         "action": [{"type": "quit"}]
       },
       {"ref": "/CANCEL"},
       {
-        "keys": ["M-r"],
+        "triggers": ["M-r"],
         "label": "M-r: reload",
         "action": [{"type": "buffer-reload"}]
       },
       {
-        "keys": ["C-/", "C-0x7f", "C-u"],
+        "triggers": ["C-/", "C-0x7f", "C-u"],
         "label": "C-/: undo",
         "action": [{"type": "buffer-undo"}]
       },
       {
-        "keys": ["C-l"],
+        "triggers": ["C-l"],
         "label": "C-l: recenter",
         "action": [{"type": "view-recenter"}]
       },
       {
-        "keys": ["C-s"],
+        "triggers": ["C-s"],
         "label": "C-s: grep",
         "action": [
           {"type": "cursor-anchor"},
@@ -54,7 +54,7 @@
         "context": "@grep",
       },
       {
-        "keys": ["C-r"],
+        "triggers": ["C-r"],
         "label": "C-r: rgrep",
         "action": [
           {"type": "cursor-anchor"},
@@ -63,57 +63,57 @@
         "context": "@grep",
       },
       {
-        "keys": ["C- ", "C-`"],
+        "triggers": ["C- ", "C-`"],
         "label": "C- : mark",
         "action": [{"type": "mark-set"}]
       },
       {
-        "keys": ["C-w"],
+        "triggers": ["C-w"],
         "label": "C-w: cut",
         "action": [{"type": "mark-cut"}]
       },
       {
-        "keys": ["M-w"],
+        "triggers": ["M-w"],
         "label": "M-w: copy",
         "action": [{"type": "mark-copy"}]
       },
       {
-        "keys": ["C-y"],
+        "triggers": ["C-y"],
         "label": "C-y: paste",
         "action": [{"type": "clipboard-paste"}]
       },
       {
-        "keys": ["C-k"],
+        "triggers": ["C-k"],
         "label": "C-k: kill-line",
         "action": [{"type": "line-delete"}]
       },
       {
-        "keys": ["M-j"],
+        "triggers": ["M-j"],
         "label": "M-j: json-mode",
         "context": "@json",
       },
       {
-        "keys": ["M-u"],
+        "triggers": ["M-u"],
         "label": "M-u: rust-mode",
         "context": "@rust",
       },
       {
-        "keys": ["C-x"],
+        "triggers": ["C-x"],
         "label": "C-x: ext-mode",
         "context": "@ext",
       },
       {
-        "keys": ["M-g"],
+        "triggers": ["M-g"],
         "label": "M-g: goto-mode",
         "context": "@goto",
       },
       {
-        "keys": ["M-,"],
+        "triggers": ["M-,"],
         "label": "M-,: jump",
         "action": [{"type": "cursor-jump"}]
       },
       {
-        "keys": ["M-m"],
+        "triggers": ["M-m"],
         "label": "M-m: mark-ident",
         "action": [
           {"type": "cursor-left-skip-chars", "chars": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"},
@@ -123,7 +123,7 @@
         ]
       },
       {
-        "keys": ["M-h"],
+        "triggers": ["M-h"],
         "label": "M-h: niho",
         "action": [
           {"type": "cursor-line-start"},
@@ -133,12 +133,12 @@
         ]
       },
       {
-        "keys": ["M-l"],
+        "triggers": ["M-l"],
         "label": "M-l: mark-line",
         "action": [{"type": "cursor-line-start"}, {"type": "mark-set"}, {"type": "cursor-line-end"}]
       },
       {
-        "keys": ["C-t"],
+        "triggers": ["C-t"],
         "label": "C-t: check",
         "action": [
           {"type": "buffer-save"},
@@ -157,51 +157,51 @@
         ]
       },
       {
-        "keys": ["C-a"],
+        "triggers": ["C-a"],
         "action": [{"type": "cursor-line-start"}]
       },
       {
-        "keys": ["C-e"],
+        "triggers": ["C-e"],
         "action": [{"type": "cursor-line-end"}]
       },
       {
-        "keys": ["M-<"],
+        "triggers": ["M-<"],
         "action": [{"type": "cursor-buffer-start"}]
       },
       {
-        "keys": ["M->"],
+        "triggers": ["M->"],
         "action": [{"type": "cursor-buffer-end"}]
       },
       {
-        "keys": ["<DELETE>", "C-d"],
+        "triggers": ["<DELETE>", "C-d"],
         "action": [{"type": "char-delete-forward"}]
       },
       {
-        "keys": ["<BACKSPACE>", "C-h"],
+        "triggers": ["<BACKSPACE>", "C-h"],
         "action": [{"type": "char-delete-backward"}]
       },
       {
-        "keys": ["<ENTER>", "C-j"],
+        "triggers": ["<ENTER>", "C-j"],
         "action": [{"type": "newline-insert"}]
       },
       {
-        "keys": ["<UP>", "C-p", "C-<LEFT>"],
+        "triggers": ["<UP>", "C-p", "C-<LEFT>"],
         "action": [{"type": "cursor-up"}]
       },
       {
-        "keys": ["<DOWN>", "C-n", "C-<RIGHT>"],
+        "triggers": ["<DOWN>", "C-n", "C-<RIGHT>"],
         "action": [{"type": "cursor-down"}]
       },
       {
-        "keys": ["<LEFT>", "C-b"],
+        "triggers": ["<LEFT>", "C-b"],
         "action": [{"type": "cursor-left"}]
       },
       {
-        "keys": ["<RIGHT>", "C-f"],
+        "triggers": ["<RIGHT>", "C-f"],
         "action": [{"type": "cursor-right"}]
       },
       {
-        "keys": ["<TAB>"],
+        "triggers": ["<TAB>"],
         "action": [
           {"type": "buffer-save"},
           {"type": "external-command", "command": "rustfmt", "args": ["--edition", "2024", {"var": "CURRENT_FILE"}]},
@@ -212,42 +212,42 @@
         ]
       },
       {
-        "keys": ["<PRINTABLE>"],
+        "triggers": ["<PRINTABLE>"],
         "action": [{"type": "char-insert"}]
       },
       {
-        "keys": ["<PAGEUP>"],
+        "triggers": ["<PAGEUP>"],
         "action": [{"type": "cursor-page-up"}]
       },
       {
-        "keys": ["<PAGEDOWN>"],
+        "triggers": ["<PAGEDOWN>"],
         "action": [{"type": "cursor-page-down"}]
       },
     ],
     "@grep": [
       {
-        "keys": ["C-g", "<ENTER>"],
+        "triggers": ["C-g", "<ENTER>"],
         "label": "C-g: cancel",
         "action": [{"type": "cancel"}],
         "context": "@main",
       },
       {
-        "keys": ["C-y"],
+        "triggers": ["C-y"],
         "label": "C-y: paste",
         "action": [{"type": "clipboard-paste"}]
       },
       {
-        "keys": ["C-s", "<TAB>"],
+        "triggers": ["C-s", "<TAB>"],
         "label": "C-s: next-hit",
         "action": [{"type": "grep-next-hit"}]
       },
       {
-        "keys": ["C-r", "<BACKTAB>"],
+        "triggers": ["C-r", "<BACKTAB>"],
         "label": "C-r: prev-hit",
         "action": [{"type": "grep-prev-hit"}]
       },
       {
-        "keys": ["M-m"],
+        "triggers": ["M-m"],
         "label": "M-m: mark-hit",
         "action": [
           {"type": "cancel"},
@@ -261,75 +261,75 @@
         "context": "@main",
       },
       {
-        "keys": ["C-v"],
+        "triggers": ["C-v"],
         "label": "C-v: replace-hit",
         "action": [{"type": "grep-replace-hit"}]
       },
       {
-        "keys": ["<PRINTABLE>"],
+        "triggers": ["<PRINTABLE>"],
         "action": [{"type": "char-insert"}]
       },
       {
-        "keys": ["<DELETE>", "C-d"],
+        "triggers": ["<DELETE>", "C-d"],
         "action": [{"type": "char-delete-forward"}]
       },
       {
-        "keys": ["<BACKSPACE>", "C-h"],
+        "triggers": ["<BACKSPACE>", "C-h"],
         "action": [{"type": "char-delete-backward"}]
       },
       {
-        "keys": ["<LEFT>", "C-b"],
+        "triggers": ["<LEFT>", "C-b"],
         "action": [{"type": "cursor-left"}]
       },
       {
-        "keys": ["<RIGHT>", "C-f"],
+        "triggers": ["<RIGHT>", "C-f"],
         "action": [{"type": "cursor-right"}]
       },
       {
-        "keys": ["C-a"],
+        "triggers": ["C-a"],
         "action": [{"type": "cursor-line-start"}]
       },
       {
-        "keys": ["C-e"],
+        "triggers": ["C-e"],
         "action": [{"type": "cursor-line-end"}]
       },
       {
-        "keys": ["<UP>", "C-p"],
+        "triggers": ["<UP>", "C-p"],
         "action": [{"type": "grep-prev-query"}]
       },
       {
-        "keys": ["<DOWN>", "C-n"],
+        "triggers": ["<DOWN>", "C-n"],
         "action": [{"type": "grep-next-query"}]
       },
       {
-        "keys": ["C-b", "<LEFT>"],
+        "triggers": ["C-b", "<LEFT>"],
         "action": [{"type": "cursor-left"}]
       },
       {
-        "keys": ["C-f", "<RIGHT>"],
+        "triggers": ["C-f", "<RIGHT>"],
         "action": [{"type": "cursor-right"}]
       },
       {
-        "keys": ["C-p", "<UP>"],
+        "triggers": ["C-p", "<UP>"],
         "action": [{"type": "grep-prev-query"}]
       },
       {
-        "keys": ["C-n", "<DOWN>"],
+        "triggers": ["C-n", "<DOWN>"],
         "action": [{"type": "grep-next-query"}]
       },
       {
-        "keys": ["C-d", "<DELETE>"],
+        "triggers": ["C-d", "<DELETE>"],
         "action": [{"type": "char-delete-forward"}]
       },
       {
-        "keys": ["C-h", "<BACKSPACE>"],
+        "triggers": ["C-h", "<BACKSPACE>"],
         "action": [{"type": "char-delete-backward"}]
       }
     ],
     "@ext": [
       {"ref": "/CANCEL"},
       {
-        "keys": ["C-s"],
+        "triggers": ["C-s"],
         "label": "C-s: save",
         "action": [{"type": "buffer-save"}, {"type": "cancel"}, {"type": "echo", "message": "Saved!"}],
         "context": "@main",
@@ -338,19 +338,19 @@
     "@goto": [
       {"ref": "/CANCEL"},
       {
-        "keys": ["g"],
+        "triggers": ["g"],
         "label": "g: goto",
         "action": [{"type": "goto-line"}, {"type": "cancel"}, {"type": "echo", "message": "Moved!"}],
         "context": "@main",
       },
       {
-        "keys": ["p"],
+        "triggers": ["p"],
         "label": "p: up-same-level",
         "action": [{"type": "cursor-up-skip-spaces"}, {"type": "cancel"}],
         "context": "@main",
       },
       {
-        "keys": ["n"],
+        "triggers": ["n"],
         "label": "n: down-same-level",
         "action": [{"type": "cursor-down-skip-spaces"}, {"type": "cancel"}],
         "context": "@main",
@@ -359,7 +359,7 @@
     "@json": [
       {"ref": "/CANCEL"},
       {
-        "keys": ["f"],
+        "triggers": ["f"],
         "label": "f: jcfmt",
         "action": [{"type": "buffer-save"}, {"type": "external-command", "command": "fish", "args": ["-c", "cat $KK_CURRENT_FILE | jcfmt | sponge $KK_CURRENT_FILE"]}, {"type": "buffer-reload"}, {"type": "cursor-skip-spaces"}, {"type": "cancel"}, {"type": "echo", "message": "Formatted!"}],
         "context": "@main",
@@ -368,14 +368,14 @@
     "@rust": [
       {"ref": "/CANCEL"},
       {
-        "keys": ["x"],
+        "triggers": ["x"],
         "label": "x: fix",
         "action": [
           {"type": "buffer-save"},
           {
             "type": "command",
             "command": "cargo",
-            "args": ["fix","--allow-dirty"],
+            "args": ["fix", "--allow-dirty"],
             "stdout": {"type": "file", "path": "target/stdout"},
             "stderr": {"type": "file", "path": "target/stderr"},
           },
@@ -389,7 +389,7 @@
         "context": "@main",
       },
       {
-        "keys": ["c"],
+        "triggers": ["c"],
         "label": "c: clippy",
         "action": [
           {"type": "buffer-save"},
