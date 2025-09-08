@@ -409,6 +409,26 @@
         ],
         "context": "@main",
       },
+      {
+        "triggers": ["t"],
+        "label": "t: test",
+        "action": [
+          {"type": "buffer-save"},
+          {
+            "type": "command",
+            "command": "cargo",
+            "args": ["test"],
+            "stdout": {"type": "file", "path": "target/stdout"},
+            "stderr": {"type": "file", "path": "target/stderr"},
+          },
+          {
+            "type": "file-preview-open",
+            "left-pane": {"file": "target/stdout"},
+            "right-pane": {"file": "target/stderr"},
+          }
+        ],
+        "context": "@main",
+      },
     ],
   }
 }
