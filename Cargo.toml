@@ -11,7 +11,7 @@ repository = "https://github.com/sile/kk"
 readme = "README.md"
 
 [dependencies]
-mame = "0.2.3"
+mame = "0.3.0"
 noargs = "0.4.1"
 nojson = "0.3.2"
 orfail = "1.1.0"

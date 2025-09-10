@@ -2,25 +2,6 @@
   "setup": {
     "context": "@main",
   },
-  "variables": {
-    "MAX_GREP_LINES": {
-      "type": "env",
-      "default": "100"
-    },
-    "GREP_ARGS": {
-      "type": "const",
-      "value": ["-m", {"ref": "MAX_GREP_LINES"}, "-bio"]
-    },
-    "/CANCEL": {
-      "type": "const",
-      "value": {
-        "triggers": ["C-g"],
-        "label": "C-g: cancel",
-        "action": [{"type": "cancel"}, {"type": "file-preview-close"}],
-        "context": "@main",
-      }
-    },
-  },
   "bindings": {
     "@main": [
       {
@@ -28,7 +9,12 @@
         "label": "C-c: quit",
         "action": [{"type": "quit"}]
       },
-      {"ref": "/CANCEL"},
+      {
+        "triggers": ["C-g"],
+        "label": "C-g: cancel",
+        "action": [{"type": "cancel"}, {"type": "file-preview-close"}],
+        "context": "@main",
+      },
       {
         "triggers": ["M-r"],
         "label": "M-r: reload",
@@ -49,7 +35,7 @@
         "label": "C-s: grep",
         "action": [
           {"type": "cursor-anchor"},
-          {"type": "grep", "command": "grep", "args": {"ref": "GREP_ARGS"}}
+          {"type": "grep", "command": "grep", "args": ["-m", {"env!": "MAX_GREP_LINES", "default": "100"}, "-bio"]}
         ],
         "context": "@grep",
       },
@@ -58,7 +44,7 @@
         "label": "C-r: rgrep",
         "action": [
           {"type": "cursor-anchor"},
-          {"type": "grep", "command": "grep", "args": {"ref": "GREP_ARGS"}, "forward": false}
+          {"type": "grep", "command": "grep", "args": ["-m", {"env!": "MAX_GREP_LINES", "default": "100"}, "-bio"], "forward": false}
         ],
         "context": "@grep",
       },
@@ -327,7 +313,12 @@
       }
     ],
     "@ext": [
-      {"ref": "/CANCEL"},
+      {
+        "triggers": ["C-g"],
+        "label": "C-g: cancel",
+        "action": [{"type": "cancel"}, {"type": "file-preview-close"}],
+        "context": "@main",
+      },
       {
         "triggers": ["C-s"],
         "label": "C-s: save",
@@ -336,7 +327,12 @@
       },
     ],
     "@goto": [
-      {"ref": "/CANCEL"},
+      {
+        "triggers": ["C-g"],
+        "label": "C-g: cancel",
+        "action": [{"type": "cancel"}, {"type": "file-preview-close"}],
+        "context": "@main",
+      },
       {
         "triggers": ["g"],
         "label": "g: goto",
@@ -357,7 +353,12 @@
       }
     ],
     "@json": [
-      {"ref": "/CANCEL"},
+      {
+        "triggers": ["C-g"],
+        "label": "C-g: cancel",
+        "action": [{"type": "cancel"}, {"type": "file-preview-close"}],
+        "context": "@main",
+      },
       {
         "triggers": ["f"],
         "label": "f: jcfmt",
@@ -366,7 +367,12 @@
       }
     ],
     "@rust": [
-      {"ref": "/CANCEL"},
+      {
+        "triggers": ["C-g"],
+        "label": "C-g: cancel",
+        "action": [{"type": "cancel"}, {"type": "file-preview-close"}],
+        "context": "@main",
+      },
       {
         "triggers": ["x"],
         "label": "x: fix",
