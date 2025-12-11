@@ -362,7 +362,14 @@
       {
         "triggers": ["f"],
         "label": "f: jcfmt",
-        "action": [{"type": "buffer-save"}, {"type": "external-command", "command": "fish", "args": ["-c", "cat $KK_CURRENT_FILE | jcfmt | sponge $KK_CURRENT_FILE"]}, {"type": "buffer-reload"}, {"type": "cursor-skip-spaces"}, {"type": "cancel"}, {"type": "echo", "message": "Formatted!"}],
+        "action": [
+          {"type": "buffer-save"},
+          {"type": "external-command", "command": "fish", "args": ["-c", "cat $KK_CURRENT_FILE | jcfmt -o $KK_CURRENT_FILE"]},
+          {"type": "buffer-reload"},
+          {"type": "cursor-skip-spaces"},
+          {"type": "cancel"},
+          {"type": "echo", "message": "Formatted!"}
+        ],
         "context": "@main",
       }
     ],
