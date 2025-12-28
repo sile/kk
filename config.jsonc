@@ -119,6 +119,13 @@
         ]
       },
       {
+        "triggers": ["M-p"],
+        "label": "M-p: daberu-ret",
+        "action": [
+          {"type": "external-command", "command": "fish", "args": ["-c", "daberu -x last"]}
+        ]
+      },
+      {
         "triggers": ["M-l"],
         "label": "M-l: mark-line",
         "action": [{"type": "cursor-line-start"}, {"type": "mark-set"}, {"type": "cursor-line-end"}]
