@@ -209,11 +209,11 @@
         "action": [{"type": "char-insert"}]
       },
       {
-        "triggers": ["<PAGEUP>"],
+        "triggers": ["<PAGEUP>", "C-<UP>"],
         "action": [{"type": "cursor-page-up"}]
       },
       {
-        "triggers": ["<PAGEDOWN>"],
+        "triggers": ["<PAGEDOWN>", "C-<DOWN>"],
         "action": [{"type": "cursor-page-down"}]
       },
     ],
