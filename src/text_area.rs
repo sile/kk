@@ -60,9 +60,9 @@ impl TextAreaRenderer {
                     col: current_col,
                 };
 
-                let is_marked = marked_region.as_ref().is_some_and(|(start, end)| {
-                    current_col >= *start && current_col < *end
-                });
+                let is_marked = marked_region
+                    .as_ref()
+                    .is_some_and(|(start, end)| current_col >= *start && current_col < *end);
                 let is_highlighted = state.highlight.contains(pos);
 
                 let mut style = TerminalStyle::new();
@@ -72,8 +72,12 @@ impl TextAreaRenderer {
                 if is_highlighted {
                     style = style.bg_color(tuinix::TerminalColor::new(220, 220, 220));
                 }
-                if state.grep_mode.is_some() && pos == state.cursor {
-                    style = style.underline().bold();
+                if pos == state.cursor {
+                    if state.grep_mode.is_some() {
+                        style = style.underline().bold();
+                    } else {
+                        style = style.underline();
+                    }
                 }
                 if style != TerminalStyle::RESET {
                     let reset = TerminalStyle::RESET;
