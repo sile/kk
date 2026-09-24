@@ -32,11 +32,7 @@ impl GrepMode {
         let mut frame = TerminalFrame::new(region.size);
         let mut pos = region.position;
 
-        // TODO: factor out
-        let _ = write!(frame, "$ {} ", self.action.command);
-        for arg in &self.action.args {
-            let _ = write!(frame, "{arg} ");
-        }
+        let _ = write!(frame, "{}", PROMPT);
         for ch in self.query.iter().take(self.cursor) {
             let _ = write!(frame, "{ch}");
         }
@@ -58,14 +54,7 @@ impl GrepMode {
             return Ok(Highlight::default());
         }
 
-        let buffer = buffer.to_single_text();
-        let output = self.execute_command(&buffer).or_fail()?;
-        let dir = std::env::var_os("HOME") // TODO
-            .map(PathBuf::from)
-            .unwrap_or_default();
-        std::fs::write(dir.join(".kk.highlight"), &output).or_fail()?;
-
-        Highlight::parse(&output, &buffer).or_fail()
+        Ok(Highlight::search(buffer, &self.query))
     }
 
     pub fn next_query(&mut self) -> orfail::Result<Option<String>> {
@@ -116,43 +105,6 @@ impl GrepMode {
             .unwrap_or_default();
         dir.join(".kk.grep-queries")
     }
-
-    fn execute_command(&self, buffer: &str) -> orfail::Result<String> {
-        let mut cmd = std::process::Command::new(&self.action.command);
-        for arg in &self.action.args {
-            cmd.arg(arg);
-        }
-        cmd.arg(self.query.iter().copied().collect::<String>());
-
-        cmd.stdin(std::process::Stdio::piped());
-        cmd.stdout(std::process::Stdio::piped());
-        cmd.stderr(std::process::Stdio::piped());
-
-        let mut child = cmd
-            .spawn()
-            .or_fail_with(|e| format!("Failed to execute grep command: {e}"))?;
-
-        if let Some(mut stdin) = child.stdin.take() {
-            write!(stdin, "{buffer}").or_fail()?;
-            stdin.flush().or_fail()?;
-        }
-
-        let output = child
-            .wait_with_output()
-            .or_fail_with(|e| format!("Failed to wait for command: {e}"))?;
-
-        match output.status.code() {
-            Some(0 | 1) => {}
-            _ => {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(orfail::Failure::new(format!(
-                    "Grep command failed: {}",
-                    stderr.trim()
-                )));
-            }
-        }
-        String::from_utf8(output.stdout).or_fail()
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -167,19 +119,51 @@ pub struct Highlight {
 }
 
 impl Highlight {
-    fn parse(output: &str, input: &str) -> orfail::Result<Self> {
+    /// Searches `buffer` for `query` (case-insensitive) and returns the
+    /// positions of every match.
+    fn search(buffer: &TextBuffer, query: &[char]) -> Self {
+        let query_lower: Vec<char> = query.iter().flat_map(|c| c.to_lowercase()).collect();
+        let query_len = query_lower.len();
         let mut items = Vec::new();
-        for line in output.lines() {
-            let (byte_offset, text) = line.trim().split_once(':').or_fail()?;
-            let start_byte_offset = byte_offset.parse::<usize>().or_fail()?;
-            let end_byte_offset = start_byte_offset + text.len();
-            items.push(HighlightItem {
-                start_position: byte_offset_to_text_position(input, start_byte_offset).or_fail()?,
-                end_position: byte_offset_to_text_position(input, end_byte_offset).or_fail()?,
-            });
+
+        for (row, line) in buffer.text.iter().enumerate() {
+            // (display column, lowercased char) for every character in the line.
+            let mut line_end_col = 0;
+            let chars: Vec<(usize, char)> = line
+                .char_cols()
+                .flat_map(|(col, ch)| {
+                    line_end_col = col + crate::terminal::char_cols(ch);
+                    ch.to_lowercase().map(move |lc| (col, lc))
+                })
+                .collect();
+
+            if query_len == 0 || chars.len() < query_len {
+                continue;
+            }
+
+            for start in 0..=(chars.len() - query_len) {
+                if chars[start..start + query_len]
+                    .iter()
+                    .map(|&(_, c)| c)
+                    .eq(query_lower.iter().copied())
+                {
+                    let start_col = chars[start].0;
+                    let end_col = chars
+                        .get(start + query_len)
+                        .map(|&(col, _)| col)
+                        .unwrap_or(line_end_col);
+                    items.push(HighlightItem {
+                        start_position: TextPosition {
+                            row,
+                            col: start_col,
+                        },
+                        end_position: TextPosition { row, col: end_col },
+                    });
+                }
+            }
         }
-        items.sort_by_key(|x| x.start_position);
-        Ok(Self { items })
+
+        Self { items }
     }
 
     pub fn contains(&self, pos: TextPosition) -> bool {
@@ -189,32 +173,8 @@ impl Highlight {
     }
 }
 
-fn byte_offset_to_text_position(text: &str, offset: usize) -> orfail::Result<TextPosition> {
-    if offset > text.len() {
-        return Err(orfail::Failure::new("Byte offset exceeds text length"));
-    }
-
-    let mut row = 0;
-    let mut col = 0;
-    let mut current_offset = 0;
-
-    for ch in text.chars() {
-        if current_offset >= offset {
-            break;
-        }
-
-        if ch == '\n' {
-            row += 1;
-            col = 0;
-        } else {
-            col += crate::terminal::char_cols(ch);
-        }
-
-        current_offset += ch.len_utf8();
-    }
-
-    Ok(TextPosition { row, col })
-}
+/// Prompt shown in the grep/query input line.
+const PROMPT: &str = "Search: ";
 
 #[derive(Debug)]
 pub struct GrepQueryRenderer;
@@ -225,10 +185,7 @@ impl GrepQueryRenderer {
             unreachable!();
         };
 
-        write!(frame, "$ {} ", grep.action.command).or_fail()?;
-        for arg in &grep.action.args {
-            write!(frame, "{arg} ").or_fail()?;
-        }
+        write!(frame, "{PROMPT}").or_fail()?;
         for ch in &grep.query {
             write!(frame, "{ch}").or_fail()?;
         }

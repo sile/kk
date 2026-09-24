@@ -1,5 +1,3 @@
-use crate::command::ExternalCommand;
-
 #[derive(Debug, Clone)]
 pub enum Action {
     Quit,
@@ -35,7 +33,6 @@ pub enum Action {
     MarkCut,
     ClipboardPaste,
     ShellCommand(ExternalCommandAction),
-    Command(ExternalCommand),
     Grep(GrepAction),
     GrepNextHit,
     GrepPrevHit,
@@ -61,8 +58,6 @@ pub struct ExternalCommandAction {
 
 #[derive(Debug, Clone)]
 pub struct GrepAction {
-    pub command: String,
-    pub args: Vec<String>,
     pub forward: bool,
 }
 

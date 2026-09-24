@@ -5,7 +5,6 @@ pub mod binding;
 pub mod bindings;
 pub mod buffer;
 pub mod clipboard;
-pub mod command;
 pub mod fmt;
 pub mod grep_mode;
 pub mod message_line;

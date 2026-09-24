@@ -5,9 +5,6 @@ use crate::{
     binding::{Binding, Context, InputMatcher},
 };
 
-/// Maximum number of grep matches to request.
-pub const MAX_GREP_LINES: usize = 100;
-
 const IDENT_CHARS: &str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
 
@@ -19,15 +16,7 @@ fn triggers(specs: &[&str]) -> Vec<InputMatcher> {
 }
 
 fn grep_action(forward: bool) -> Action {
-    Action::Grep(GrepAction {
-        command: "grep".to_owned(),
-        args: vec![
-            "-m".to_owned(),
-            MAX_GREP_LINES.to_string(),
-            "-bio".to_owned(),
-        ],
-        forward,
-    })
+    Action::Grep(GrepAction { forward })
 }
 
 fn mark_ident() -> Action {
