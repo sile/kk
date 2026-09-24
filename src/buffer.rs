@@ -20,13 +20,6 @@ impl TextBuffer {
         Ok(())
     }
 
-    pub fn to_single_text(&self) -> String {
-        self.text
-            .iter()
-            .flat_map(|line| line.0.iter().copied().chain(std::iter::once('\n')))
-            .collect()
-    }
-
     pub fn rows(&self) -> usize {
         self.text.len()
     }

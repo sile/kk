@@ -1,11 +1,10 @@
-use std::{collections::VecDeque, num::NonZeroUsize, path::PathBuf};
+use std::{collections::VecDeque, path::PathBuf};
 
 use orfail::OrFail;
 use tuinix::{KeyCode, TerminalPosition, TerminalSize};
 
 use crate::{
     action::{ExternalCommandAction, ExternalCommandArg},
-    anchor::CursorAnchor,
     buffer::{TextBuffer, TextPosition},
     clipboard::Clipboard,
     grep_mode::{GrepMode, Highlight},
@@ -53,27 +52,6 @@ impl State {
 
     pub fn set_message(&mut self, message: impl Into<String>) {
         self.message = Some(message.into());
-    }
-
-    pub fn restore_anchor(&mut self, anchor: &CursorAnchor) -> orfail::Result<()> {
-        self.finish_editing();
-        if self.path != anchor.path {
-            // TODO: dirty check
-
-            self.buffer.load_file(&anchor.path).or_fail()?;
-            self.path = anchor.path.clone();
-
-            // TODO: keep undo history
-            self.history.clear();
-            self.undo_index = 0;
-        }
-        self.cursor.row = self.buffer.rows().min(anchor.line.get() - 1);
-        self.cursor.col = self
-            .buffer
-            .col_at_char_index(self.cursor.row, anchor.char.get() - 1)
-            .unwrap_or_default();
-        self.recenter_viewport = true;
-        Ok(())
     }
 
     pub fn terminal_cursor_position(&self) -> TerminalPosition {
@@ -369,7 +347,7 @@ impl State {
             };
 
             if let Some(text) = self.get_text_in_range(start, end) {
-                self.clipboard.write(&text).or_fail()?;
+                self.clipboard.write(&text);
                 self.set_message(format!("Copied {} characters", text.len()));
             } else {
                 self.set_message("Nothing to copy");
@@ -397,7 +375,7 @@ impl State {
                 self.cursor = start;
                 self.mark = None;
 
-                self.clipboard.write(&text).or_fail()?;
+                self.clipboard.write(&text);
                 self.set_message(format!("Cut {} characters", text.len()));
             } else {
                 self.set_message("Nothing to cut");
@@ -521,7 +499,7 @@ impl State {
 
     pub fn handle_clipboard_paste(&mut self) -> orfail::Result<()> {
         if let Some(grep) = &mut self.grep_mode {
-            let text = self.clipboard.read().or_fail()?;
+            let text = self.clipboard.read();
 
             if text.is_empty() {
                 self.set_message("Clipboard is empty");
@@ -544,7 +522,7 @@ impl State {
 
         self.finish_editing();
 
-        let text = self.clipboard.read().or_fail()?;
+        let text = self.clipboard.read();
 
         if text.is_empty() {
             self.set_message("Clipboard is empty");
@@ -736,18 +714,6 @@ impl State {
         Ok(())
     }
 
-    pub fn current_cursor_anchor(&self) -> CursorAnchor {
-        CursorAnchor {
-            path: self.path.clone(),
-            line: NonZeroUsize::MIN.saturating_add(self.cursor.row),
-            char: NonZeroUsize::MIN.saturating_add(
-                self.buffer
-                    .char_index_at_col(self.cursor.row, self.cursor.col)
-                    .unwrap_or_default(),
-            ),
-        }
-    }
-
     pub fn handle_view_recenter(&mut self) {
         self.finish_editing();
         self.recenter_viewport = true;
@@ -765,7 +731,7 @@ impl State {
             if cursor_pos.row < self.buffer.rows().saturating_sub(1)
                 && let Some(next_line) = self.buffer.text.get(cursor_pos.row + 1).cloned() {
                     // Copy the newline to clipboard
-                    self.clipboard.write("\n").or_fail()?;
+                    self.clipboard.write("\n");
 
                     self.buffer.text.remove(cursor_pos.row + 1);
                     if let Some(current_line) = self.buffer.text.get_mut(cursor_pos.row) {
@@ -784,7 +750,7 @@ impl State {
 
                 if !killed_text.is_empty() {
                     // Copy to clipboard
-                    self.clipboard.write(&killed_text).or_fail()?;
+                    self.clipboard.write(&killed_text);
 
                     // Delete the text
                     line.0.truncate(char_index);
@@ -944,17 +910,6 @@ impl State {
         self.cursor.col = 0;
     }
 
-    pub fn handle_goto_line(&mut self) -> orfail::Result<()> {
-        let text = self.clipboard.read().or_fail()?;
-        let Some(anchor) = CursorAnchor::parse_for_goto(&text, &self.path) else {
-            self.set_message("No goto anchor in the clipboard");
-            return Ok(());
-        };
-
-        self.restore_anchor(&anchor).or_fail()?;
-        Ok(())
-    }
-
     pub fn handle_cursor_left_skip_chars(&mut self, skip_chars: &str) {
         self.finish_editing();
 
@@ -1035,136 +990,4 @@ impl State {
         }
     }
 
-    pub fn handle_grep_next_query(&mut self) {
-        let Some(grep) = &mut self.grep_mode else {
-            self.set_message("Not in grep mode");
-            return;
-        };
-
-        match grep.next_query() {
-            Ok(Some(query)) => {
-                grep.query = query.chars().collect();
-                grep.cursor = grep.query.len();
-                self.regrep();
-                self.set_message("Next query");
-            }
-            Ok(None) => {
-                self.set_message("No next query");
-            }
-            Err(e) => {
-                self.set_message(format!("Error loading next query: {}", e));
-            }
-        }
-    }
-
-    pub fn handle_grep_prev_query(&mut self) {
-        let Some(grep) = &mut self.grep_mode else {
-            self.set_message("Not in grep mode");
-            return;
-        };
-
-        match grep.prev_query() {
-            Ok(Some(query)) => {
-                grep.query = query.chars().collect();
-                grep.cursor = grep.query.len();
-                self.regrep();
-                self.set_message("Previous query");
-            }
-            Ok(None) => {
-                self.set_message("No previous query");
-            }
-            Err(e) => {
-                self.set_message(format!("Error loading previous query: {}", e));
-            }
-        }
-    }
-
-    pub fn handle_grep_replace_hit(&mut self) -> orfail::Result<()> {
-        if self.grep_mode.is_none() {
-            self.set_message("Not in grep mode");
-            return Ok(());
-        };
-
-        if self.highlight.items.is_empty() {
-            self.set_message("No grep hits available");
-            return Ok(());
-        }
-
-        // Find the current hit that contains the cursor
-        let current_pos = self.cursor_position();
-        let current_hit = self
-            .highlight
-            .items
-            .iter()
-            .copied()
-            .find(|item| item.start_position <= current_pos && current_pos < item.end_position);
-
-        let Some(hit) = current_hit else {
-            self.set_message("Cursor is not on a grep hit");
-            return Ok(());
-        };
-
-        // Get clipboard content
-        let replacement_text = self.clipboard.read().or_fail()?;
-        if replacement_text.is_empty() {
-            self.set_message("Clipboard is empty");
-            return Ok(());
-        }
-
-        self.start_editing();
-
-        // Delete the current hit
-        self.delete_text_in_range(hit.start_position, hit.end_position);
-
-        // Move cursor to the start of the deleted hit
-        self.cursor = hit.start_position;
-
-        // Insert the clipboard content
-        let lines: Vec<&str> = replacement_text.lines().collect();
-
-        if lines.is_empty() {
-            // Empty replacement
-            self.set_message("Replaced hit with empty text");
-        } else if lines.len() == 1 {
-            // Single line replacement
-            let line = lines[0];
-            for ch in line.chars() {
-                self.cursor = self.buffer.insert_char_at(self.cursor, ch);
-            }
-            self.set_message(format!("Replaced hit with {} characters", line.len()));
-        } else {
-            // Multi-line replacement
-            let mut total_chars = 0;
-
-            // Insert first line
-            for ch in lines[0].chars() {
-                self.cursor = self.buffer.insert_char_at(self.cursor, ch);
-                total_chars += 1;
-            }
-
-            // Insert newline and subsequent lines
-            for line in &lines[1..] {
-                self.cursor = self.buffer.insert_newline_at(self.cursor);
-                total_chars += 1; // Count the newline
-
-                for ch in line.chars() {
-                    self.cursor = self.buffer.insert_char_at(self.cursor, ch);
-                    total_chars += 1;
-                }
-            }
-
-            self.set_message(format!(
-                "Replaced hit with {} characters across {} lines",
-                total_chars,
-                lines.len()
-            ));
-        }
-
-        self.finish_editing();
-
-        // Re-run grep to update highlights after the replacement
-        self.regrep();
-
-        Ok(())
-    }
 }

@@ -5,7 +5,6 @@ use tuinix::{Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
 use crate::{
     action::Action,
-    anchor::CursorAnchorLog,
     binding::{Bindings, Context},
     grep_mode::{GrepMode, GrepQueryRenderer, Highlight},
     message_line::MessageLineRenderer,
@@ -21,7 +20,6 @@ pub struct App {
     bindings: Bindings,
     context: Context,
     state: State,
-    anchor_log: CursorAnchorLog,
     text_area: TextAreaRenderer,
     message_line: MessageLineRenderer,
     status_line: StatusLineRenderer,
@@ -34,7 +32,6 @@ impl App {
         Ok(Self {
             terminal,
             state: State::new(path).or_fail()?,
-            anchor_log: CursorAnchorLog::default(),
             context: Context::Main,
             bindings: Bindings::new(),
             text_area: TextAreaRenderer,
@@ -113,9 +110,7 @@ impl App {
             }
             Action::Cancel => {
                 self.state.mark = None;
-                if let Some(grep) = self.state.grep_mode.take() {
-                    grep.save_query().or_fail()?;
-                }
+                self.state.grep_mode = None;
                 self.state.highlight = Highlight::default();
                 self.state.set_message("Canceled");
             }
@@ -158,18 +153,6 @@ impl App {
             Action::ShellCommand(action) => {
                 self.state.handle_external_command(&action).or_fail()?
             }
-            Action::CursorAnchor => {
-                let anchor = self.state.current_cursor_anchor();
-                self.state.set_message(format!("Anchor: {anchor}"));
-                self.anchor_log.append(anchor).or_fail()?;
-            }
-            Action::CursorJump => {
-                let current = self.state.current_cursor_anchor();
-                if let Some(anchor) = self.anchor_log.prev_anchor(&current).or_fail()? {
-                    self.state.restore_anchor(&anchor).or_fail()?;
-                    self.state.set_message(format!("Jump: {anchor}"));
-                }
-            }
             Action::Echo(m) => {
                 self.state.set_message(&m.message);
             }
@@ -193,16 +176,8 @@ impl App {
                     self.state.set_message("No grep hits available");
                 }
             }
-            Action::GrepNextQuery => {
-                self.state.handle_grep_next_query();
-            }
-            Action::GrepPrevQuery => {
-                self.state.handle_grep_prev_query();
-            }
-            Action::GotoLine => self.state.handle_goto_line().or_fail()?,
             Action::CursorLeftSkipChars(c) => self.state.handle_cursor_left_skip_chars(&c.chars),
             Action::CursorRightSkipChars(c) => self.state.handle_cursor_right_skip_chars(&c.chars),
-            Action::GrepReplaceHit => self.state.handle_grep_replace_hit().or_fail()?,
         }
         Ok(())
     }

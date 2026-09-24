@@ -1,4 +1,4 @@
-use std::{fmt::Write, io::Write as _, path::PathBuf};
+use std::fmt::Write;
 
 use crate::terminal::UnicodeTerminalFrame as TerminalFrame;
 use orfail::OrFail;
@@ -15,7 +15,6 @@ pub struct GrepMode {
     pub action: GrepAction,
     pub query: Vec<char>,
     pub cursor: usize,
-    query_history_index: Option<usize>,
 }
 
 impl GrepMode {
@@ -24,7 +23,6 @@ impl GrepMode {
             action,
             query: Vec::new(),
             cursor: 0,
-            query_history_index: None,
         }
     }
 
@@ -55,55 +53,6 @@ impl GrepMode {
         }
 
         Ok(Highlight::search(buffer, &self.query))
-    }
-
-    pub fn next_query(&mut self) -> orfail::Result<Option<String>> {
-        // TODO: optimize
-        let Some(i) = self.query_history_index.and_then(|i| i.checked_sub(1)) else {
-            self.query_history_index = None;
-            return Ok(None);
-        };
-
-        let path = self.query_history_path();
-        let text = std::fs::read_to_string(&path).or_fail()?;
-        let Some(query) = text.lines().nth_back(i) else {
-            self.query_history_index = None;
-            return Ok(None);
-        };
-        self.query_history_index = Some(i);
-        Ok(Some(query.to_owned()))
-    }
-
-    pub fn prev_query(&mut self) -> orfail::Result<Option<String>> {
-        // TODO: optimize
-        let i = self.query_history_index.map(|i| i + 1).unwrap_or(0);
-
-        let path = self.query_history_path();
-        let text = std::fs::read_to_string(&path).or_fail()?;
-        let Some(query) = text.lines().nth_back(i) else {
-            self.query_history_index = None;
-            return Ok(None);
-        };
-        self.query_history_index = Some(i);
-        Ok(Some(query.to_owned()))
-    }
-
-    pub fn save_query(&self) -> orfail::Result<()> {
-        let path = self.query_history_path();
-        let mut file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)
-            .or_fail()?;
-        writeln!(file, "{}", self.query.iter().collect::<String>()).or_fail()?;
-        Ok(())
-    }
-
-    fn query_history_path(&self) -> PathBuf {
-        let dir = std::env::var_os("HOME") // TODO
-            .map(PathBuf::from)
-            .unwrap_or_default();
-        dir.join(".kk.grep-queries")
     }
 }
 

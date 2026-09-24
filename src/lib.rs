@@ -1,5 +1,4 @@
 pub mod action;
-pub mod anchor;
 pub mod app;
 pub mod binding;
 pub mod bindings;

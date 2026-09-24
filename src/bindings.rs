@@ -87,16 +87,13 @@ pub fn main_bindings() -> Vec<Binding> {
         Binding {
             triggers: triggers(&["C-s"]),
             label: Some("C-s: grep"),
-            action: Some(Action::Multiple(vec![Action::CursorAnchor, grep_action(true)])),
+            action: Some(grep_action(true)),
             context: Some(Context::Grep),
         },
         Binding {
             triggers: triggers(&["C-r"]),
             label: Some("C-r: rgrep"),
-            action: Some(Action::Multiple(vec![
-                Action::CursorAnchor,
-                grep_action(false),
-            ])),
+            action: Some(grep_action(false)),
             context: Some(Context::Grep),
         },
         Binding {
@@ -140,12 +137,6 @@ pub fn main_bindings() -> Vec<Binding> {
             label: Some("M-g: goto-mode"),
             action: None,
             context: Some(Context::Goto),
-        },
-        Binding {
-            triggers: triggers(&["M-,"]),
-            label: Some("M-,: jump"),
-            action: Some(Action::CursorJump),
-            context: None,
         },
         Binding {
             triggers: triggers(&["M-m"]),
@@ -296,15 +287,8 @@ pub fn grep_bindings() -> Vec<Binding> {
                     chars: IDENT_CHARS.to_owned(),
                 }),
                 Action::MarkCopy,
-                Action::CursorJump,
             ])),
             context: Some(Context::Main),
-        },
-        Binding {
-            triggers: triggers(&["C-v"]),
-            label: Some("C-v: replace-hit"),
-            action: Some(Action::GrepReplaceHit),
-            context: None,
         },
         Binding {
             triggers: triggers(&["<PRINTABLE>"]),
@@ -348,18 +332,6 @@ pub fn grep_bindings() -> Vec<Binding> {
             action: Some(Action::CursorLineEnd),
             context: None,
         },
-        Binding {
-            triggers: triggers(&["<UP>", "C-p"]),
-            label: None,
-            action: Some(Action::GrepPrevQuery),
-            context: None,
-        },
-        Binding {
-            triggers: triggers(&["<DOWN>", "C-n"]),
-            label: None,
-            action: Some(Action::GrepNextQuery),
-            context: None,
-        },
     ]
 }
 
@@ -392,18 +364,6 @@ pub fn goto_bindings() -> Vec<Binding> {
             triggers: triggers(&["C-g"]),
             label: Some("C-g: cancel"),
             action: Some(Action::Cancel),
-            context: Some(Context::Main),
-        },
-        Binding {
-            triggers: triggers(&["g"]),
-            label: Some("g: goto"),
-            action: Some(Action::Multiple(vec![
-                Action::GotoLine,
-                Action::Cancel,
-                Action::Echo(EchoAction {
-                    message: "Moved!".to_owned(),
-                }),
-            ])),
             context: Some(Context::Main),
         },
         Binding {

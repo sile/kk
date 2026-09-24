@@ -5,8 +5,6 @@ pub enum Action {
     BufferSave,
     BufferReload,
     BufferUndo,
-    CursorAnchor,
-    CursorJump,
     CursorUp,
     CursorDown,
     CursorLeft,
@@ -36,11 +34,7 @@ pub enum Action {
     Grep(GrepAction),
     GrepNextHit,
     GrepPrevHit,
-    GrepNextQuery,
-    GrepPrevQuery,
-    GrepReplaceHit,
     Echo(EchoAction),
-    GotoLine,
     Multiple(Vec<Action>),
 }
 
