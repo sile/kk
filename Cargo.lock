@@ -7,7 +7,6 @@ name = "kk"
 version = "0.0.1"
 dependencies = [
  "noargs",
- "orfail",
  "tuinix",
  "unicode-width",
 ]
@@ -23,12 +22,6 @@ name = "noargs"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e5dc223a8d69eaeb19c31218a69a55112fe79965764430f092532aed848f1b8"
-
-[[package]]
-name = "orfail"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d047c6764bd82c0195d8d392c043a37e9d4a152379e1dd88f7e63b19eb7c1d6"
 
 [[package]]
 name = "tuinix"

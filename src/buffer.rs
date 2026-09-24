@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use orfail::OrFail;
+use crate::error::Result;
 
 #[derive(Debug, Default, Clone)]
 pub struct TextBuffer {
@@ -9,9 +9,8 @@ pub struct TextBuffer {
 }
 
 impl TextBuffer {
-    pub fn load_file<P: AsRef<Path>>(&mut self, path: P) -> orfail::Result<()> {
-        let text = std::fs::read_to_string(&path)
-            .or_fail_with(|e| format!("failed to read file {}: {e}", path.as_ref().display()))?;
+    pub fn load_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
+        let text = std::fs::read_to_string(&path)?;
         self.text = text
             .lines()
             .map(|l| TextLine(l.chars().collect()))
@@ -108,7 +107,7 @@ impl TextBuffer {
         None
     }
 
-    pub fn save_to_file<P: AsRef<Path>>(&mut self, path: P) -> orfail::Result<()> {
+    pub fn save_to_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         let mut content = self
             .text
             .iter()
@@ -117,8 +116,7 @@ impl TextBuffer {
             .join("\n");
         content.push('\n');
 
-        std::fs::write(&path, content)
-            .or_fail_with(|e| format!("failed to write file {}: {e}", path.as_ref().display()))?;
+        std::fs::write(&path, content)?;
 
         self.dirty = false;
         Ok(())

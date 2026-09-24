@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use orfail::OrFail;
-
 use kk::app::App;
 
 fn main() -> noargs::Result<()> {
@@ -24,8 +22,8 @@ fn main() -> noargs::Result<()> {
         return Ok(());
     }
 
-    let app = App::new(path).or_fail()?;
-    app.run().or_fail()?;
+    let app = App::new(path)?;
+    app.run()?;
 
     Ok(())
 }

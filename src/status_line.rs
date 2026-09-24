@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use crate::terminal::UnicodeTerminalFrame as TerminalFrame;
-use orfail::OrFail;
+use crate::error::Result;
 
 use crate::state::State;
 
@@ -9,7 +9,7 @@ use crate::state::State;
 pub struct StatusLineRenderer;
 
 impl StatusLineRenderer {
-    pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> orfail::Result<()> {
+    pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> Result<()> {
         let style = tuinix::TerminalStyle::new().reverse().bold();
         let reset = tuinix::TerminalStyle::RESET;
         let filler = " ".repeat(frame.size().cols);
@@ -31,7 +31,7 @@ impl StatusLineRenderer {
             },
             state.clipboard.summary_line,
         )
-        .or_fail()?;
+        ?;
 
         Ok(())
     }

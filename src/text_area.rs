@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use crate::terminal::UnicodeTerminalFrame as TerminalFrame;
-use orfail::OrFail;
+use crate::error::Result;
 use tuinix::TerminalStyle;
 
 use crate::{buffer::TextLine, buffer::TextPosition, state::State};
@@ -10,7 +10,7 @@ use crate::{buffer::TextLine, buffer::TextPosition, state::State};
 pub struct TextAreaRenderer;
 
 impl TextAreaRenderer {
-    pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> orfail::Result<()> {
+    pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> Result<()> {
         let size = frame.size();
         let available_rows = size.rows;
 
@@ -20,7 +20,7 @@ impl TextAreaRenderer {
 
         for (screen_row, buffer_row) in (start_row..end_row).enumerate() {
             if screen_row > 0 {
-                writeln!(frame).or_fail()?;
+                writeln!(frame)?;
             }
             if let Some(line) = state.buffer.text.get(buffer_row) {
                 self.render_line(line, state.viewport.col, frame, state, buffer_row)?;
@@ -30,7 +30,7 @@ impl TextAreaRenderer {
         // Fill remaining rows with empty lines if needed
         let rendered_rows = end_row.saturating_sub(start_row);
         for _ in rendered_rows..available_rows {
-            writeln!(frame).or_fail()?;
+            writeln!(frame)?;
         }
 
         Ok(())
@@ -43,7 +43,7 @@ impl TextAreaRenderer {
         frame: &mut TerminalFrame,
         state: &State,
         line_row: usize,
-    ) -> orfail::Result<()> {
+    ) -> Result<()> {
         // Calculate marked region for this line if mark is active
         let marked_region = if let Some(mark_pos) = state.mark {
             let cursor_pos = state.cursor_position();
@@ -81,9 +81,9 @@ impl TextAreaRenderer {
                 }
                 if style != TerminalStyle::RESET {
                     let reset = TerminalStyle::RESET;
-                    write!(frame, "{style}{ch}{reset}").or_fail()?;
+                    write!(frame, "{style}{ch}{reset}")?;
                 } else {
-                    write!(frame, "{ch}").or_fail()?;
+                    write!(frame, "{ch}")?;
                 }
             }
         }

@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use crate::terminal::UnicodeTerminalFrame as TerminalFrame;
-use orfail::OrFail;
+use crate::error::Result;
 
 use crate::state::State;
 
@@ -9,11 +9,11 @@ use crate::state::State;
 pub struct MessageLineRenderer;
 
 impl MessageLineRenderer {
-    pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> orfail::Result<()> {
+    pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> Result<()> {
         let Some(message) = &state.message else {
             return Ok(());
         };
-        write!(frame, "{message}").or_fail()?;
+        write!(frame, "{message}")?;
         Ok(())
     }
 }

@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
+use crate::error::Result;
 use crate::terminal::UnicodeTerminalFrame as TerminalFrame;
-use orfail::OrFail;
 use tuinix::{TerminalPosition, TerminalRegion};
 
 use crate::{
@@ -47,12 +47,12 @@ impl GrepMode {
         self.cursor += 1;
     }
 
-    pub fn grep(&mut self, buffer: &TextBuffer) -> orfail::Result<Highlight> {
+    pub fn grep(&mut self, buffer: &TextBuffer) -> Highlight {
         if self.query.is_empty() {
-            return Ok(Highlight::default());
+            return Highlight::default();
         }
 
-        Ok(Highlight::search(buffer, &self.query))
+        Highlight::search(buffer, &self.query)
     }
 }
 
@@ -129,16 +129,16 @@ const PROMPT: &str = "Search: ";
 pub struct GrepQueryRenderer;
 
 impl GrepQueryRenderer {
-    pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> orfail::Result<()> {
+    pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> Result<()> {
         let Some(grep) = &state.grep_mode else {
             unreachable!();
         };
 
-        write!(frame, "{PROMPT}").or_fail()?;
+        write!(frame, "{PROMPT}")?;
         for ch in &grep.query {
-            write!(frame, "{ch}").or_fail()?;
+            write!(frame, "{ch}")?;
         }
-        writeln!(frame).or_fail()?;
+        writeln!(frame)?;
         Ok(())
     }
 }

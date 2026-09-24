@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use orfail::OrFail;
+use crate::error::Result;
 use tuinix::{Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
 use crate::{
@@ -27,11 +27,11 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(path: PathBuf) -> orfail::Result<Self> {
-        let terminal = Terminal::new().or_fail()?;
+    pub fn new(path: PathBuf) -> Result<Self> {
+        let terminal = Terminal::new()?;
         Ok(Self {
             terminal,
-            state: State::new(path).or_fail()?,
+            state: State::new(path)?,
             context: Context::Main,
             bindings: Bindings::new(),
             text_area: TextAreaRenderer,
@@ -41,24 +41,24 @@ impl App {
         })
     }
 
-    pub fn run(mut self) -> orfail::Result<()> {
+    pub fn run(mut self) -> Result<()> {
         self.state.set_message("Started");
 
         while !self.exit {
-            self.render().or_fail()?;
+            self.render()?;
 
-            match self.terminal.poll_event(&[], &[], None).or_fail()? {
+            match self.terminal.poll_event(&[], &[], None)? {
                 Some(TerminalEvent::Input(input)) => {
-                    self.handle_input(input).or_fail()?;
+                    self.handle_input(input)?;
 
                     // Handle buffered events before rendering
                     let timeout = std::time::Duration::ZERO;
                     while let Some(TerminalEvent::Input(input)) = self
                         .terminal
                         .poll_event(&[], &[], Some(timeout))
-                        .or_fail()?
+                        ?
                     {
-                        self.handle_input(input).or_fail()?;
+                        self.handle_input(input)?;
                     }
                 }
                 Some(TerminalEvent::Resize(_size)) => {}
@@ -72,7 +72,7 @@ impl App {
         Ok(())
     }
 
-    fn handle_input(&mut self, input: TerminalInput) -> orfail::Result<()> {
+    fn handle_input(&mut self, input: TerminalInput) -> Result<()> {
         let Some(binding) = self
             .bindings
             .get(self.context)
@@ -88,7 +88,7 @@ impl App {
         let action = binding.action.clone();
 
         if let Some(action) = action {
-            self.handle_action(action, input).or_fail()?;
+            self.handle_action(action, input)?;
         }
 
         if let Some(context) = next_context {
@@ -98,11 +98,11 @@ impl App {
         Ok(())
     }
 
-    fn handle_action(&mut self, action: Action, input: TerminalInput) -> orfail::Result<()> {
+    fn handle_action(&mut self, action: Action, input: TerminalInput) -> Result<()> {
         match action {
             Action::Multiple(actions) => {
                 for action in actions {
-                    self.handle_action(action, input).or_fail()?;
+                    self.handle_action(action, input)?;
                 }
             }
             Action::Quit => {
@@ -114,8 +114,8 @@ impl App {
                 self.state.highlight = Highlight::default();
                 self.state.set_message("Canceled");
             }
-            Action::BufferSave => self.state.handle_buffer_save().or_fail()?,
-            Action::BufferReload => self.state.handle_buffer_reload().or_fail()?,
+            Action::BufferSave => self.state.handle_buffer_save()?,
+            Action::BufferReload => self.state.handle_buffer_reload()?,
             Action::BufferUndo => self.state.handle_buffer_undo(),
             Action::CursorUp => self.state.handle_cursor_up(),
             Action::CursorDown => self.state.handle_cursor_down(),
@@ -145,11 +145,11 @@ impl App {
             }
             Action::CharDeleteBackward => self.state.handle_char_delete_backward(),
             Action::CharDeleteForward => self.state.handle_char_delete_forward(),
-            Action::LineDelete => self.state.handle_line_delete().or_fail()?,
+            Action::LineDelete => self.state.handle_line_delete()?,
             Action::MarkSet => self.state.handle_mark_set(),
-            Action::MarkCopy => self.state.handle_mark_copy().or_fail()?,
-            Action::MarkCut => self.state.handle_mark_cut().or_fail()?,
-            Action::ClipboardPaste => self.state.handle_clipboard_paste().or_fail()?,
+            Action::MarkCopy => self.state.handle_mark_copy()?,
+            Action::MarkCut => self.state.handle_mark_cut()?,
+            Action::ClipboardPaste => self.state.handle_clipboard_paste()?,
             Action::Echo(m) => {
                 self.state.set_message(&m.message);
             }
@@ -184,13 +184,13 @@ impl App {
         self.terminal.size().to_region().drop_bottom(footer_rows)
     }
 
-    fn render(&mut self) -> orfail::Result<()> {
+    fn render(&mut self) -> Result<()> {
         let mut frame = TerminalFrame::new(self.terminal.size());
 
         let region = self.text_area_region();
         self.state.adjust_viewport(region.size);
         self.render_region(&mut frame, region, |frame| {
-            self.text_area.render(&self.state, frame).or_fail()
+            self.text_area.render(&self.state, frame)
         })?;
 
         let mut frame_region = frame.size().to_region();
@@ -198,19 +198,19 @@ impl App {
         if self.state.grep_mode.is_some() {
             grep_region = frame_region.take_bottom(1);
             self.render_region(&mut frame, grep_region, |frame| {
-                GrepQueryRenderer.render(&self.state, frame).or_fail()
+                GrepQueryRenderer.render(&self.state, frame)
             })?;
             frame_region = frame_region.drop_bottom(1);
         }
 
         let region = frame_region.take_bottom(2).take_top(1);
         self.render_region(&mut frame, region, |frame| {
-            self.status_line.render(&self.state, frame).or_fail()
+            self.status_line.render(&self.state, frame)
         })?;
 
         let region = frame_region.take_bottom(1);
         self.render_region(&mut frame, region, |frame| {
-            self.message_line.render(&self.state, frame).or_fail()
+            self.message_line.render(&self.state, frame)
         })?;
 
         if let Some(grep) = &self.state.grep_mode {
@@ -220,7 +220,7 @@ impl App {
             self.terminal
                 .set_cursor(Some(self.state.terminal_cursor_position()));
         }
-        self.terminal.draw(frame).or_fail()?;
+        self.terminal.draw(frame)?;
 
         self.state.message = None;
         Ok(())
@@ -231,12 +231,12 @@ impl App {
         frame: &mut TerminalFrame,
         region: TerminalRegion,
         f: F,
-    ) -> orfail::Result<()>
+    ) -> Result<()>
     where
-        F: FnOnce(&mut TerminalFrame) -> orfail::Result<()>,
+        F: FnOnce(&mut TerminalFrame) -> Result<()>,
     {
         let mut sub_frame = TerminalFrame::new(region.size);
-        f(&mut sub_frame).or_fail()?;
+        f(&mut sub_frame)?;
         frame.draw(region.position, &sub_frame);
         Ok(())
     }

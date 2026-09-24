@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, path::PathBuf};
 
-use orfail::OrFail;
+use crate::error::Result;
 use tuinix::{KeyCode, TerminalPosition, TerminalSize};
 
 use crate::{
@@ -29,9 +29,9 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(path: PathBuf) -> orfail::Result<Self> {
+    pub fn new(path: PathBuf) -> Result<Self> {
         let mut buffer = TextBuffer::default();
-        buffer.load_file(&path).or_fail()?;
+        buffer.load_file(&path)?;
         Ok(Self {
             path,
             cursor: TextPosition::default(),
@@ -229,34 +229,30 @@ impl State {
         let Some(grep) = &mut self.grep_mode else {
             return;
         };
-        match grep.grep(&self.buffer) {
-            Err(e) => self.set_message(e.message),
-            Ok(highlight) => {
-                self.highlight = highlight;
-                if !self.highlight.contains(self.cursor) {
-                    if grep.action.forward {
-                        self.handle_grep_next_hit();
-                    } else {
-                        self.handle_grep_prev_hit();
-                    }
-                }
-                self.set_message(format!("Hit: {}", self.highlight.items.len()));
+        let highlight = grep.grep(&self.buffer);
+        self.highlight = highlight;
+        if !self.highlight.contains(self.cursor) {
+            if grep.action.forward {
+                self.handle_grep_next_hit();
+            } else {
+                self.handle_grep_prev_hit();
             }
         }
+        self.set_message(format!("Hit: {}", self.highlight.items.len()));
     }
 
-    pub fn handle_buffer_save(&mut self) -> orfail::Result<()> {
-        self.buffer.save_to_file(&self.path).or_fail()?;
+    pub fn handle_buffer_save(&mut self) -> Result<()> {
+        self.buffer.save_to_file(&self.path)?;
         self.set_message(format!("Saved: {}", self.path.display()));
         Ok(())
     }
 
-    pub fn handle_buffer_reload(&mut self) -> orfail::Result<()> {
+    pub fn handle_buffer_reload(&mut self) -> Result<()> {
         self.finish_editing();
         self.start_editing();
 
         // Reload the buffer from file
-        self.buffer.load_file(&self.path).or_fail()?;
+        self.buffer.load_file(&self.path)?;
 
         // Try to preserve cursor position, but adjust if the file has changed
         let max_row = self.buffer.rows();
@@ -334,7 +330,7 @@ impl State {
         }
     }
 
-    pub fn handle_mark_copy(&mut self) -> orfail::Result<()> {
+    pub fn handle_mark_copy(&mut self) -> Result<()> {
         self.finish_editing();
 
         if let Some(mark_pos) = self.mark.take() {
@@ -357,7 +353,7 @@ impl State {
         Ok(())
     }
 
-    pub fn handle_mark_cut(&mut self) -> orfail::Result<()> {
+    pub fn handle_mark_cut(&mut self) -> Result<()> {
         self.finish_editing();
 
         if let Some(mark_pos) = self.mark.take() {
@@ -496,7 +492,7 @@ impl State {
         self.buffer.dirty = true;
     }
 
-    pub fn handle_clipboard_paste(&mut self) -> orfail::Result<()> {
+    pub fn handle_clipboard_paste(&mut self) -> Result<()> {
         if let Some(grep) = &mut self.grep_mode {
             let text = self.clipboard.read();
 
@@ -583,7 +579,7 @@ impl State {
         self.set_message("View recentered");
     }
 
-    pub fn handle_line_delete(&mut self) -> orfail::Result<()> {
+    pub fn handle_line_delete(&mut self) -> Result<()> {
         self.start_editing();
 
         let cursor_pos = self.cursor_position();
