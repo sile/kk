@@ -23,15 +23,15 @@ pub enum InputMatcher {
     Printable,
 
     /// Matches a specific mouse event (display / lookup support).
-    Mouse(tuinix::MouseEvent),
+    Mouse(tuinix::MouseInputKind),
 }
 
 impl InputMatcher {
     /// Returns `true` if the given terminal input matches this matcher.
-    pub fn matches(self, input: tuinix::TerminalInput) -> bool {
+    pub fn matches(self, input: &tuinix::Input) -> bool {
         match input {
-            tuinix::TerminalInput::Key(key) => match self {
-                InputMatcher::Key(k) => k == key,
+            tuinix::Input::Key(key) => match self {
+                InputMatcher::Key(k) => k == *key,
                 InputMatcher::Printable => {
                     matches!(key, KeyInput {
                         ctrl: false,
@@ -41,9 +41,10 @@ impl InputMatcher {
                 }
                 InputMatcher::Mouse(_) => false,
             },
-            tuinix::TerminalInput::Mouse(m) => {
-                matches!(self, InputMatcher::Mouse(e) if e == m.event)
+            tuinix::Input::Mouse(m) => {
+                matches!(self, InputMatcher::Mouse(kind) if kind == m.kind)
             }
+            tuinix::Input::Unrecognized { .. } | tuinix::Input::Paste { .. } => false,
         }
     }
 }
@@ -53,18 +54,18 @@ impl std::str::FromStr for InputMatcher {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // Handle inputs that do not accept modifiers.
-        let mouse = |event| InputMatcher::Mouse(event);
+        let mouse = |kind| InputMatcher::Mouse(kind);
         match s {
             "<PRINTABLE>" => return Ok(InputMatcher::Printable),
-            "<LEFTCLICK>" => return Ok(mouse(tuinix::MouseEvent::LeftPress)),
-            "<LEFTRELEASE>" => return Ok(mouse(tuinix::MouseEvent::LeftRelease)),
-            "<RIGHTCLICK>" => return Ok(mouse(tuinix::MouseEvent::RightPress)),
-            "<RIGHTRELEASE>" => return Ok(mouse(tuinix::MouseEvent::RightRelease)),
-            "<MIDDLECLICK>" => return Ok(mouse(tuinix::MouseEvent::MiddlePress)),
-            "<MIDDLERELEASE>" => return Ok(mouse(tuinix::MouseEvent::MiddleRelease)),
-            "<DRAG>" => return Ok(mouse(tuinix::MouseEvent::Drag)),
-            "<SCROLLUP>" => return Ok(mouse(tuinix::MouseEvent::ScrollUp)),
-            "<SCROLLDOWN>" => return Ok(mouse(tuinix::MouseEvent::ScrollDown)),
+            "<LEFTCLICK>" => return Ok(mouse(tuinix::MouseInputKind::LeftPress)),
+            "<LEFTRELEASE>" => return Ok(mouse(tuinix::MouseInputKind::LeftRelease)),
+            "<RIGHTCLICK>" => return Ok(mouse(tuinix::MouseInputKind::RightPress)),
+            "<RIGHTRELEASE>" => return Ok(mouse(tuinix::MouseInputKind::RightRelease)),
+            "<MIDDLECLICK>" => return Ok(mouse(tuinix::MouseInputKind::MiddlePress)),
+            "<MIDDLERELEASE>" => return Ok(mouse(tuinix::MouseInputKind::MiddleRelease)),
+            "<DRAG>" => return Ok(mouse(tuinix::MouseInputKind::Drag)),
+            "<SCROLLUP>" => return Ok(mouse(tuinix::MouseInputKind::ScrollUp)),
+            "<SCROLLDOWN>" => return Ok(mouse(tuinix::MouseInputKind::ScrollDown)),
             _ => {}
         }
 
@@ -161,20 +162,21 @@ impl std::fmt::Display for InputMatcher {
                     KeyCode::End => write!(f, "<END>"),
                     KeyCode::PageUp => write!(f, "<PAGEUP>"),
                     KeyCode::PageDown => write!(f, "<PAGEDOWN>"),
+                    KeyCode::F(n) => write!(f, "<F{n}>"),
                     KeyCode::Char(ch) if ch.is_control() => write!(f, "0x{:x}", ch as u32),
                     KeyCode::Char(ch) => write!(f, "{ch}"),
                 }
             }
             Self::Mouse(mouse) => match mouse {
-                tuinix::MouseEvent::LeftPress => write!(f, "<LEFTCLICK>"),
-                tuinix::MouseEvent::LeftRelease => write!(f, "<LEFTRELEASE>"),
-                tuinix::MouseEvent::RightPress => write!(f, "<RIGHTCLICK>"),
-                tuinix::MouseEvent::RightRelease => write!(f, "<RIGHTRELEASE>"),
-                tuinix::MouseEvent::MiddlePress => write!(f, "<MIDDLECLICK>"),
-                tuinix::MouseEvent::MiddleRelease => write!(f, "<MIDDLERELEASE>"),
-                tuinix::MouseEvent::Drag => write!(f, "<DRAG>"),
-                tuinix::MouseEvent::ScrollUp => write!(f, "<SCROLLUP>"),
-                tuinix::MouseEvent::ScrollDown => write!(f, "<SCROLLDOWN>"),
+                tuinix::MouseInputKind::LeftPress => write!(f, "<LEFTCLICK>"),
+                tuinix::MouseInputKind::LeftRelease => write!(f, "<LEFTRELEASE>"),
+                tuinix::MouseInputKind::RightPress => write!(f, "<RIGHTCLICK>"),
+                tuinix::MouseInputKind::RightRelease => write!(f, "<RIGHTRELEASE>"),
+                tuinix::MouseInputKind::MiddlePress => write!(f, "<MIDDLECLICK>"),
+                tuinix::MouseInputKind::MiddleRelease => write!(f, "<MIDDLERELEASE>"),
+                tuinix::MouseInputKind::Drag => write!(f, "<DRAG>"),
+                tuinix::MouseInputKind::ScrollUp => write!(f, "<SCROLLUP>"),
+                tuinix::MouseInputKind::ScrollDown => write!(f, "<SCROLLDOWN>"),
             },
         }
     }
@@ -198,7 +200,7 @@ pub struct Binding {
 
 impl Binding {
     /// Checks if this binding matches the given terminal input.
-    pub fn matches(&self, input: tuinix::TerminalInput) -> bool {
+    pub fn matches(&self, input: &tuinix::Input) -> bool {
         self.triggers.iter().any(|t| t.matches(input))
     }
 }

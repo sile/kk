@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, path::PathBuf};
 
 use crate::error::Result;
-use tuinix::{KeyCode, TerminalPosition, TerminalSize};
+use tuinix::{KeyCode, Position, Size};
 
 use crate::{
     buffer::{TextBuffer, TextPosition},
@@ -53,18 +53,21 @@ impl State {
         self.message = Some(message.into());
     }
 
-    pub fn terminal_cursor_position(&self) -> TerminalPosition {
+    pub fn terminal_cursor_position(&self) -> Position {
         let pos = self.cursor_position();
         let screen_row = pos.row.saturating_sub(self.viewport.row);
         let screen_col = pos.col.saturating_sub(self.viewport.col);
-        TerminalPosition::row_col(screen_row, screen_col)
+        Position {
+            row: screen_row,
+            col: screen_col,
+        }
     }
 
     pub fn cursor_position(&self) -> TextPosition {
         self.buffer.adjust_to_char_boundary(self.cursor, true)
     }
 
-    pub fn adjust_viewport(&mut self, text_area_size: TerminalSize) {
+    pub fn adjust_viewport(&mut self, text_area_size: Size) {
         let cursor_pos = self.cursor_position();
         let available_rows = text_area_size.rows;
         let available_cols = text_area_size.cols;
@@ -625,12 +628,12 @@ impl State {
         Ok(())
     }
 
-    pub fn handle_cursor_page_up(&mut self, text_area_size: tuinix::TerminalSize) {
+    pub fn handle_cursor_page_up(&mut self, text_area_size: Size) {
         self.finish_editing();
         self.cursor.row = self.cursor.row.saturating_sub(text_area_size.rows);
     }
 
-    pub fn handle_cursor_page_down(&mut self, text_area_size: tuinix::TerminalSize) {
+    pub fn handle_cursor_page_down(&mut self, text_area_size: Size) {
         self.finish_editing();
         let max_row = self.buffer.rows();
         self.cursor.row = (self.cursor.row + text_area_size.rows).min(max_row);

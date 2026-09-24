@@ -2,7 +2,7 @@
 name = "kk"
 version = "0.0.1"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.97"
 authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 license = "MIT"
 description = "A TUI text editor"
@@ -11,6 +11,7 @@ repository = "https://github.com/sile/kk"
 readme = "README.md"
 
 [dependencies]
+libc = "0.2"
 noargs = "0.4.1"
-tuinix = "0.3.0"
+tuinix = "0.7.0"
 unicode-width = "0.2.0"

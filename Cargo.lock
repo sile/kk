@@ -6,6 +6,7 @@ version = 4
 name = "kk"
 version = "0.0.1"
 dependencies = [
+ "libc",
  "noargs",
  "tuinix",
  "unicode-width",
@@ -25,9 +26,9 @@ checksum = "9e5dc223a8d69eaeb19c31218a69a55112fe79965764430f092532aed848f1b8"
 
 [[package]]
 name = "tuinix"
-version = "0.3.2"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67068facab6ee2aff2c66c3249d064c996435cf8f1a8e61db8675571ca4c01ff"
+checksum = "cb1b08ce720a23a8b0cbdb3a5972ae37e59d0fb37ba8e721c58fbb8140449cf7"
 dependencies = [
  "libc",
 ]

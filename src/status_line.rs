@@ -1,7 +1,6 @@
-use std::fmt::Write;
-
-use crate::terminal::UnicodeTerminalFrame as TerminalFrame;
 use crate::error::Result;
+use crate::terminal::put_str;
+use tuinix::{Frame, Position, Style};
 
 use crate::state::State;
 
@@ -9,10 +8,8 @@ use crate::state::State;
 pub struct StatusLineRenderer;
 
 impl StatusLineRenderer {
-    pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> Result<()> {
-        let style = tuinix::TerminalStyle::new().reverse().bold();
-        let reset = tuinix::TerminalStyle::RESET;
-        let filler = " ".repeat(frame.size().cols);
+    pub fn render(&self, state: &State, frame: &mut Frame) -> Result<()> {
+        let style = Style::new().reverse().bold();
 
         let dirty = if state.buffer.dirty { '*' } else { ' ' };
         let path = state.path.display();
@@ -21,17 +18,18 @@ impl StatusLineRenderer {
         let col = cursor.col + 1; // Convert to 1-based index
         let rows = state.buffer.rows();
         let cols = state.buffer.cols(cursor.row);
-        write!(
-            frame,
-            "{style} {dirty} [{path}:{row}({rows}):{col}({cols})] {}{}{filler}{reset}",
-            if state.clipboard.summary_line.is_empty() {
-                ""
-            } else {
-                "📋"
-            },
+        let clipboard = if state.clipboard.summary_line.is_empty() {
+            ""
+        } else {
+            "📋"
+        };
+        let text = format!(
+            " {dirty} [{path}:{row}({rows}):{col}({cols})] {clipboard}{}",
             state.clipboard.summary_line,
-        )
-        ?;
+        );
+        // Pad the whole row so the reverse style covers it.
+        let padded = format!("{text:<width$}", width = frame.size().cols);
+        put_str(frame, Position::ORIGIN, &padded, style);
 
         Ok(())
     }

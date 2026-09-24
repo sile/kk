@@ -1,8 +1,6 @@
-use std::fmt::Write;
-
 use crate::error::Result;
-use crate::terminal::UnicodeTerminalFrame as TerminalFrame;
-use tuinix::{TerminalPosition, TerminalRegion};
+use crate::terminal::{char_cols, put_str};
+use tuinix::{Frame, Position, Region, Style};
 
 use crate::{
     action::GrepAction,
@@ -26,16 +24,12 @@ impl GrepMode {
         }
     }
 
-    pub fn cursor_position(&self, region: TerminalRegion) -> TerminalPosition {
-        let mut frame = TerminalFrame::new(region.size);
+    pub fn cursor_position(&self, region: Region) -> Position {
         let mut pos = region.position;
-
-        let _ = write!(frame, "{}", PROMPT);
+        pos.col += crate::terminal::str_cols(PROMPT);
         for ch in self.query.iter().take(self.cursor) {
-            let _ = write!(frame, "{ch}");
+            pos.col += char_cols(*ch);
         }
-        pos.col = frame.cursor().col;
-
         pos
     }
 
@@ -129,16 +123,14 @@ const PROMPT: &str = "Search: ";
 pub struct GrepQueryRenderer;
 
 impl GrepQueryRenderer {
-    pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> Result<()> {
+    pub fn render(&self, state: &State, frame: &mut Frame) -> Result<()> {
         let Some(grep) = &state.grep_mode else {
             unreachable!();
         };
 
-        write!(frame, "{PROMPT}")?;
-        for ch in &grep.query {
-            write!(frame, "{ch}")?;
-        }
-        writeln!(frame)?;
+        let query: String = grep.query.iter().collect();
+        let text = format!("{PROMPT}{query}");
+        put_str(frame, Position::ORIGIN, &text, Style::new());
         Ok(())
     }
 }

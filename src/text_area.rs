@@ -1,8 +1,6 @@
-use std::fmt::Write;
-
-use crate::terminal::UnicodeTerminalFrame as TerminalFrame;
 use crate::error::Result;
-use tuinix::TerminalStyle;
+use crate::terminal::put_str;
+use tuinix::{Frame, Position, Style};
 
 use crate::{buffer::TextLine, buffer::TextPosition, state::State};
 
@@ -10,27 +8,17 @@ use crate::{buffer::TextLine, buffer::TextPosition, state::State};
 pub struct TextAreaRenderer;
 
 impl TextAreaRenderer {
-    pub fn render(&self, state: &State, frame: &mut TerminalFrame) -> Result<()> {
-        let size = frame.size();
-        let available_rows = size.rows;
+    pub fn render(&self, state: &State, frame: &mut Frame) -> Result<()> {
+        let available_rows = frame.size().rows;
 
         // Render visible lines from the buffer starting at viewport position
         let start_row = state.viewport.row;
         let end_row = (start_row + available_rows).min(state.buffer.text.len());
 
         for (screen_row, buffer_row) in (start_row..end_row).enumerate() {
-            if screen_row > 0 {
-                writeln!(frame)?;
-            }
             if let Some(line) = state.buffer.text.get(buffer_row) {
-                self.render_line(line, state.viewport.col, frame, state, buffer_row)?;
+                self.render_line(line, state.viewport.col, frame, state, buffer_row, screen_row)?;
             }
-        }
-
-        // Fill remaining rows with empty lines if needed
-        let rendered_rows = end_row.saturating_sub(start_row);
-        for _ in rendered_rows..available_rows {
-            writeln!(frame)?;
         }
 
         Ok(())
@@ -40,9 +28,10 @@ impl TextAreaRenderer {
         &self,
         line: &TextLine,
         start_col: usize,
-        frame: &mut TerminalFrame,
+        frame: &mut Frame,
         state: &State,
         line_row: usize,
+        screen_row: usize,
     ) -> Result<()> {
         // Calculate marked region for this line if mark is active
         let marked_region = if let Some(mark_pos) = state.mark {
@@ -65,12 +54,12 @@ impl TextAreaRenderer {
                     .is_some_and(|(start, end)| current_col >= *start && current_col < *end);
                 let is_highlighted = state.highlight.contains(pos);
 
-                let mut style = TerminalStyle::new();
+                let mut style = Style::new();
                 if is_marked {
                     style = style.reverse();
                 }
                 if is_highlighted {
-                    style = style.bg_color(tuinix::TerminalColor::new(220, 220, 220));
+                    style = style.bg_color(tuinix::Color::Rgb(220, 220, 220));
                 }
                 if pos == state.cursor {
                     if state.grep_mode.is_some() {
@@ -79,12 +68,11 @@ impl TextAreaRenderer {
                         style = style.underline();
                     }
                 }
-                if style != TerminalStyle::RESET {
-                    let reset = TerminalStyle::RESET;
-                    write!(frame, "{style}{ch}{reset}")?;
-                } else {
-                    write!(frame, "{ch}")?;
-                }
+                let at = Position {
+                    row: screen_row,
+                    col: current_col - start_col,
+                };
+                put_str(frame, at, &ch.to_string(), style);
             }
         }
         Ok(())

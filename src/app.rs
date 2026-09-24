@@ -1,7 +1,8 @@
+use std::io::{Read, Write};
 use std::path::PathBuf;
 
 use crate::error::Result;
-use tuinix::{Terminal, TerminalEvent, TerminalInput, TerminalRegion};
+use tuinix::{Frame, Input, InputDecoder, Region, TerminalDriver};
 
 use crate::{
     action::Action,
@@ -10,13 +11,18 @@ use crate::{
     message_line::MessageLineRenderer,
     state::State,
     status_line::StatusLineRenderer,
-    terminal::UnicodeTerminalFrame as TerminalFrame,
     text_area::TextAreaRenderer,
 };
 
+/// How long to wait for the rest of an escape sequence before a lone `ESC` byte
+/// is treated as the Escape key.
+const ESCAPE_TIMEOUT_MS: libc::c_int = 50;
+
 #[derive(Debug)]
 pub struct App {
-    terminal: Terminal,
+    driver: TerminalDriver,
+    input: InputDecoder,
+    prev_frame: Option<Frame>,
     bindings: Bindings,
     context: Context,
     state: State,
@@ -28,9 +34,11 @@ pub struct App {
 
 impl App {
     pub fn new(path: PathBuf) -> Result<Self> {
-        let terminal = Terminal::new()?;
+        let driver = TerminalDriver::new()?;
         Ok(Self {
-            terminal,
+            driver,
+            input: InputDecoder::new(),
+            prev_frame: None,
             state: State::new(path)?,
             context: Context::Main,
             bindings: Bindings::new(),
@@ -44,43 +52,89 @@ impl App {
     pub fn run(mut self) -> Result<()> {
         self.state.set_message("Started");
 
+        let mut fds = [
+            libc::pollfd {
+                fd: self.driver.resize_signal_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            },
+            libc::pollfd {
+                fd: self.driver.input_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            },
+        ];
+
         while !self.exit {
             self.render()?;
 
-            match self.terminal.poll_event(&[], &[], None)? {
-                Some(TerminalEvent::Input(input)) => {
-                    self.handle_input(input)?;
+            // A lone `ESC` byte is ambiguous, so wait only briefly while one is
+            // held so it is reported as Escape promptly.
+            let timeout = if self.input.has_uncommitted_escape() {
+                ESCAPE_TIMEOUT_MS
+            } else {
+                -1
+            };
+            let n = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as libc::nfds_t, timeout) };
+            if n < 0 {
+                let err = std::io::Error::last_os_error();
+                // `poll` is never restarted by `SA_RESTART`, so SIGWINCH makes it
+                // return `EINTR`; the resize byte is already in the pipe, so retry.
+                if err.kind() == std::io::ErrorKind::Interrupted {
+                    continue;
+                }
+                return Err(err.into());
+            }
 
-                    // Handle buffered events before rendering
-                    let timeout = std::time::Duration::ZERO;
-                    while let Some(TerminalEvent::Input(input)) = self
-                        .terminal
-                        .poll_event(&[], &[], Some(timeout))
-                        ?
-                    {
-                        self.handle_input(input)?;
-                    }
-                }
-                Some(TerminalEvent::Resize(_size)) => {}
-                Some(TerminalEvent::FdReady { .. }) => {
-                    unreachable!()
-                }
-                None => {}
+            if fds
+                .iter()
+                .any(|fd| fd.revents & (libc::POLLHUP | libc::POLLERR | libc::POLLNVAL) != 0)
+            {
+                return Err(std::io::Error::other("terminal closed").into());
+            }
+
+            if n == 0 {
+                self.input.commit_escape();
+            }
+
+            if fds[0].revents & libc::POLLIN != 0 {
+                self.driver.handle_resize_signal()?;
+            }
+
+            if fds[1].revents & libc::POLLIN != 0 {
+                self.read_input()?;
+            }
+
+            while let Some(input) = self.input.next() {
+                self.handle_input(input)?;
             }
         }
 
         Ok(())
     }
 
-    fn handle_input(&mut self, input: TerminalInput) -> Result<()> {
+    fn read_input(&mut self) -> Result<()> {
+        let mut raw = [0u8; 256];
+        loop {
+            match self.driver.read(&mut raw) {
+                Ok(n @ 1..) => self.input.feed(&raw[..n]),
+                Ok(_) => break,
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                Err(e) => return Err(e.into()),
+            }
+        }
+        Ok(())
+    }
+
+    fn handle_input(&mut self, input: Input) -> Result<()> {
         let Some(binding) = self
             .bindings
             .get(self.context)
             .iter()
-            .find(|b| b.matches(input))
+            .find(|b| b.matches(&input))
         else {
             self.state
-                .set_message(format!("No action found: '{}'", crate::fmt::input(input)));
+                .set_message(format!("No action found: '{}'", crate::fmt::input(&input)));
             return Ok(());
         };
 
@@ -88,7 +142,7 @@ impl App {
         let action = binding.action.clone();
 
         if let Some(action) = action {
-            self.handle_action(action, input)?;
+            self.handle_action(action, &input)?;
         }
 
         if let Some(context) = next_context {
@@ -98,7 +152,7 @@ impl App {
         Ok(())
     }
 
-    fn handle_action(&mut self, action: Action, input: TerminalInput) -> Result<()> {
+    fn handle_action(&mut self, action: Action, input: &Input) -> Result<()> {
         match action {
             Action::Multiple(actions) => {
                 for action in actions {
@@ -139,8 +193,8 @@ impl App {
             Action::ViewRecenter => self.state.handle_view_recenter(),
             Action::NewlineInsert => self.state.handle_newline_insert(),
             Action::CharInsert => {
-                if let TerminalInput::Key(key) = input {
-                    self.state.handle_char_insert(key);
+                if let Input::Key(key) = input {
+                    self.state.handle_char_insert(*key);
                 }
             }
             Action::CharDeleteBackward => self.state.handle_char_delete_backward(),
@@ -179,13 +233,13 @@ impl App {
         Ok(())
     }
 
-    fn text_area_region(&self) -> TerminalRegion {
+    fn text_area_region(&self) -> Region {
         let footer_rows = if self.state.grep_mode.is_some() { 3 } else { 2 };
-        self.terminal.size().to_region().drop_bottom(footer_rows)
+        self.driver.size().to_region().drop_bottom(footer_rows)
     }
 
     fn render(&mut self) -> Result<()> {
-        let mut frame = TerminalFrame::new(self.terminal.size());
+        let mut frame = Frame::new(self.driver.size());
 
         let region = self.text_area_region();
         self.state.adjust_viewport(region.size);
@@ -213,31 +267,28 @@ impl App {
             self.message_line.render(&self.state, frame)
         })?;
 
-        if let Some(grep) = &self.state.grep_mode {
-            self.terminal
-                .set_cursor(Some(grep.cursor_position(grep_region)));
+        let cursor = if let Some(grep) = &self.state.grep_mode {
+            Some(grep.cursor_position(grep_region))
         } else {
-            self.terminal
-                .set_cursor(Some(self.state.terminal_cursor_position()));
-        }
-        self.terminal.draw(frame)?;
+            Some(self.state.terminal_cursor_position())
+        };
+
+        let out = frame.render(self.prev_frame.as_ref(), cursor);
+        self.driver.write_all(&out)?;
+        self.driver.flush()?;
+        self.prev_frame = Some(frame);
 
         self.state.message = None;
         Ok(())
     }
 
-    fn render_region<F>(
-        &self,
-        frame: &mut TerminalFrame,
-        region: TerminalRegion,
-        f: F,
-    ) -> Result<()>
+    fn render_region<F>(&self, frame: &mut Frame, region: Region, f: F) -> Result<()>
     where
-        F: FnOnce(&mut TerminalFrame) -> Result<()>,
+        F: FnOnce(&mut Frame) -> Result<()>,
     {
-        let mut sub_frame = TerminalFrame::new(region.size);
+        let mut sub_frame = Frame::new(region.size);
         f(&mut sub_frame)?;
-        frame.draw(region.position, &sub_frame);
+        frame.put_frame(region.position, &sub_frame);
         Ok(())
     }
 }
