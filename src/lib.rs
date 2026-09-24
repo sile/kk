@@ -7,10 +7,11 @@
 //!
 //! The one thing the core decides but does not perform is I/O: loading a file,
 //! saving a buffer, and reading and writing the terminal all happen at the edge
-//! in the binary ([`main`](../kk/index.html) and its `app` module). The core
-//! hands back plain values -- the text to write, the frame to draw -- and is
-//! driven entirely by calls from the edge. Nothing here calls back out.
+//! in the binary's `main` function and its `app` module. The core hands back
+//! plain values -- the text to write, the frame to draw -- and is driven
+//! entirely by calls from the edge. Nothing here calls back out.
 
+#![warn(missing_docs)]
 #![forbid(unsafe_code)]
 
 mod action;

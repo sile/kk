@@ -1,3 +1,5 @@
+//! The in-buffer search prompt and its highlight.
+
 use crate::terminal::{char_cols, put_str};
 use tuinix::{Frame, Position, Region, Style};
 
@@ -7,14 +9,25 @@ use crate::{
     state::State,
 };
 
+/// A search in progress.
+///
+/// The query is edited as a list of characters with an insertion cursor, so a
+/// query can be built up one keypress at a time before it is run.
 #[derive(Debug)]
 pub struct GrepMode {
+    /// The direction a run of the query searches in.
     pub action: GrepAction,
+
+    /// The query as entered so far.
     pub query: Vec<char>,
+
+    /// The index in [`query`](GrepMode::query) where the next character is
+    /// inserted.
     pub cursor: usize,
 }
 
 impl GrepMode {
+    /// Starts an empty query in the direction given by `action`.
     pub fn new(action: GrepAction) -> Self {
         Self {
             action,
@@ -23,6 +36,10 @@ impl GrepMode {
         }
     }
 
+    /// Returns where the query's insertion cursor belongs inside `region`.
+    ///
+    /// The position accounts for the prompt's width and for every character
+    /// before the cursor.
     pub fn cursor_position(&self, region: Region) -> Position {
         let mut pos = region.position;
         pos.col += crate::terminal::str_cols(PROMPT);
@@ -32,6 +49,9 @@ impl GrepMode {
         pos
     }
 
+    /// Inserts the character of `key` at the query cursor.
+    ///
+    /// A key that is not a character leaves the query unchanged.
     pub fn handle_char_insert(&mut self, key: tuinix::KeyInput) {
         let tuinix::KeyCode::Char(ch) = key.code else {
             return;
@@ -40,6 +60,9 @@ impl GrepMode {
         self.cursor += 1;
     }
 
+    /// Runs the query against `buffer` and returns every match.
+    ///
+    /// An empty query matches nothing.
     pub fn grep(&mut self, buffer: &TextBuffer) -> Highlight {
         if self.query.is_empty() {
             return Highlight::default();
@@ -49,14 +72,23 @@ impl GrepMode {
     }
 }
 
+/// One matched range in the buffer.
+///
+/// `start_position` is inclusive and `end_position` is exclusive, so the two
+/// compare directly as a half-open range.
 #[derive(Debug, Clone, Copy)]
 pub struct HighlightItem {
+    /// The first position of the match.
     pub start_position: TextPosition,
+
+    /// The position just past the match.
     pub end_position: TextPosition,
 }
 
+/// Every match of a query.
 #[derive(Debug, Default)]
 pub struct Highlight {
+    /// The matched ranges, in buffer order.
     pub items: Vec<HighlightItem>,
 }
 
@@ -108,6 +140,7 @@ impl Highlight {
         Self { items }
     }
 
+    /// Returns `true` if `pos` falls inside one of the matches.
     pub fn contains(&self, pos: TextPosition) -> bool {
         self.items
             .iter()
@@ -118,10 +151,17 @@ impl Highlight {
 /// Prompt shown in the grep/query input line.
 const PROMPT: &str = "Search: ";
 
+/// Paints the search prompt and the query typed so far.
 #[derive(Debug)]
 pub struct GrepQueryRenderer;
 
 impl GrepQueryRenderer {
+    /// Paints the prompt into `frame`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`State::grep_mode`] is `None`, since there is then no query
+    /// to paint.
     pub fn render(&self, state: &State, frame: &mut Frame) {
         let Some(grep) = &state.grep_mode else {
             unreachable!();

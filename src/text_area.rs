@@ -1,12 +1,18 @@
+//! Paints the buffer text.
+
 use crate::terminal::put_str;
 use tuinix::{Frame, Position, Style};
 
 use crate::{buffer::TextLine, buffer::TextPosition, state::State};
 
+/// Paints the visible slice of the buffer, with the cursor, mark, and search
+/// highlight.
 #[derive(Debug)]
 pub struct TextAreaRenderer;
 
 impl TextAreaRenderer {
+    /// Paints the buffer rows that fall inside `frame`, starting at
+    /// [`State::viewport`].
     pub fn render(&self, state: &State, frame: &mut Frame) {
         let available_rows = frame.size().rows;
 

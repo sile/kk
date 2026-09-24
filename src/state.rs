@@ -1,3 +1,10 @@
+//! The editor's state and its handlers.
+//!
+//! Every handler is pure with respect to the outside world: it mutates [`State`]
+//! and returns plain values. The two handlers that imply I/O -- saving and
+//! reloading -- return the text to write and accept the text that was read, and
+//! the edge performs the actual read and write (see [`crate::Action`]).
+
 use std::{collections::VecDeque, path::PathBuf};
 
 use tuinix::{KeyCode, Position, Size};
@@ -8,22 +15,55 @@ use crate::{
     grep_mode::{GrepMode, Highlight},
 };
 
+/// The number of undo snapshots kept before the oldest is discarded.
 pub const MAX_HISTORY_SIZE: usize = 1000;
 
+/// Everything the editor knows: the buffer, the cursor, and the surrounding
+/// mode state.
+///
+/// The fields are public so renderers and the I/O edge can read them directly;
+/// edits should go through the `handle_*` methods so the undo history and the
+/// viewport stay consistent.
 #[derive(Debug)]
 pub struct State {
+    /// The buffer's path, kept as data for the status line and for the edge.
     pub path: PathBuf,
+
+    /// The cursor's position in [`buffer`](State::buffer).
     pub cursor: TextPosition,
-    pub viewport: TextPosition, // Top-left position of the visible text area
+
+    /// The top-left position of the visible text area.
+    pub viewport: TextPosition,
+
+    /// Whether the next viewport adjustment should center the cursor.
     pub recenter_viewport: bool,
+
+    /// The text being edited.
     pub buffer: TextBuffer,
+
+    /// A message to show once, cleared after the next render.
     pub message: Option<String>,
+
+    /// The mark, when a region has been started.
     pub mark: Option<TextPosition>,
+
+    /// The clipboard text cut from or copied out of the buffer.
     pub clipboard: Clipboard,
+
+    /// Whether an edit has already been recorded in [`history`](State::history).
     pub editing: bool,
+
+    /// Undo snapshots, oldest first.
     pub history: VecDeque<(TextPosition, TextBuffer)>,
+
+    /// How many entries of [`history`](State::history) are still reachable by
+    /// undo.
     pub undo_index: usize,
-    pub grep_mode: Option<GrepMode>, // TODO: non-optional
+
+    /// The active search prompt, if one is open. // TODO: non-optional
+    pub grep_mode: Option<GrepMode>,
+
+    /// The current search matches, used for highlighting.
     pub highlight: Highlight,
 }
 
@@ -50,10 +90,13 @@ impl State {
         }
     }
 
+    /// Queues `message` to be shown once, on the next render.
     pub fn set_message(&mut self, message: impl Into<String>) {
         self.message = Some(message.into());
     }
 
+    /// Returns the cursor's position relative to the visible text area, which
+    /// is where the terminal cursor belongs.
     pub fn terminal_cursor_position(&self) -> Position {
         let pos = self.cursor_position();
         let screen_row = pos.row.saturating_sub(self.viewport.row);
@@ -64,10 +107,15 @@ impl State {
         }
     }
 
+    /// Returns the cursor's position, snapped back onto a character boundary.
     pub fn cursor_position(&self) -> TextPosition {
         self.buffer.adjust_to_char_boundary(self.cursor, true)
     }
 
+    /// Scrolls the viewport just far enough to keep the cursor visible.
+    ///
+    /// When [`recenter_viewport`](State::recenter_viewport) is set, the cursor
+    /// is centered instead and the flag is cleared.
     pub fn adjust_viewport(&mut self, text_area_size: Size) {
         let cursor_pos = self.cursor_position();
         let available_rows = text_area_size.rows;
@@ -120,20 +168,27 @@ impl State {
         self.editing = true;
     }
 
+    /// Ends the current edit run, so the next edit records a new snapshot.
     pub fn finish_editing(&mut self) {
         self.editing = false;
     }
 
+    /// Moves the cursor up one row.
     pub fn handle_cursor_up(&mut self) {
         self.cursor.row = self.cursor.row.saturating_sub(1);
         self.finish_editing();
     }
 
+    /// Moves the cursor down one row.
     pub fn handle_cursor_down(&mut self) {
         self.cursor.row = self.cursor.row.saturating_add(1).min(self.buffer.rows());
         self.finish_editing();
     }
 
+    /// Moves the cursor left one column, wrapping to the previous line's end.
+    ///
+    /// While a search prompt is open, this moves the query's insertion cursor
+    /// instead.
     pub fn handle_cursor_left(&mut self) {
         if let Some(grep) = &mut self.grep_mode {
             grep.cursor = grep.cursor.saturating_sub(1);
@@ -151,6 +206,10 @@ impl State {
         self.finish_editing();
     }
 
+    /// Moves the cursor right one column, wrapping to the next line's start.
+    ///
+    /// While a search prompt is open, this moves the query's insertion cursor
+    /// instead.
     pub fn handle_cursor_right(&mut self) {
         if let Some(grep) = &mut self.grep_mode {
             grep.cursor = (grep.cursor + 1).min(grep.query.len());
@@ -169,6 +228,7 @@ impl State {
         self.finish_editing();
     }
 
+    /// Moves the cursor to its line's first column.
     pub fn handle_cursor_line_start(&mut self) {
         if let Some(grep) = &mut self.grep_mode {
             grep.cursor = 0;
@@ -179,6 +239,7 @@ impl State {
         self.finish_editing();
     }
 
+    /// Moves the cursor to its line's end.
     pub fn handle_cursor_line_end(&mut self) {
         if let Some(grep) = &mut self.grep_mode {
             grep.cursor = grep.query.len();
@@ -189,17 +250,23 @@ impl State {
         self.finish_editing();
     }
 
+    /// Moves the cursor to the start of the buffer.
     pub fn handle_cursor_buffer_start(&mut self) {
         self.cursor = TextPosition::default();
         self.finish_editing();
     }
 
+    /// Moves the cursor to the last line of the buffer.
     pub fn handle_cursor_buffer_end(&mut self) {
         self.cursor.row = self.buffer.rows();
         self.cursor.col = 0;
         self.finish_editing();
     }
 
+    /// Deletes the character before the cursor.
+    ///
+    /// While a search prompt is open, this deletes from the query instead and
+    /// re-runs it.
     pub fn handle_char_delete_backward(&mut self) {
         if let Some(grep) = &mut self.grep_mode {
             if grep.cursor > 0 {
@@ -216,6 +283,10 @@ impl State {
         }
     }
 
+    /// Deletes the character under the cursor.
+    ///
+    /// While a search prompt is open, this deletes from the query instead and
+    /// re-runs it.
     pub fn handle_char_delete_forward(&mut self) {
         if let Some(grep) = &mut self.grep_mode {
             if grep.cursor < grep.query.len() {
@@ -286,6 +357,10 @@ impl State {
         self.finish_editing();
     }
 
+    /// Inserts `key`'s character at the cursor.
+    ///
+    /// A non-printable key inserts nothing. While a search prompt is open, the
+    /// character enters the query instead and re-runs it.
     pub fn handle_char_insert(&mut self, key: tuinix::KeyInput) {
         if let Some(grep) = &mut self.grep_mode {
             grep.handle_char_insert(key);
@@ -302,6 +377,7 @@ impl State {
         }
     }
 
+    /// Splits the line at the cursor.
     pub fn handle_newline_insert(&mut self) {
         self.finish_editing();
         self.start_editing();
@@ -309,6 +385,9 @@ impl State {
         self.finish_editing();
     }
 
+    /// Restores the buffer and cursor from the previous history snapshot.
+    ///
+    /// Reports `Nothing to undo` when there is nothing left to restore.
     pub fn handle_buffer_undo(&mut self) {
         if self.editing {
             self.finish_editing();
@@ -328,6 +407,7 @@ impl State {
         self.set_message(format!("Undo ({})", self.history.len() - i));
     }
 
+    /// Sets the mark at the cursor, or clears it when already there.
     pub fn handle_mark_set(&mut self) {
         self.finish_editing();
 
@@ -343,6 +423,10 @@ impl State {
         }
     }
 
+    /// Copies the region between the mark and the cursor to the clipboard.
+    ///
+    /// The mark is cleared either way. Reports `No mark set` when there is no
+    /// mark, and `Nothing to copy` when the region is empty.
     pub fn handle_mark_copy(&mut self) {
         self.finish_editing();
 
@@ -365,6 +449,11 @@ impl State {
         }
     }
 
+    /// Copies the region between the mark and the cursor to the clipboard and
+    /// deletes it, leaving the cursor at the region's start.
+    ///
+    /// The mark is cleared either way. Reports `No mark set` when there is no
+    /// mark, and `Nothing to cut` when the region is empty.
     pub fn handle_mark_cut(&mut self) {
         self.finish_editing();
 
@@ -504,6 +593,10 @@ impl State {
         self.buffer.dirty = true;
     }
 
+    /// Inserts the clipboard's contents at the cursor.
+    ///
+    /// Newlines in the contents become line breaks. While a search prompt is
+    /// open, the contents enter the query instead and re-run it.
     pub fn handle_clipboard_paste(&mut self) {
         if let Some(grep) = &mut self.grep_mode {
             let text = self.clipboard.read();
@@ -584,12 +677,17 @@ impl State {
         self.finish_editing();
     }
 
+    /// Asks the next viewport adjustment to center the cursor.
     pub fn handle_view_recenter(&mut self) {
         self.finish_editing();
         self.recenter_viewport = true;
         self.set_message("View recentered");
     }
 
+    /// Deletes from the cursor to the end of the line, or joins the next line
+    /// when the cursor is already at the end.
+    ///
+    /// The removed text goes to the clipboard.
     pub fn handle_line_delete(&mut self) {
         self.start_editing();
 
@@ -635,17 +733,23 @@ impl State {
         }
     }
 
+    /// Moves the cursor up by one page of `text_area_size` rows.
     pub fn handle_cursor_page_up(&mut self, text_area_size: Size) {
         self.finish_editing();
         self.cursor.row = self.cursor.row.saturating_sub(text_area_size.rows);
     }
 
+    /// Moves the cursor down by one page of `text_area_size` rows.
     pub fn handle_cursor_page_down(&mut self, text_area_size: Size) {
         self.finish_editing();
         let max_row = self.buffer.rows();
         self.cursor.row = (self.cursor.row + text_area_size.rows).min(max_row);
     }
 
+    /// Moves the cursor to the next match after it, wrapping to the first.
+    ///
+    /// Also sets the search direction forward. Does nothing when no search
+    /// prompt is open.
     pub fn handle_grep_next_hit(&mut self) {
         let Some(grep) = &mut self.grep_mode else {
             return;
@@ -674,6 +778,10 @@ impl State {
         }
     }
 
+    /// Moves the cursor to the previous match before it, wrapping to the last.
+    ///
+    /// Also sets the search direction backward. Does nothing when no search
+    /// prompt is open.
     pub fn handle_grep_prev_hit(&mut self) {
         let Some(grep) = &mut self.grep_mode else {
             return;
@@ -703,6 +811,8 @@ impl State {
         }
     }
 
+    /// Moves the cursor forward past the run of spaces around it, stopping at
+    /// the next non-space column on its line.
     pub fn handle_cursor_skip_spaces(&mut self) {
         self.finish_editing();
 
@@ -731,6 +841,10 @@ impl State {
         self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
     }
 
+    /// Moves the cursor up to the first line above that has a non-space
+    /// character at its column.
+    ///
+    /// Falls back to the start of the buffer when there is no such line.
     pub fn handle_cursor_up_skip_spaces(&mut self) {
         self.finish_editing();
 
@@ -754,6 +868,10 @@ impl State {
         self.cursor.col = 0;
     }
 
+    /// Moves the cursor down to the first line below that has a non-space
+    /// character at its column.
+    ///
+    /// Falls back to the end of the buffer when there is no such line.
     pub fn handle_cursor_down_skip_spaces(&mut self) {
         self.finish_editing();
 
@@ -779,6 +897,8 @@ impl State {
         self.cursor.col = 0;
     }
 
+    /// Moves the cursor left one column, then keeps moving while the character
+    /// under it is in `skip_chars`.
     pub fn handle_cursor_left_skip_chars(&mut self, skip_chars: &str) {
         self.finish_editing();
 
@@ -820,6 +940,8 @@ impl State {
         }
     }
 
+    /// Moves the cursor right one column, then keeps moving while the character
+    /// under it is in `skip_chars`.
     pub fn handle_cursor_right_skip_chars(&mut self, skip_chars: &str) {
         self.finish_editing();
 

@@ -1,2 +1,5 @@
 [alias]
 dev = "run README.md"
+
+[term]
+quiet = true

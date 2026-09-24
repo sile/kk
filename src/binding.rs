@@ -7,9 +7,16 @@ use crate::action::Action;
 /// Identifies one of the built-in input contexts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Context {
+    /// The default editing context.
     Main,
+
+    /// The context active while grep mode is collecting a query.
     Grep,
+
+    /// A context reserved for extensions.
     Ext,
+
+    /// The context active while a go-to line prompt is collecting input.
     Goto,
 }
 

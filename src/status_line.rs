@@ -1,12 +1,21 @@
+//! Paints the status line.
+
 use crate::terminal::put_str;
 use tuinix::{Frame, Position, Style};
 
 use crate::state::State;
 
+/// Paints the file path, cursor position, and clipboard summary.
+///
+/// The line reads `* [PATH:ROW(ROWS):COL(COLS)] CLIPBOARD`, where the leading
+/// `*` marks a buffer with unsaved edits and the row, column, and totals are
+/// 1-based. The whole row is padded so the reverse-video style reaches the
+/// right edge.
 #[derive(Debug)]
 pub struct StatusLineRenderer;
 
 impl StatusLineRenderer {
+    /// Paints the status line into `frame`.
     pub fn render(&self, state: &State, frame: &mut Frame) {
         let style = Style::new().reverse().bold();
 
