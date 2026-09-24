@@ -178,11 +178,6 @@ impl App {
     /// not use `?`.
     fn handle_action(&mut self, action: kk::Action, input: &tuinix::Input) -> std::io::Result<()> {
         match action {
-            kk::Action::Multiple(actions) => {
-                for action in actions {
-                    self.handle_action(action, input)?;
-                }
-            }
             kk::Action::Quit => {
                 self.exit = true;
             }
@@ -192,7 +187,12 @@ impl App {
                 self.state.highlight = kk::Highlight::default();
                 self.state.set_message("Canceled");
             }
-            kk::Action::BufferSave => self.handle_buffer_save()?,
+            kk::Action::BufferSave => {
+                self.handle_buffer_save()?;
+                self.state.mark = None;
+                self.state.grep_mode = None;
+                self.state.highlight = kk::Highlight::default();
+            }
             kk::Action::BufferReload => self.handle_buffer_reload()?,
             kk::Action::BufferUndo => self.state.handle_buffer_undo(),
             kk::Action::CursorUp => self.state.handle_cursor_up(),
@@ -216,9 +216,6 @@ impl App {
             kk::Action::MarkSet => self.state.handle_mark_set(),
             kk::Action::MarkCut => self.state.handle_mark_cut(),
             kk::Action::ClipboardPaste => self.state.handle_clipboard_paste(),
-            kk::Action::Echo(m) => {
-                self.state.set_message(m.message.clone());
-            }
             kk::Action::Grep(action) => {
                 self.state.finish_editing();
                 self.state.grep_mode = Some(kk::GrepMode::new(action));

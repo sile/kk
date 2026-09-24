@@ -14,7 +14,8 @@ pub enum Action {
     /// `Canceled`.
     Cancel,
 
-    /// Persists the buffer to its file.
+    /// Persists the buffer to its file, leaves the extension context, and
+    /// reports `Saved!`.
     BufferSave,
 
     /// Re-reads the buffer's file from disk, discarding unsaved edits.
@@ -82,12 +83,6 @@ pub enum Action {
 
     /// Moves the cursor to the previous search hit.
     GrepPrevHit,
-
-    /// Reports a fixed message.
-    Echo(EchoAction),
-
-    /// Runs every enclosed action in order.
-    Multiple(Vec<Action>),
 }
 
 /// The direction a [`Action::Grep`] search starts in.
@@ -95,11 +90,4 @@ pub enum Action {
 pub struct GrepAction {
     /// Whether the search reads forward from the cursor.
     pub forward: bool,
-}
-
-/// A message for [`Action::Echo`] to report.
-#[derive(Debug, Clone)]
-pub struct EchoAction {
-    /// The text to show on the message line.
-    pub message: String,
 }

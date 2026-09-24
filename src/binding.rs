@@ -1,6 +1,6 @@
 //! Input contexts and the `match`-based resolvers that map input to actions.
 
-use crate::action::{Action, EchoAction, GrepAction};
+use crate::action::{Action, GrepAction};
 
 /// Identifies one of the built-in input contexts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -152,16 +152,7 @@ fn resolve_ext(key: &tuinix::KeyInput) -> Option<Resolved> {
 
     Some(match (ctrl, alt, code) {
         (true, false, tuinix::KeyCode::Char('g')) => cancel(),
-        (true, false, tuinix::KeyCode::Char('s')) => then(
-            Action::Multiple(vec![
-                Action::BufferSave,
-                Action::Cancel,
-                Action::Echo(EchoAction {
-                    message: "Saved!".to_owned(),
-                }),
-            ]),
-            Context::Main,
-        ),
+        (true, false, tuinix::KeyCode::Char('s')) => then(Action::BufferSave, Context::Main),
         _ => return None,
     })
 }
