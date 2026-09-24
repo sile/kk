@@ -23,6 +23,13 @@ fn main() -> noargs::Result<()> {
     }
     noargs::HELP_FLAG.take_help(&mut args);
 
+    // Before the positional: a trailing `-c` would otherwise be bound as FILE.
+    let create_new = noargs::flag("create-new")
+        .short('c')
+        .doc("Create the file if it does not exist")
+        .take(&mut args)
+        .is_present();
+
     let path: PathBuf = noargs::arg("FILE")
         .example("/path/to/file")
         .take(&mut args)
@@ -32,7 +39,7 @@ fn main() -> noargs::Result<()> {
         return Ok(());
     }
 
-    match app::App::new(path) {
+    match app::App::new(path, create_new) {
         Ok(app) => app.run()?,
         Err(err) => {
             eprintln!("kk: {err}");

@@ -39,17 +39,33 @@ impl App {
     /// handed an already-loaded [`TextBuffer`](kk::TextBuffer), and only remembers
     /// `path` as data
     /// for the status line and for later saves.
-    pub fn new<P: AsRef<Path>>(path: P) -> std::io::Result<Self> {
+    ///
+    /// A missing file is created by `--create-new`, as
+    /// [`std::fs::File::create_new`] would; if the file already exists that is an
+    /// error, exactly as with `create_new(true)`. Other read failures are still
+    /// errors too. The first message says whether the file was opened or created.
+    pub fn new<P: AsRef<Path>>(path: P, create_new: bool) -> std::io::Result<Self> {
         let path = path.as_ref().to_path_buf();
-        let text = std::fs::read_to_string(&path)?;
+        // `create_new` leaves the buffer empty without a read: the call only
+        // succeeds when it has just brought an empty file into existence.
+        let text = if create_new {
+            std::fs::File::create_new(&path)?;
+            String::new()
+        } else {
+            std::fs::read_to_string(&path)?
+        };
+
         let buffer = kk::TextBuffer::from_text(&text);
 
+        let mut state = kk::State::new(path, buffer);
+        state.set_message(if create_new { "Created" } else { "Opened" });
         let driver = tuinix::TerminalDriver::new()?;
+
         Ok(Self {
             driver,
             input: tuinix::InputDecoder::new(),
             prev_frame: None,
-            state: kk::State::new(path, buffer),
+            state,
             context: kk::Context::Main,
             bindings: kk::Bindings::new(),
             text_area: kk::TextAreaRenderer,
@@ -61,8 +77,6 @@ impl App {
 
     /// Runs the poll loop until the user quits.
     pub fn run(mut self) -> std::io::Result<()> {
-        self.state.set_message("Started");
-
         let mut fds = [
             libc::pollfd {
                 fd: self.driver.resize_signal_fd(),
