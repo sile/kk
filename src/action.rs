@@ -30,24 +30,11 @@ pub enum Action {
     MarkCopy,
     MarkCut,
     ClipboardPaste,
-    ShellCommand(ExternalCommandAction),
     Grep(GrepAction),
     GrepNextHit,
     GrepPrevHit,
     Echo(EchoAction),
     Multiple(Vec<Action>),
-}
-
-#[derive(Debug, Clone)]
-pub enum ExternalCommandArg {
-    Literal(String),
-    CurrentFile,
-}
-
-#[derive(Debug, Clone)]
-pub struct ExternalCommandAction {
-    pub command: String,
-    pub args: Vec<ExternalCommandArg>,
 }
 
 #[derive(Debug, Clone)]

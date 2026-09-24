@@ -1,7 +1,7 @@
 //! Hard-coded input binding definitions.
 
 use crate::{
-    action::{Action, EchoAction, ExternalCommandAction, ExternalCommandArg, GrepAction, SkipChars},
+    action::{Action, EchoAction, GrepAction, SkipChars},
     binding::{Binding, Context, InputMatcher},
 };
 
@@ -28,26 +28,6 @@ fn mark_ident() -> Action {
         Action::MarkSet,
         Action::CursorRightSkipChars(SkipChars {
             chars: IDENT_CHARS.to_owned(),
-        }),
-    ])
-}
-
-fn format_buffer() -> Action {
-    Action::Multiple(vec![
-        Action::BufferSave,
-        Action::ShellCommand(ExternalCommandAction {
-            command: "rustfmt".to_owned(),
-            args: vec![
-                ExternalCommandArg::Literal("--edition".to_owned()),
-                ExternalCommandArg::Literal("2024".to_owned()),
-                ExternalCommandArg::CurrentFile,
-            ],
-        }),
-        Action::BufferReload,
-        Action::CursorSkipSpaces,
-        Action::Cancel,
-        Action::Echo(EchoAction {
-            message: "Formatted!".to_owned(),
         }),
     ])
 }
@@ -218,12 +198,6 @@ pub fn main_bindings() -> Vec<Binding> {
             triggers: triggers(&["<RIGHT>", "C-f"]),
             label: None,
             action: Some(Action::CursorRight),
-            context: None,
-        },
-        Binding {
-            triggers: triggers(&["<TAB>"]),
-            label: None,
-            action: Some(format_buffer()),
             context: None,
         },
         Binding {
