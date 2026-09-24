@@ -22,7 +22,7 @@ impl LegendRenderer {
             return;
         }
 
-        let style = tuinix::Style::new().reverse();
+        let style = tuinix::Style::new();
         let origin = tuinix::Position {
             row: 0,
             col: frame.size().cols - legend.cols,
