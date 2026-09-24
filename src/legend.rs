@@ -12,6 +12,11 @@ use crate::binding::{self, Context, LegendSize};
 /// and all, so the box needs no drawing arithmetic. It paints nothing when the
 /// frame cannot hold the legend whole: a legend clipped to fit would show chords
 /// without their labels.
+///
+/// The legend is drawn into a frame of its own and then pasted in whole, so the
+/// cells its rows leave unwritten are painted as blanks. Drawing the rows
+/// straight into the frame would leave whatever was underneath showing through
+/// the gaps beside them.
 #[derive(Debug)]
 pub struct LegendRenderer;
 
@@ -23,19 +28,20 @@ impl LegendRenderer {
             return;
         }
 
-        let style = tuinix::Style::new();
+        let mut box_frame = tuinix::Frame::new(tuinix::Size {
+            rows: legend.rows,
+            cols: legend.cols,
+        });
+        for (row, text) in binding::legend(context).iter().enumerate() {
+            let at = tuinix::Position { row, col: 0 };
+            put_str(&mut box_frame, at, text, tuinix::Style::new());
+        }
+
         let origin = tuinix::Position {
             row: 0,
             col: frame.size().cols - legend.cols,
         };
-
-        for (i, row) in binding::legend(context).iter().enumerate() {
-            let at = tuinix::Position {
-                row: origin.row + i,
-                col: origin.col,
-            };
-            put_str(frame, at, row, style);
-        }
+        frame.put_frame(origin, &box_frame);
     }
 }
 

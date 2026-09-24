@@ -273,6 +273,41 @@ fn the_legend_is_painted_against_the_right_edge() {
 }
 
 #[test]
+fn the_legend_covers_what_was_painted_under_it() {
+    for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+        let size = full_size(context);
+        let mut frame = tuinix::Frame::new(tuinix::Size {
+            rows: size.rows + 4,
+            cols: size.cols + 4,
+        });
+
+        // Fill the whole frame, so any cell the legend leaves unpainted still
+        // holds this text and shows through. The filler must not appear in any
+        // label, or the check below would read a label as a leak.
+        let noise = ".".repeat(size.cols + 4);
+        for row in 0..size.rows + 4 {
+            kk::put_str(
+                &mut frame,
+                tuinix::Position { row, col: 0 },
+                &noise,
+                tuinix::Style::new(),
+            );
+        }
+
+        kk::LegendRenderer.render(context, &mut frame);
+
+        let left = size.cols + 4 - size.cols;
+        for row in 0..size.rows {
+            let text = row_text(&frame, row, size.cols + 4);
+            assert!(
+                !text[left..].contains('.'),
+                "{context:?} row {row} leaks the frame underneath: {text:?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn a_wider_frame_does_not_change_the_legend() {
     for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
         let size = full_size(context);
