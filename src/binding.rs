@@ -89,7 +89,6 @@ fn resolve_main(key: &tuinix::KeyInput) -> Option<Resolved> {
         (true, false, tuinix::KeyCode::Char('x')) => only(Context::Ext),
         (true, false, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
         (true, false, tuinix::KeyCode::Char('w')) => act(Action::MarkCut),
-        (false, true, tuinix::KeyCode::Char('w')) => act(Action::MarkCopy),
         (false, true, tuinix::KeyCode::Char('r')) => act(Action::BufferReload),
         (false, true, tuinix::KeyCode::Char('<')) => act(Action::CursorBufferStart),
         (false, true, tuinix::KeyCode::Char('>')) => act(Action::CursorBufferEnd),
@@ -115,10 +114,6 @@ fn resolve_main(key: &tuinix::KeyInput) -> Option<Resolved> {
         (false, false, tuinix::KeyCode::Right) => act(Action::CursorRight),
         (true, false, tuinix::KeyCode::Left) => act(Action::CursorUp),
         (true, false, tuinix::KeyCode::Right) => act(Action::CursorDown),
-        (true, false, tuinix::KeyCode::Up) => act(Action::CursorPageUp),
-        (true, false, tuinix::KeyCode::Down) => act(Action::CursorPageDown),
-        (false, false, tuinix::KeyCode::PageUp) => act(Action::CursorPageUp),
-        (false, false, tuinix::KeyCode::PageDown) => act(Action::CursorPageDown),
         // Any other bare, non-control character is text, not a binding.
         (false, false, tuinix::KeyCode::Char(ch)) if !ch.is_control() => act(Action::CharInsert),
         _ => return None,

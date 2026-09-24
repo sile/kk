@@ -47,12 +47,6 @@ pub enum Action {
     /// Moves the cursor to the end of the buffer.
     CursorBufferEnd,
 
-    /// Moves the cursor up by one visible page.
-    CursorPageUp,
-
-    /// Moves the cursor down by one visible page.
-    CursorPageDown,
-
     /// Scrolls so the cursor's line is vertically centered.
     ViewRecenter,
 
@@ -73,9 +67,6 @@ pub enum Action {
 
     /// Sets the mark at the cursor.
     MarkSet,
-
-    /// Copies the marked region to the clipboard.
-    MarkCopy,
 
     /// Copies the marked region to the clipboard and deletes it.
     MarkCut,

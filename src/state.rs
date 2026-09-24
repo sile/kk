@@ -424,32 +424,6 @@ impl State {
         }
     }
 
-    /// Copies the region between the mark and the cursor to the clipboard.
-    ///
-    /// The mark is cleared either way. Reports `No mark set` when there is no
-    /// mark, and `Nothing to copy` when the region is empty.
-    pub fn handle_mark_copy(&mut self) {
-        self.finish_editing();
-
-        if let Some(mark_pos) = self.mark.take() {
-            let cursor_pos = self.cursor_position();
-            let (start, end) = if mark_pos <= cursor_pos {
-                (mark_pos, cursor_pos)
-            } else {
-                (cursor_pos, mark_pos)
-            };
-
-            if let Some(text) = self.get_text_in_range(start, end) {
-                self.clipboard.write(&text);
-                self.set_message(format!("Copied {} characters", text.len()));
-            } else {
-                self.set_message("Nothing to copy");
-            }
-        } else {
-            self.set_message("No mark set");
-        }
-    }
-
     /// Copies the region between the mark and the cursor to the clipboard and
     /// deletes it, leaving the cursor at the region's start.
     ///
@@ -732,19 +706,6 @@ impl State {
                 }
             }
         }
-    }
-
-    /// Moves the cursor up by one page of `text_area_size` rows.
-    pub fn handle_cursor_page_up(&mut self, text_area_size: tuinix::Size) {
-        self.finish_editing();
-        self.cursor.row = self.cursor.row.saturating_sub(text_area_size.rows);
-    }
-
-    /// Moves the cursor down by one page of `text_area_size` rows.
-    pub fn handle_cursor_page_down(&mut self, text_area_size: tuinix::Size) {
-        self.finish_editing();
-        let max_row = self.buffer.rows();
-        self.cursor.row = (self.cursor.row + text_area_size.rows).min(max_row);
     }
 
     /// Moves the cursor to the next match after it, wrapping to the first.

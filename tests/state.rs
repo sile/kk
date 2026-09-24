@@ -110,20 +110,6 @@ fn undo_restores_the_text_from_before_the_edit_run() -> noprop::TestResult {
 }
 
 #[test]
-fn a_page_down_then_a_page_up_returns_to_the_same_row() {
-    let text = (0..100).map(|i| format!("line {i}\n")).collect::<String>();
-    let mut state = state_of(&text);
-    state.cursor = at(60, 0);
-    let size = area(10, 20);
-
-    state.handle_cursor_page_down(size);
-    assert_eq!(state.cursor.row, 70);
-
-    state.handle_cursor_page_up(size);
-    assert_eq!(state.cursor.row, 60);
-}
-
-#[test]
 fn editing_keeps_the_cursor_inside_the_viewport() {
     let mut state = state_of("one\ntwo\nthree\n");
     let size = area(2, 4);
@@ -189,44 +175,6 @@ fn line_delete_at_the_end_of_a_line_kills_the_newline() {
 
     assert_eq!(saved_text(&state), "onetwo\n");
     assert_eq!(state.clipboard.read(), "\n");
-}
-
-#[test]
-fn mark_copy_reports_the_character_count() {
-    let mut state = state_of("hello\n");
-    state.cursor = at(0, 1);
-    state.handle_mark_set();
-    state.cursor = at(0, 3);
-
-    state.handle_mark_copy();
-
-    assert_eq!(state.clipboard.read(), "el");
-    assert_eq!(state.mark, None, "the mark is cleared either way");
-    assert_eq!(saved_text(&state), "hello\n", "copying does not edit");
-}
-
-#[test]
-fn mark_copy_across_lines_joins_with_a_newline() {
-    let mut state = state_of("one\ntwo\n");
-    state.cursor = at(0, 1);
-    state.handle_mark_set();
-    state.cursor = at(1, 2);
-
-    state.handle_mark_copy();
-
-    assert_eq!(state.clipboard.read(), "ne\ntw");
-    assert_eq!(state.clipboard.summary_line, "ne", "the first line only");
-}
-
-#[test]
-fn mark_copy_without_a_mark_leaves_the_clipboard_alone() {
-    let mut state = state_of("hello\n");
-    state.cursor = at(0, 1);
-
-    state.handle_mark_copy();
-
-    assert_eq!(state.clipboard.read(), "");
-    assert_eq!(state.mark, None);
 }
 
 #[test]
@@ -331,16 +279,6 @@ fn undo_reports_when_there_is_nothing_left() {
     state.handle_buffer_undo();
 
     assert_eq!(state.message.as_deref(), Some("Nothing to undo"));
-}
-
-#[test]
-fn cursor_page_down_clamps_to_the_last_row() {
-    let mut state = state_of("one\ntwo\n");
-    state.cursor = at(0, 0);
-
-    state.handle_cursor_page_down(area(10, 10));
-
-    assert_eq!(state.cursor.row, 2, "the row just past the last line");
 }
 
 #[test]

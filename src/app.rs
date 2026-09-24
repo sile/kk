@@ -203,14 +203,6 @@ impl App {
             kk::Action::CursorLineEnd => self.state.handle_cursor_line_end(),
             kk::Action::CursorBufferStart => self.state.handle_cursor_buffer_start(),
             kk::Action::CursorBufferEnd => self.state.handle_cursor_buffer_end(),
-            kk::Action::CursorPageUp => {
-                let text_area_size = self.text_area_region().size;
-                self.state.handle_cursor_page_up(text_area_size);
-            }
-            kk::Action::CursorPageDown => {
-                let text_area_size = self.text_area_region().size;
-                self.state.handle_cursor_page_down(text_area_size);
-            }
             kk::Action::ViewRecenter => self.state.handle_view_recenter(),
             kk::Action::NewlineInsert => self.state.handle_newline_insert(),
             kk::Action::CharInsert => {
@@ -222,7 +214,6 @@ impl App {
             kk::Action::CharDeleteForward => self.state.handle_char_delete_forward(),
             kk::Action::LineDelete => self.state.handle_line_delete(),
             kk::Action::MarkSet => self.state.handle_mark_set(),
-            kk::Action::MarkCopy => self.state.handle_mark_copy(),
             kk::Action::MarkCut => self.state.handle_mark_cut(),
             kk::Action::ClipboardPaste => self.state.handle_clipboard_paste(),
             kk::Action::Echo(m) => {

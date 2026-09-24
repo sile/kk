@@ -78,7 +78,6 @@ fn built_in_keys() -> Vec<tuinix::KeyInput> {
         ctrl_key('`'),
         ctrl_key('\u{7f}'),
         alt_key('r'),
-        alt_key('w'),
         alt_key('<'),
         alt_key('>'),
         code_key(tuinix::KeyCode::Up),
@@ -90,8 +89,6 @@ fn built_in_keys() -> Vec<tuinix::KeyInput> {
         code_key(tuinix::KeyCode::Delete),
         code_key(tuinix::KeyCode::Tab),
         code_key(tuinix::KeyCode::BackTab),
-        code_key(tuinix::KeyCode::PageUp),
-        code_key(tuinix::KeyCode::PageDown),
     ];
     keys.sort_by_key(|key| format!("{key:?}"));
     keys
