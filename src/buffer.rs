@@ -1,7 +1,3 @@
-use std::path::Path;
-
-use crate::error::Result;
-
 #[derive(Debug, Default, Clone)]
 pub struct TextBuffer {
     pub text: Vec<TextLine>,
@@ -9,14 +5,41 @@ pub struct TextBuffer {
 }
 
 impl TextBuffer {
-    pub fn load_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
-        let text = std::fs::read_to_string(&path)?;
+    /// Builds a buffer from the whole contents of a file.
+    pub fn from_text(text: &str) -> Self {
+        Self {
+            text: text
+                .lines()
+                .map(|l| TextLine(l.chars().collect()))
+                .collect(),
+            dirty: false,
+        }
+    }
+
+    /// Replaces the contents with `text`, as if the file had been reloaded.
+    pub fn replace_from_text(&mut self, text: &str) {
         self.text = text
             .lines()
             .map(|l| TextLine(l.chars().collect()))
             .collect();
         self.dirty = false;
-        Ok(())
+    }
+
+    /// Renders the whole buffer, newline-terminated, for writing to a file.
+    pub fn to_text(&self) -> String {
+        let mut content = self
+            .text
+            .iter()
+            .map(|line| line.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        content.push('\n');
+        content
+    }
+
+    /// Marks the buffer as saved.
+    pub fn mark_saved(&mut self) {
+        self.dirty = false;
     }
 
     pub fn rows(&self) -> usize {
@@ -39,11 +62,12 @@ impl TextBuffer {
     pub fn delete_char_at(&mut self, pos: TextPosition) -> bool {
         // Store the character for undo before deleting
         if let Some(line) = self.text.get(pos.row)
-            && let Some(_ch) = line.char_at_col(pos.col) {
-                self.delete_char_at_internal(pos);
-                self.dirty = true;
-                return true;
-            }
+            && let Some(_ch) = line.char_at_col(pos.col)
+        {
+            self.delete_char_at_internal(pos);
+            self.dirty = true;
+            return true;
+        }
 
         // Handle forward delete at line end (merge with next line)
         if pos.col >= self.cols(pos.row) && pos.row < self.text.len().saturating_sub(1) {
@@ -78,13 +102,14 @@ impl TextBuffer {
                     && self.delete_char_at_internal(TextPosition {
                         row: pos.row,
                         col: char_pos,
-                    }) {
-                        self.dirty = true;
-                        return Some(TextPosition {
-                            row: pos.row,
-                            col: char_pos,
-                        });
-                    }
+                    })
+                {
+                    self.dirty = true;
+                    return Some(TextPosition {
+                        row: pos.row,
+                        col: char_pos,
+                    });
+                }
             }
         } else if pos.row > 0 {
             // Delete newline - merge with previous line
@@ -105,21 +130,6 @@ impl TextBuffer {
             }
         }
         None
-    }
-
-    pub fn save_to_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
-        let mut content = self
-            .text
-            .iter()
-            .map(|line| line.to_string())
-            .collect::<Vec<_>>()
-            .join("\n");
-        content.push('\n');
-
-        std::fs::write(&path, content)?;
-
-        self.dirty = false;
-        Ok(())
     }
 
     pub fn insert_char_at(&mut self, pos: TextPosition, ch: char) -> TextPosition {
@@ -148,7 +158,9 @@ impl TextBuffer {
     }
 
     pub fn col_at_char_index(&self, row: usize, char_index: usize) -> Option<usize> {
-        self.text.get(row).map(|line| line.col_at_char_index(char_index))
+        self.text
+            .get(row)
+            .map(|line| line.col_at_char_index(char_index))
     }
 
     pub fn char_index_at_col(&self, row: usize, col: usize) -> Option<usize> {

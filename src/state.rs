@@ -1,6 +1,5 @@
 use std::{collections::VecDeque, path::PathBuf};
 
-use crate::error::Result;
 use tuinix::{KeyCode, Position, Size};
 
 use crate::{
@@ -29,10 +28,12 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(path: PathBuf) -> Result<Self> {
-        let mut buffer = TextBuffer::default();
-        buffer.load_file(&path)?;
-        Ok(Self {
+    /// Builds the editor state around an already-loaded `buffer`.
+    ///
+    /// `path` is kept only as data, for the status line and for the I/O edge to
+    /// know where to read and write; nothing here touches the file system.
+    pub fn new(path: PathBuf, buffer: TextBuffer) -> Self {
+        Self {
             path,
             cursor: TextPosition::default(),
             viewport: TextPosition::default(),
@@ -46,7 +47,7 @@ impl State {
             undo_index: 0,
             grep_mode: None,
             highlight: Highlight::default(),
-        })
+        }
     }
 
     pub fn set_message(&mut self, message: impl Into<String>) {
@@ -244,18 +245,28 @@ impl State {
         self.set_message(format!("Hit: {}", self.highlight.items.len()));
     }
 
-    pub fn handle_buffer_save(&mut self) -> Result<()> {
-        self.buffer.save_to_file(&self.path)?;
-        self.set_message(format!("Saved: {}", self.path.display()));
-        Ok(())
+    /// Renders the buffer for saving and returns the text to persist.
+    ///
+    /// The caller (the I/O edge) writes it and then calls [`Self::mark_saved`]
+    /// once the write succeeded; the core never touches the file system.
+    pub fn handle_buffer_save(&mut self) -> String {
+        self.set_message(format!("Saving: {}", self.path.display()));
+        self.buffer.to_text()
     }
 
-    pub fn handle_buffer_reload(&mut self) -> Result<()> {
+    /// Marks the buffer as written and reports how many characters were saved.
+    pub fn mark_saved(&mut self, chars: usize) {
+        self.buffer.mark_saved();
+        self.set_message(format!("Saved {} chars: {}", chars, self.path.display()));
+    }
+
+    /// Replaces the buffer with `text`, as the edge would after reading the file
+    /// back, and adjusts the cursor so it stays on a valid position.
+    pub fn handle_buffer_reload(&mut self, text: &str) {
         self.finish_editing();
         self.start_editing();
 
-        // Reload the buffer from file
-        self.buffer.load_file(&self.path)?;
+        self.buffer.replace_from_text(text);
 
         // Try to preserve cursor position, but adjust if the file has changed
         let max_row = self.buffer.rows();
@@ -273,7 +284,6 @@ impl State {
 
         self.set_message(format!("Reloaded: {}", self.path.display()));
         self.finish_editing();
-        Ok(())
     }
 
     pub fn handle_char_insert(&mut self, key: tuinix::KeyInput) {
@@ -333,7 +343,7 @@ impl State {
         }
     }
 
-    pub fn handle_mark_copy(&mut self) -> Result<()> {
+    pub fn handle_mark_copy(&mut self) {
         self.finish_editing();
 
         if let Some(mark_pos) = self.mark.take() {
@@ -353,10 +363,9 @@ impl State {
         } else {
             self.set_message("No mark set");
         }
-        Ok(())
     }
 
-    pub fn handle_mark_cut(&mut self) -> Result<()> {
+    pub fn handle_mark_cut(&mut self) {
         self.finish_editing();
 
         if let Some(mark_pos) = self.mark.take() {
@@ -381,7 +390,6 @@ impl State {
         } else {
             self.set_message("No mark set");
         }
-        Ok(())
     }
 
     // Helper method to get text in a range
@@ -477,31 +485,32 @@ impl State {
             }
 
             if start.row + 1 < self.buffer.text.len()
-                && let Some(end_line) = self.buffer.text.get(start.row + 1).cloned() {
-                    let chars_to_keep: Vec<char> = end_line
-                        .char_cols()
-                        .filter(|(col, _)| *col >= end.col)
-                        .map(|(_, ch)| ch)
-                        .collect();
+                && let Some(end_line) = self.buffer.text.get(start.row + 1).cloned()
+            {
+                let chars_to_keep: Vec<char> = end_line
+                    .char_cols()
+                    .filter(|(col, _)| *col >= end.col)
+                    .map(|(_, ch)| ch)
+                    .collect();
 
-                    if let Some(start_line) = self.buffer.text.get_mut(start.row) {
-                        start_line.0.extend(chars_to_keep);
-                    }
-
-                    self.buffer.text.remove(start.row + 1);
+                if let Some(start_line) = self.buffer.text.get_mut(start.row) {
+                    start_line.0.extend(chars_to_keep);
                 }
+
+                self.buffer.text.remove(start.row + 1);
+            }
         }
 
         self.buffer.dirty = true;
     }
 
-    pub fn handle_clipboard_paste(&mut self) -> Result<()> {
+    pub fn handle_clipboard_paste(&mut self) {
         if let Some(grep) = &mut self.grep_mode {
             let text = self.clipboard.read();
 
             if text.is_empty() {
                 self.set_message("Clipboard is empty");
-                return Ok(());
+                return;
             }
 
             // Insert clipboard text at current cursor position in grep query
@@ -515,7 +524,7 @@ impl State {
 
             // Re-run the grep with updated query
             self.regrep();
-            return Ok(());
+            return;
         };
 
         self.finish_editing();
@@ -524,7 +533,7 @@ impl State {
 
         if text.is_empty() {
             self.set_message("Clipboard is empty");
-            return Ok(());
+            return;
         }
 
         // Split text into lines
@@ -532,7 +541,7 @@ impl State {
 
         if lines.is_empty() {
             self.set_message("Nothing to paste");
-            return Ok(());
+            return;
         }
         self.start_editing();
 
@@ -573,7 +582,6 @@ impl State {
         }
 
         self.finish_editing();
-        Ok(())
     }
 
     pub fn handle_view_recenter(&mut self) {
@@ -582,7 +590,7 @@ impl State {
         self.set_message("View recentered");
     }
 
-    pub fn handle_line_delete(&mut self) -> Result<()> {
+    pub fn handle_line_delete(&mut self) {
         self.start_editing();
 
         let cursor_pos = self.cursor_position();
@@ -591,17 +599,18 @@ impl State {
         if cursor_pos.col >= current_line_cols {
             // Cursor is at or past end of line - delete the newline (merge with next line)
             if cursor_pos.row < self.buffer.rows().saturating_sub(1)
-                && let Some(next_line) = self.buffer.text.get(cursor_pos.row + 1).cloned() {
-                    // Copy the newline to clipboard
-                    self.clipboard.write("\n");
+                && let Some(next_line) = self.buffer.text.get(cursor_pos.row + 1).cloned()
+            {
+                // Copy the newline to clipboard
+                self.clipboard.write("\n");
 
-                    self.buffer.text.remove(cursor_pos.row + 1);
-                    if let Some(current_line) = self.buffer.text.get_mut(cursor_pos.row) {
-                        current_line.extend_from_line(next_line);
-                        self.buffer.dirty = true;
-                    }
-                    self.set_message("Killed newline");
+                self.buffer.text.remove(cursor_pos.row + 1);
+                if let Some(current_line) = self.buffer.text.get_mut(cursor_pos.row) {
+                    current_line.extend_from_line(next_line);
+                    self.buffer.dirty = true;
                 }
+                self.set_message("Killed newline");
+            }
         } else {
             // Delete from cursor to end of line and copy to clipboard
             if let Some(line) = self.buffer.text.get_mut(cursor_pos.row) {
@@ -624,8 +633,6 @@ impl State {
                 }
             }
         }
-
-        Ok(())
     }
 
     pub fn handle_cursor_page_up(&mut self, text_area_size: Size) {
@@ -851,5 +858,4 @@ impl State {
             self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, false);
         }
     }
-
 }

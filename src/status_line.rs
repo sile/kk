@@ -1,4 +1,3 @@
-use crate::error::Result;
 use crate::terminal::put_str;
 use tuinix::{Frame, Position, Style};
 
@@ -8,7 +7,7 @@ use crate::state::State;
 pub struct StatusLineRenderer;
 
 impl StatusLineRenderer {
-    pub fn render(&self, state: &State, frame: &mut Frame) -> Result<()> {
+    pub fn render(&self, state: &State, frame: &mut Frame) {
         let style = Style::new().reverse().bold();
 
         let dirty = if state.buffer.dirty { '*' } else { ' ' };
@@ -30,7 +29,5 @@ impl StatusLineRenderer {
         // Pad the whole row so the reverse style covers it.
         let padded = format!("{text:<width$}", width = frame.size().cols);
         put_str(frame, Position::ORIGIN, &padded, style);
-
-        Ok(())
     }
 }

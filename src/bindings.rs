@@ -5,8 +5,7 @@ use crate::{
     binding::{Binding, Context, InputMatcher},
 };
 
-const IDENT_CHARS: &str =
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+const IDENT_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
 
 fn triggers(specs: &[&str]) -> Vec<InputMatcher> {
     specs

@@ -1,4 +1,3 @@
-use crate::error::Result;
 use crate::terminal::{char_cols, put_str};
 use tuinix::{Frame, Position, Region, Style};
 
@@ -123,7 +122,7 @@ const PROMPT: &str = "Search: ";
 pub struct GrepQueryRenderer;
 
 impl GrepQueryRenderer {
-    pub fn render(&self, state: &State, frame: &mut Frame) -> Result<()> {
+    pub fn render(&self, state: &State, frame: &mut Frame) {
         let Some(grep) = &state.grep_mode else {
             unreachable!();
         };
@@ -131,6 +130,5 @@ impl GrepQueryRenderer {
         let query: String = grep.query.iter().collect();
         let text = format!("{PROMPT}{query}");
         put_str(frame, Position::ORIGIN, &text, Style::new());
-        Ok(())
     }
 }

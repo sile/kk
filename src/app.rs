@@ -1,23 +1,29 @@
+//! The I/O edge: poll loop, raw terminal, file access, and frame diffing.
+//!
+//! This module is compiled into the binary only (`mod app;` in `main.rs`); the
+//! library stays Sans I/O. It owns the [`TerminalDriver`], and it is the one
+//! place that reads the edited file, writes it back on save, and reads input
+//! from and paints frames to the terminal. The [`kk`] core it drives takes
+//! plain values and returns plain values, and never calls back into here.
+//!
+//! The one timeout is for the lone `ESC` byte: `tuinix`'s decoder holds it back
+//! because it cannot tell Escape from the start of a sequence, so the loop waits
+//! [`ESCAPE_TIMEOUT_MS`] and then commits it.
+
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::Path;
 
-use crate::error::Result;
-use tuinix::{Frame, Input, InputDecoder, Region, TerminalDriver};
-
-use crate::{
-    action::Action,
-    binding::{Bindings, Context},
-    grep_mode::{GrepMode, GrepQueryRenderer, Highlight},
-    message_line::MessageLineRenderer,
-    state::State,
-    status_line::StatusLineRenderer,
-    text_area::TextAreaRenderer,
+use kk::{
+    Action, Bindings, Context, GrepMode, GrepQueryRenderer, Highlight, MessageLineRenderer, State,
+    StatusLineRenderer, TextAreaRenderer, TextBuffer,
 };
+use tuinix::{Frame, Input, InputDecoder, Region, TerminalDriver};
 
 /// How long to wait for the rest of an escape sequence before a lone `ESC` byte
 /// is treated as the Escape key.
 const ESCAPE_TIMEOUT_MS: libc::c_int = 50;
 
+/// Owns the terminal edge and drives the core until the user quits.
 #[derive(Debug)]
 pub struct App {
     driver: TerminalDriver,
@@ -33,13 +39,22 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(path: PathBuf) -> Result<Self> {
+    /// Reads `path` from disk and takes over the terminal.
+    ///
+    /// Reading the file here keeps the core free of the file system: the core is
+    /// handed an already-loaded [`TextBuffer`], and only remembers `path` as data
+    /// for the status line and for later saves.
+    pub fn new(path: impl AsRef<Path>) -> std::io::Result<Self> {
+        let path = path.as_ref().to_path_buf();
+        let text = std::fs::read_to_string(&path)?;
+        let buffer = TextBuffer::from_text(&text);
+
         let driver = TerminalDriver::new()?;
         Ok(Self {
             driver,
             input: InputDecoder::new(),
             prev_frame: None,
-            state: State::new(path)?,
+            state: State::new(path, buffer),
             context: Context::Main,
             bindings: Bindings::new(),
             text_area: TextAreaRenderer,
@@ -49,7 +64,8 @@ impl App {
         })
     }
 
-    pub fn run(mut self) -> Result<()> {
+    /// Runs the poll loop until the user quits.
+    pub fn run(mut self) -> std::io::Result<()> {
         self.state.set_message("Started");
 
         let mut fds = [
@@ -75,6 +91,10 @@ impl App {
             } else {
                 -1
             };
+            #[expect(
+                unsafe_code,
+                reason = "libc::poll is the only way to wait on the resize and input fds at once"
+            )]
             let n = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as libc::nfds_t, timeout) };
             if n < 0 {
                 let err = std::io::Error::last_os_error();
@@ -83,14 +103,14 @@ impl App {
                 if err.kind() == std::io::ErrorKind::Interrupted {
                     continue;
                 }
-                return Err(err.into());
+                return Err(err);
             }
 
             if fds
                 .iter()
                 .any(|fd| fd.revents & (libc::POLLHUP | libc::POLLERR | libc::POLLNVAL) != 0)
             {
-                return Err(std::io::Error::other("terminal closed").into());
+                return Err(std::io::Error::other("terminal closed"));
             }
 
             if n == 0 {
@@ -113,20 +133,20 @@ impl App {
         Ok(())
     }
 
-    fn read_input(&mut self) -> Result<()> {
+    fn read_input(&mut self) -> std::io::Result<()> {
         let mut raw = [0u8; 256];
         loop {
             match self.driver.read(&mut raw) {
                 Ok(n @ 1..) => self.input.feed(&raw[..n]),
                 Ok(_) => break,
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-                Err(e) => return Err(e.into()),
+                Err(e) => return Err(e),
             }
         }
         Ok(())
     }
 
-    fn handle_input(&mut self, input: Input) -> Result<()> {
+    fn handle_input(&mut self, input: Input) -> std::io::Result<()> {
         let Some(binding) = self
             .bindings
             .get(self.context)
@@ -134,7 +154,7 @@ impl App {
             .find(|b| b.matches(&input))
         else {
             self.state
-                .set_message(format!("No action found: '{}'", crate::fmt::input(&input)));
+                .set_message(format!("No action found: '{}'", kk::input(&input)));
             return Ok(());
         };
 
@@ -152,7 +172,12 @@ impl App {
         Ok(())
     }
 
-    fn handle_action(&mut self, action: Action, input: &Input) -> Result<()> {
+    /// Carries out a core [`Action`] at the edge.
+    ///
+    /// It returns [`std::io::Result`] because a few actions touch the file
+    /// system (save and reload); every other arm is infallible and simply does
+    /// not use `?`.
+    fn handle_action(&mut self, action: Action, input: &Input) -> std::io::Result<()> {
         match action {
             Action::Multiple(actions) => {
                 for action in actions {
@@ -168,8 +193,8 @@ impl App {
                 self.state.highlight = Highlight::default();
                 self.state.set_message("Canceled");
             }
-            Action::BufferSave => self.state.handle_buffer_save()?,
-            Action::BufferReload => self.state.handle_buffer_reload()?,
+            Action::BufferSave => self.handle_buffer_save()?,
+            Action::BufferReload => self.handle_buffer_reload()?,
             Action::BufferUndo => self.state.handle_buffer_undo(),
             Action::CursorUp => self.state.handle_cursor_up(),
             Action::CursorDown => self.state.handle_cursor_down(),
@@ -199,11 +224,11 @@ impl App {
             }
             Action::CharDeleteBackward => self.state.handle_char_delete_backward(),
             Action::CharDeleteForward => self.state.handle_char_delete_forward(),
-            Action::LineDelete => self.state.handle_line_delete()?,
+            Action::LineDelete => self.state.handle_line_delete(),
             Action::MarkSet => self.state.handle_mark_set(),
-            Action::MarkCopy => self.state.handle_mark_copy()?,
-            Action::MarkCut => self.state.handle_mark_cut()?,
-            Action::ClipboardPaste => self.state.handle_clipboard_paste()?,
+            Action::MarkCopy => self.state.handle_mark_copy(),
+            Action::MarkCut => self.state.handle_mark_cut(),
+            Action::ClipboardPaste => self.state.handle_clipboard_paste(),
             Action::Echo(m) => {
                 self.state.set_message(&m.message);
             }
@@ -230,6 +255,25 @@ impl App {
             Action::CursorLeftSkipChars(c) => self.state.handle_cursor_left_skip_chars(&c.chars),
             Action::CursorRightSkipChars(c) => self.state.handle_cursor_right_skip_chars(&c.chars),
         }
+
+        Ok(())
+    }
+
+    /// Renders the buffer and writes it to `path` on behalf of the core.
+    ///
+    /// The core only produces the text; the write, and the dirty-flag update
+    /// that follows a successful one, happen here.
+    fn handle_buffer_save(&mut self) -> std::io::Result<()> {
+        let text = self.state.handle_buffer_save();
+        std::fs::write(&self.state.path, &text)?;
+        self.state.mark_saved(text.chars().count());
+        Ok(())
+    }
+
+    /// Reads `path` back and hands the text to the core to reload from.
+    fn handle_buffer_reload(&mut self) -> std::io::Result<()> {
+        let text = std::fs::read_to_string(&self.state.path)?;
+        self.state.handle_buffer_reload(&text);
         Ok(())
     }
 
@@ -238,14 +282,14 @@ impl App {
         self.driver.size().to_region().drop_bottom(footer_rows)
     }
 
-    fn render(&mut self) -> Result<()> {
+    fn render(&mut self) -> std::io::Result<()> {
         let mut frame = Frame::new(self.driver.size());
 
         let region = self.text_area_region();
         self.state.adjust_viewport(region.size);
         self.render_region(&mut frame, region, |frame| {
             self.text_area.render(&self.state, frame)
-        })?;
+        });
 
         let mut frame_region = frame.size().to_region();
         let mut grep_region = frame_region;
@@ -253,19 +297,19 @@ impl App {
             grep_region = frame_region.take_bottom(1);
             self.render_region(&mut frame, grep_region, |frame| {
                 GrepQueryRenderer.render(&self.state, frame)
-            })?;
+            });
             frame_region = frame_region.drop_bottom(1);
         }
 
         let region = frame_region.take_bottom(2).take_top(1);
         self.render_region(&mut frame, region, |frame| {
             self.status_line.render(&self.state, frame)
-        })?;
+        });
 
         let region = frame_region.take_bottom(1);
         self.render_region(&mut frame, region, |frame| {
             self.message_line.render(&self.state, frame)
-        })?;
+        });
 
         let cursor = if let Some(grep) = &self.state.grep_mode {
             Some(grep.cursor_position(grep_region))
@@ -282,13 +326,12 @@ impl App {
         Ok(())
     }
 
-    fn render_region<F>(&self, frame: &mut Frame, region: Region, f: F) -> Result<()>
+    fn render_region<F>(&self, frame: &mut Frame, region: Region, f: F)
     where
-        F: FnOnce(&mut Frame) -> Result<()>,
+        F: FnOnce(&mut Frame),
     {
         let mut sub_frame = Frame::new(region.size);
-        f(&mut sub_frame)?;
+        f(&mut sub_frame);
         frame.put_frame(region.position, &sub_frame);
-        Ok(())
     }
 }

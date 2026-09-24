@@ -1,4 +1,3 @@
-use crate::error::Result;
 use crate::terminal::put_str;
 use tuinix::{Frame, Position, Style};
 
@@ -8,11 +7,10 @@ use crate::state::State;
 pub struct MessageLineRenderer;
 
 impl MessageLineRenderer {
-    pub fn render(&self, state: &State, frame: &mut Frame) -> Result<()> {
+    pub fn render(&self, state: &State, frame: &mut Frame) {
         let Some(message) = &state.message else {
-            return Ok(());
+            return;
         };
         put_str(frame, Position::ORIGIN, message, Style::new());
-        Ok(())
     }
 }

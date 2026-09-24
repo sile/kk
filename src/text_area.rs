@@ -1,4 +1,3 @@
-use crate::error::Result;
 use crate::terminal::put_str;
 use tuinix::{Frame, Position, Style};
 
@@ -8,7 +7,7 @@ use crate::{buffer::TextLine, buffer::TextPosition, state::State};
 pub struct TextAreaRenderer;
 
 impl TextAreaRenderer {
-    pub fn render(&self, state: &State, frame: &mut Frame) -> Result<()> {
+    pub fn render(&self, state: &State, frame: &mut Frame) {
         let available_rows = frame.size().rows;
 
         // Render visible lines from the buffer starting at viewport position
@@ -17,11 +16,16 @@ impl TextAreaRenderer {
 
         for (screen_row, buffer_row) in (start_row..end_row).enumerate() {
             if let Some(line) = state.buffer.text.get(buffer_row) {
-                self.render_line(line, state.viewport.col, frame, state, buffer_row, screen_row)?;
+                self.render_line(
+                    line,
+                    state.viewport.col,
+                    frame,
+                    state,
+                    buffer_row,
+                    screen_row,
+                );
             }
         }
-
-        Ok(())
     }
 
     fn render_line(
@@ -32,7 +36,7 @@ impl TextAreaRenderer {
         state: &State,
         line_row: usize,
         screen_row: usize,
-    ) -> Result<()> {
+    ) {
         // Calculate marked region for this line if mark is active
         let marked_region = if let Some(mark_pos) = state.mark {
             let cursor_pos = state.cursor_position();
@@ -75,7 +79,6 @@ impl TextAreaRenderer {
                 put_str(frame, at, &ch.to_string(), style);
             }
         }
-        Ok(())
     }
 
     /// Calculate the marked region (start_col, end_col) for a specific line

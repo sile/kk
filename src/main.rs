@@ -1,6 +1,16 @@
-use std::path::PathBuf;
+//! The `kk` binary: parse arguments and hand the terminal to the I/O edge.
+//!
+//! The Sans I/O core lives in the `kk` library; the edge (raw mode, the poll
+//! loop, and file access) lives in [`app`].
 
-use kk::app::App;
+// The edge waits for readiness with `libc::poll`, which needs `unsafe`. That is
+// the one call that cannot avoid it, so the binary relaxes the library's
+// `forbid` to `deny` and marks that call with `#[expect]`.
+#![deny(unsafe_code)]
+
+mod app;
+
+use std::path::PathBuf;
 
 fn main() -> noargs::Result<()> {
     let mut args = noargs::raw_args();
@@ -22,8 +32,13 @@ fn main() -> noargs::Result<()> {
         return Ok(());
     }
 
-    let app = App::new(path)?;
-    app.run()?;
+    match app::App::new(&path) {
+        Ok(app) => app.run()?,
+        Err(err) => {
+            eprintln!("kk: {err}");
+            std::process::exit(1);
+        }
+    }
 
     Ok(())
 }
