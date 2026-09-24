@@ -16,7 +16,6 @@
 
 mod action;
 mod binding;
-mod bindings;
 mod buffer;
 mod clipboard;
 mod fmt;
@@ -28,7 +27,7 @@ mod terminal;
 mod text_area;
 
 pub use action::{Action, EchoAction, GrepAction, SkipChars};
-pub use binding::{Binding, Bindings, Context, InputMatcher};
+pub use binding::{Context, Resolved, resolve};
 pub use buffer::{TextBuffer, TextLine, TextPosition};
 pub use clipboard::Clipboard;
 pub use fmt::input;

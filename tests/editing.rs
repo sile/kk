@@ -104,7 +104,7 @@ fn inserting_then_deleting_before_restores_the_text() -> noprop::TestResult {
         let text = sample_line(ctx);
         let inserted = noprop::sample_choice(ctx, &['x', 'z', '\u{3042}']);
         let mut buffer = kk::TextBuffer::from_text(&text);
-        let char_index = noprop::sample_usize_in(ctx, 0..=buffer.text[0].len());
+        let char_index = noprop::sample_usize_in(ctx, 0..=buffer.text[0].0.len());
         let col = buffer.col_at_char_index(0, char_index).expect("row 0");
         let at = kk::TextPosition { row: 0, col };
 
@@ -140,7 +140,7 @@ fn char_index_at_col_inverts_col_at_char_index() -> noprop::TestResult {
         let buffer = kk::TextBuffer::from_text(&text);
         let line = &buffer.text[0];
 
-        for index in 0..=line.len() {
+        for index in 0..=line.0.len() {
             let col = buffer.col_at_char_index(0, index).expect("row 0");
             assert_eq!(
                 buffer.char_index_at_col(0, col),

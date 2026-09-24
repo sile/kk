@@ -367,8 +367,8 @@ impl State {
         }
 
         self.start_editing();
-        // Only insert printable characters, matching `InputMatcher::Printable`:
-        // a ctrl or alt chord is a binding, not text.
+        // Only insert printable characters, matching the catch-all arm of the
+        // key resolver: a ctrl or alt chord is a binding, not text.
         if let tuinix::KeyCode::Char(ch) = key.code
             && !key.ctrl
             && !key.alt
@@ -550,7 +550,7 @@ impl State {
                 let end_char_idx = line.char_index_at_col(end.col);
 
                 for _ in start_char_idx..end_char_idx {
-                    if start_char_idx < line.len() {
+                    if start_char_idx < line.0.len() {
                         line.0.remove(start_char_idx);
                     }
                 }

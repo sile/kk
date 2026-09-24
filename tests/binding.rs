@@ -9,6 +9,33 @@ fn char_key(ch: char) -> tuinix::KeyInput {
     }
 }
 
+/// A ctrl chord on a character key.
+fn ctrl_key(ch: char) -> tuinix::KeyInput {
+    tuinix::KeyInput {
+        ctrl: true,
+        alt: false,
+        code: tuinix::KeyCode::Char(ch),
+    }
+}
+
+/// An alt chord on a character key.
+fn alt_key(ch: char) -> tuinix::KeyInput {
+    tuinix::KeyInput {
+        ctrl: false,
+        alt: true,
+        code: tuinix::KeyCode::Char(ch),
+    }
+}
+
+/// A bare special key with no modifiers.
+fn code_key(code: tuinix::KeyCode) -> tuinix::KeyInput {
+    tuinix::KeyInput {
+        ctrl: false,
+        alt: false,
+        code,
+    }
+}
+
 /// A left press at the origin, with no modifier keys held.
 fn left_press() -> tuinix::MouseInput {
     tuinix::MouseInput {
@@ -20,39 +47,82 @@ fn left_press() -> tuinix::MouseInput {
     }
 }
 
-/// Every trigger spec the built-in tables use, so the round trip covers the
-/// spelling the code actually relies on.
-fn built_in_specs() -> Vec<String> {
-    let mut specs = Vec::new();
-    for context in [
-        kk::Context::Main,
-        kk::Context::Grep,
-        kk::Context::Ext,
-        kk::Context::Goto,
-    ] {
-        for binding in kk::Bindings::new().get(context) {
-            for trigger in &binding.triggers {
-                specs.push(trigger.to_string());
-            }
-        }
-    }
-    specs.sort();
-    specs.dedup();
-    specs
+/// Every context the resolver knows about.
+const CONTEXTS: [kk::Context; 4] = [
+    kk::Context::Main,
+    kk::Context::Grep,
+    kk::Context::Ext,
+    kk::Context::Goto,
+];
+
+/// The key chords the built-in tables are expected to bind, gathered from the
+/// same vocabulary the tests below spell out.
+fn built_in_keys() -> Vec<tuinix::KeyInput> {
+    let mut keys = vec![
+        ctrl_key('c'),
+        ctrl_key('g'),
+        ctrl_key('r'),
+        ctrl_key('s'),
+        ctrl_key('x'),
+        ctrl_key('y'),
+        ctrl_key('w'),
+        ctrl_key('l'),
+        ctrl_key('k'),
+        ctrl_key('a'),
+        ctrl_key('e'),
+        ctrl_key('d'),
+        ctrl_key('h'),
+        ctrl_key('j'),
+        ctrl_key('p'),
+        ctrl_key('n'),
+        ctrl_key('b'),
+        ctrl_key('f'),
+        ctrl_key('/'),
+        ctrl_key('u'),
+        ctrl_key(' '),
+        ctrl_key('`'),
+        ctrl_key('\u{7f}'),
+        alt_key('g'),
+        alt_key('r'),
+        alt_key('m'),
+        alt_key('l'),
+        alt_key('w'),
+        alt_key('<'),
+        alt_key('>'),
+        code_key(tuinix::KeyCode::Up),
+        code_key(tuinix::KeyCode::Down),
+        code_key(tuinix::KeyCode::Left),
+        code_key(tuinix::KeyCode::Right),
+        code_key(tuinix::KeyCode::Enter),
+        code_key(tuinix::KeyCode::Backspace),
+        code_key(tuinix::KeyCode::Delete),
+        code_key(tuinix::KeyCode::Tab),
+        code_key(tuinix::KeyCode::BackTab),
+        code_key(tuinix::KeyCode::PageUp),
+        code_key(tuinix::KeyCode::PageDown),
+    ];
+    keys.sort_by_key(|key| format!("{key:?}"));
+    keys
+}
+
+/// Resolves `key` in `context` and returns the action it ran.
+fn action_of(context: kk::Context, key: tuinix::KeyInput) -> Option<kk::Action> {
+    kk::resolve(context, &tuinix::Input::Key(key)).and_then(|resolved| resolved.action)
 }
 
 #[test]
-fn every_built_in_trigger_round_trips_through_its_text_form() -> noprop::TestResult {
+fn every_built_in_chord_resolves_somewhere() -> noprop::TestResult {
     let seed = noprop::seed_from_env_or_time("KK_SEED")?;
-    let specs = built_in_specs();
-    assert!(!specs.is_empty(), "the binding table is not empty");
+    let keys = built_in_keys();
+    assert!(!keys.is_empty(), "the chord vocabulary is not empty");
 
     let mut runner = noprop::Runner::new(seed);
-    runner.run(specs.len(), |ctx| {
-        let spec = noprop::sample_choice(ctx, &specs);
-        let matcher: kk::InputMatcher = spec.parse().expect("a built-in spec parses");
+    runner.run(keys.len(), |ctx| {
+        let key = noprop::sample_choice(ctx, &keys);
+        let input = tuinix::Input::Key(key);
 
-        assert_eq!(matcher.to_string(), spec, "round trip changed {spec:?}");
+        let resolved = CONTEXTS.iter().any(|&c| kk::resolve(c, &input).is_some());
+        assert!(resolved, "{key:?} resolves in no context at all");
         Ok(())
     })?;
 
@@ -60,139 +130,135 @@ fn every_built_in_trigger_round_trips_through_its_text_form() -> noprop::TestRes
 }
 
 #[test]
-fn printable_matches_ordinary_characters_only() {
-    let printable = kk::InputMatcher::Printable;
+fn a_resolved_binding_does_something_or_switches_context() {
+    for &context in &CONTEXTS {
+        for key in built_in_keys() {
+            if let Some(resolved) = kk::resolve(context, &tuinix::Input::Key(key)) {
+                assert!(
+                    resolved.action.is_some() || resolved.context.is_some(),
+                    "{key:?} in {context:?} neither acts nor switches context"
+                );
+            }
+        }
+    }
+}
 
+#[test]
+fn printable_characters_are_text_in_main() {
     for ch in ['a', 'Z', '0', ' ', '~', '\u{3042}', '\u{1f600}'] {
         assert!(
-            printable.matches(&tuinix::Input::Key(char_key(ch))),
-            "{ch:?} is printable input"
+            matches!(
+                action_of(kk::Context::Main, char_key(ch)),
+                Some(kk::Action::CharInsert)
+            ),
+            "{ch:?} is printable and should insert text"
         );
     }
 }
 
 #[test]
-fn printable_rejects_control_and_modified_keys() {
-    let printable = kk::InputMatcher::Printable;
-
+fn main_rejects_control_and_modified_characters() {
+    // A control character is not text; it is either a binding or nothing.
     for ch in ['\n', '\t', '\r', '\u{7f}', '\u{0}'] {
         assert!(
-            !printable.matches(&tuinix::Input::Key(char_key(ch))),
-            "{ch:?} is a control character"
+            !matches!(
+                action_of(kk::Context::Main, char_key(ch)),
+                Some(kk::Action::CharInsert)
+            ),
+            "{ch:?} is a control character and must not insert text"
         );
     }
 
-    let ctrl = tuinix::KeyInput {
-        ctrl: true,
-        alt: false,
-        code: tuinix::KeyCode::Char('x'),
-    };
-    let alt = tuinix::KeyInput { alt: true, ..ctrl };
-    assert!(!printable.matches(&tuinix::Input::Key(ctrl)));
-    assert!(!printable.matches(&tuinix::Input::Key(alt)));
-    assert!(
-        !printable.matches(&tuinix::Input::Key(tuinix::KeyInput {
-            ctrl: false,
-            alt: false,
-            code: tuinix::KeyCode::Enter,
-        })),
-        "Enter is not a printable character"
-    );
+    // A ctrl/alt chord is a binding, not text.
+    assert!(!matches!(
+        action_of(kk::Context::Main, ctrl_key('z')),
+        Some(kk::Action::CharInsert)
+    ));
+    assert!(!matches!(
+        action_of(kk::Context::Main, alt_key('z')),
+        Some(kk::Action::CharInsert)
+    ));
+
+    // A special key is never text either.
+    assert!(!matches!(
+        action_of(kk::Context::Main, code_key(tuinix::KeyCode::Enter)),
+        Some(kk::Action::CharInsert)
+    ));
 }
 
 #[test]
-fn a_key_matcher_matches_only_its_exact_chord() {
-    let matcher = kk::InputMatcher::Key(tuinix::KeyInput {
-        ctrl: true,
-        alt: false,
-        code: tuinix::KeyCode::Char('a'),
-    });
-
-    assert!(matcher.matches(&tuinix::Input::Key(tuinix::KeyInput {
-        ctrl: true,
-        alt: false,
-        code: tuinix::KeyCode::Char('a'),
-    })));
-    assert!(
-        !matcher.matches(&tuinix::Input::Key(char_key('a'))),
-        "the modifier is part of the chord"
-    );
-    assert!(!matcher.matches(&tuinix::Input::Key(tuinix::KeyInput {
-        ctrl: false,
-        alt: true,
-        code: tuinix::KeyCode::Char('a'),
-    })));
+fn ctrl_c_quits_the_main_context() {
+    assert!(matches!(
+        action_of(kk::Context::Main, ctrl_key('c')),
+        Some(kk::Action::Quit)
+    ));
 }
 
 #[test]
-fn a_key_matcher_never_matches_mouse_input() {
-    let matcher = kk::InputMatcher::Key(char_key('a'));
-
-    assert!(!matcher.matches(&tuinix::Input::Mouse(left_press())));
-}
-
-#[test]
-fn each_context_resolves_to_its_own_table() {
-    let bindings = kk::Bindings::new();
-
-    // Main has the editing chords; Goto does not.
-    let triggers = |context| {
-        bindings
-            .get(context)
-            .iter()
-            .flat_map(|binding| binding.triggers.iter().map(|t| t.to_string()))
-            .collect::<Vec<_>>()
-    };
-
-    assert!(triggers(kk::Context::Main).contains(&"C-k".to_string()));
-    assert!(!triggers(kk::Context::Goto).contains(&"C-k".to_string()));
-    assert!(
-        triggers(kk::Context::Goto).contains(&"p".to_string()),
-        "goto has its own keys"
-    );
-}
-
-#[test]
-fn the_main_context_can_leave_the_editor() {
-    let bindings = kk::Bindings::new();
-
-    let has_quit = bindings
-        .get(kk::Context::Main)
-        .iter()
-        .any(|binding| matches!(binding.action, Some(kk::Action::Quit)));
-
-    assert!(has_quit, "nothing in the main context quits");
+fn goto_keys_are_not_plain_text_in_goto() {
+    // A bare `p` is text in Main but a jump in Goto: the catch-all for
+    // printable characters must not shadow Goto's own chords.
+    assert!(matches!(
+        action_of(kk::Context::Main, char_key('p')),
+        Some(kk::Action::CharInsert)
+    ));
+    assert!(!matches!(
+        action_of(kk::Context::Goto, char_key('p')),
+        Some(kk::Action::CharInsert)
+    ));
 }
 
 #[test]
 fn every_non_main_context_has_a_way_back_to_main() {
-    let bindings = kk::Bindings::new();
-
-    // Grep, Ext, and Goto are entered from Main, so a chord that returns to
-    // Main is what keeps them from trapping the editor.
-    for context in [kk::Context::Grep, kk::Context::Ext, kk::Context::Goto] {
-        let returns = bindings.get(context).iter().any(|binding| {
-            binding.context == Some(kk::Context::Main)
-                && matches!(binding.action, Some(kk::Action::Cancel))
+    // Grep, Ext, and Goto are entered from Main, so a chord that cancels back
+    // to Main is what keeps them from trapping the editor.
+    for &context in &[kk::Context::Grep, kk::Context::Ext, kk::Context::Goto] {
+        let returns = built_in_keys().into_iter().any(|key| {
+            matches!(
+                kk::resolve(context, &tuinix::Input::Key(key)),
+                Some(kk::Resolved {
+                    action: Some(kk::Action::Cancel),
+                    context: Some(kk::Context::Main),
+                })
+            )
         });
         assert!(returns, "{context:?} cannot return to the main context");
     }
 }
 
 #[test]
-fn every_binding_does_something_or_switches_context() {
-    for context in [
-        kk::Context::Main,
-        kk::Context::Grep,
-        kk::Context::Ext,
-        kk::Context::Goto,
-    ] {
-        for binding in kk::Bindings::new().get(context) {
-            assert!(
-                binding.action.is_some() || binding.context.is_some(),
-                "a binding in {context:?} neither acts nor switches context"
-            );
-        }
+fn each_context_resolves_its_own_chords() {
+    // Main has the kill-line chord; Goto does not.
+    assert!(action_of(kk::Context::Main, ctrl_key('k')).is_some());
+    assert!(action_of(kk::Context::Goto, ctrl_key('k')).is_none());
+
+    // Goto has its own keys.
+    assert!(action_of(kk::Context::Goto, char_key('p')).is_some());
+    assert!(action_of(kk::Context::Goto, char_key('n')).is_some());
+}
+
+#[test]
+fn non_key_input_never_resolves() {
+    for &context in &CONTEXTS {
+        assert!(kk::resolve(context, &tuinix::Input::Mouse(left_press())).is_none());
+        assert!(
+            kk::resolve(
+                context,
+                &tuinix::Input::Unrecognized {
+                    bytes: b"\x1b[?".to_vec()
+                }
+            )
+            .is_none()
+        );
+        assert!(
+            kk::resolve(
+                context,
+                &tuinix::Input::Paste {
+                    bytes: b"hi".to_vec()
+                }
+            )
+            .is_none()
+        );
     }
 }
 

@@ -23,7 +23,6 @@ pub struct App {
     driver: tuinix::TerminalDriver,
     input: tuinix::InputDecoder,
     prev_frame: Option<tuinix::Frame>,
-    bindings: kk::Bindings,
     context: kk::Context,
     state: kk::State,
     text_area: kk::TextAreaRenderer,
@@ -67,7 +66,6 @@ impl App {
             prev_frame: None,
             state,
             context: kk::Context::Main,
-            bindings: kk::Bindings::new(),
             text_area: kk::TextAreaRenderer,
             message_line: kk::MessageLineRenderer,
             status_line: kk::StatusLineRenderer,
@@ -156,25 +154,17 @@ impl App {
     }
 
     fn handle_input(&mut self, input: tuinix::Input) -> std::io::Result<()> {
-        let Some(binding) = self
-            .bindings
-            .get(self.context)
-            .iter()
-            .find(|b| b.matches(&input))
-        else {
+        let Some(resolved) = kk::resolve(self.context, &input) else {
             self.state
                 .set_message(format!("No action found: '{}'", kk::input(&input)));
             return Ok(());
         };
 
-        let next_context = binding.context;
-        let action = binding.action.clone();
-
-        if let Some(action) = action {
+        if let Some(action) = resolved.action {
             self.handle_action(action, &input)?;
         }
 
-        if let Some(context) = next_context {
+        if let Some(context) = resolved.context {
             self.context = context;
         }
 

@@ -1,6 +1,6 @@
-//! Hard-coded input bindings.
+//! Input contexts and the `match`-based resolvers that map input to actions.
 
-use crate::action::Action;
+use crate::action::{Action, EchoAction, GrepAction, SkipChars};
 
 /// Identifies one of the built-in input contexts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -18,231 +18,207 @@ pub enum Context {
     Goto,
 }
 
-/// Matches terminal input against a specific pattern.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InputMatcher {
-    /// Matches an exact key combination.
-    Key(tuinix::KeyInput),
-
-    /// Matches any printable character.
-    Printable,
-
-    /// Matches a specific mouse event (display / lookup support).
-    Mouse(tuinix::MouseInputKind),
-}
-
-impl InputMatcher {
-    /// Returns `true` if the given terminal input matches this matcher.
-    pub fn matches(self, input: &tuinix::Input) -> bool {
-        match input {
-            tuinix::Input::Key(key) => match self {
-                InputMatcher::Key(k) => k == *key,
-                InputMatcher::Printable => {
-                    matches!(key, tuinix::KeyInput {
-                        ctrl: false,
-                        alt: false,
-                        code: tuinix::KeyCode::Char(ch),
-                    } if !ch.is_control())
-                }
-                InputMatcher::Mouse(_) => false,
-            },
-            tuinix::Input::Mouse(m) => {
-                matches!(self, InputMatcher::Mouse(kind) if kind == m.kind)
-            }
-            tuinix::Input::Unrecognized { .. } | tuinix::Input::Paste { .. } => false,
-        }
-    }
-}
-
-impl std::str::FromStr for InputMatcher {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Handle inputs that do not accept modifiers.
-        let mouse = |kind| InputMatcher::Mouse(kind);
-        match s {
-            "<PRINTABLE>" => return Ok(InputMatcher::Printable),
-            "<LEFTCLICK>" => return Ok(mouse(tuinix::MouseInputKind::LeftPress)),
-            "<LEFTRELEASE>" => return Ok(mouse(tuinix::MouseInputKind::LeftRelease)),
-            "<RIGHTCLICK>" => return Ok(mouse(tuinix::MouseInputKind::RightPress)),
-            "<RIGHTRELEASE>" => return Ok(mouse(tuinix::MouseInputKind::RightRelease)),
-            "<MIDDLECLICK>" => return Ok(mouse(tuinix::MouseInputKind::MiddlePress)),
-            "<MIDDLERELEASE>" => return Ok(mouse(tuinix::MouseInputKind::MiddleRelease)),
-            "<DRAG>" => return Ok(mouse(tuinix::MouseInputKind::Drag)),
-            "<SCROLLUP>" => return Ok(mouse(tuinix::MouseInputKind::ScrollUp)),
-            "<SCROLLDOWN>" => return Ok(mouse(tuinix::MouseInputKind::ScrollDown)),
-            _ => {}
-        }
-
-        // Handle modifier key combinations like "C-c", "M-x".
-        let mut alt = false;
-        let mut ctrl = false;
-        let mut remaining = s;
-
-        loop {
-            if let Some(rest) = remaining.strip_prefix("M-")
-                && !alt
-            {
-                remaining = rest;
-                alt = true;
-            } else if let Some(rest) = remaining.strip_prefix("C-")
-                && !ctrl
-            {
-                remaining = rest;
-                ctrl = true;
-            } else {
-                break;
-            }
-        }
-
-        // Handle special keys.
-        let key = |code| InputMatcher::Key(tuinix::KeyInput { ctrl, alt, code });
-        match remaining {
-            "<UP>" => return Ok(key(tuinix::KeyCode::Up)),
-            "<DOWN>" => return Ok(key(tuinix::KeyCode::Down)),
-            "<LEFT>" => return Ok(key(tuinix::KeyCode::Left)),
-            "<RIGHT>" => return Ok(key(tuinix::KeyCode::Right)),
-            "<ENTER>" => return Ok(key(tuinix::KeyCode::Enter)),
-            "<ESCAPE>" => return Ok(key(tuinix::KeyCode::Escape)),
-            "<BACKSPACE>" => return Ok(key(tuinix::KeyCode::Backspace)),
-            "<TAB>" => return Ok(key(tuinix::KeyCode::Tab)),
-            "<BACKTAB>" => return Ok(key(tuinix::KeyCode::BackTab)),
-            "<DELETE>" => return Ok(key(tuinix::KeyCode::Delete)),
-            "<INSERT>" => return Ok(key(tuinix::KeyCode::Insert)),
-            "<HOME>" => return Ok(key(tuinix::KeyCode::Home)),
-            "<END>" => return Ok(key(tuinix::KeyCode::End)),
-            "<PAGEUP>" => return Ok(key(tuinix::KeyCode::PageUp)),
-            "<PAGEDOWN>" => return Ok(key(tuinix::KeyCode::PageDown)),
-            _ => {}
-        }
-
-        // Handle character input.
-        let mut chars = remaining.chars();
-        if let Some(ch) = chars.next()
-            && chars.next().is_none()
-        {
-            return Ok(key(tuinix::KeyCode::Char(ch)));
-        }
-
-        // Handle hex notation for control chars such as 0x7f.
-        if let Some(hex_str) = remaining.strip_prefix("0x") {
-            return match u32::from_str_radix(hex_str, 16) {
-                Ok(code_point) => match char::from_u32(code_point) {
-                    Some(ch) => Ok(key(tuinix::KeyCode::Char(ch))),
-                    None => Err(format!("invalid Unicode code point: 0x{code_point:x}")),
-                },
-                Err(_) => Err(format!("invalid hex notation: {remaining}")),
-            };
-        }
-
-        Err(format!("invalid key input format: {s:?}"))
-    }
-}
-
-impl std::fmt::Display for InputMatcher {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Printable => write!(f, "<PRINTABLE>"),
-            Self::Key(key) => {
-                if key.alt {
-                    write!(f, "M-")?;
-                }
-                if key.ctrl {
-                    write!(f, "C-")?;
-                }
-
-                match key.code {
-                    tuinix::KeyCode::Up => write!(f, "<UP>"),
-                    tuinix::KeyCode::Down => write!(f, "<DOWN>"),
-                    tuinix::KeyCode::Left => write!(f, "<LEFT>"),
-                    tuinix::KeyCode::Right => write!(f, "<RIGHT>"),
-                    tuinix::KeyCode::Enter => write!(f, "<ENTER>"),
-                    tuinix::KeyCode::Escape => write!(f, "<ESCAPE>"),
-                    tuinix::KeyCode::Backspace => write!(f, "<BACKSPACE>"),
-                    tuinix::KeyCode::Tab => write!(f, "<TAB>"),
-                    tuinix::KeyCode::BackTab => write!(f, "<BACKTAB>"),
-                    tuinix::KeyCode::Delete => write!(f, "<DELETE>"),
-                    tuinix::KeyCode::Insert => write!(f, "<INSERT>"),
-                    tuinix::KeyCode::Home => write!(f, "<HOME>"),
-                    tuinix::KeyCode::End => write!(f, "<END>"),
-                    tuinix::KeyCode::PageUp => write!(f, "<PAGEUP>"),
-                    tuinix::KeyCode::PageDown => write!(f, "<PAGEDOWN>"),
-                    tuinix::KeyCode::F(n) => write!(f, "<F{n}>"),
-                    tuinix::KeyCode::Char(ch) if ch.is_control() => write!(f, "0x{:x}", ch as u32),
-                    tuinix::KeyCode::Char(ch) => write!(f, "{ch}"),
-                }
-            }
-            Self::Mouse(mouse) => match mouse {
-                tuinix::MouseInputKind::LeftPress => write!(f, "<LEFTCLICK>"),
-                tuinix::MouseInputKind::LeftRelease => write!(f, "<LEFTRELEASE>"),
-                tuinix::MouseInputKind::RightPress => write!(f, "<RIGHTCLICK>"),
-                tuinix::MouseInputKind::RightRelease => write!(f, "<RIGHTRELEASE>"),
-                tuinix::MouseInputKind::MiddlePress => write!(f, "<MIDDLECLICK>"),
-                tuinix::MouseInputKind::MiddleRelease => write!(f, "<MIDDLERELEASE>"),
-                tuinix::MouseInputKind::Drag => write!(f, "<DRAG>"),
-                tuinix::MouseInputKind::ScrollUp => write!(f, "<SCROLLUP>"),
-                tuinix::MouseInputKind::ScrollDown => write!(f, "<SCROLLDOWN>"),
-            },
-        }
-    }
-}
-
-/// A single input binding that maps terminal input patterns to an action.
+/// What a single terminal input does: an action to run and a context to switch
+/// to. Either field may be `None`.
 #[derive(Debug, Clone)]
-pub struct Binding {
-    /// Input patterns that trigger this binding.
-    pub triggers: Vec<InputMatcher>,
-
-    /// Optional human-readable label for display purposes.
-    pub label: Option<&'static str>,
-
-    /// Optional action to execute when the binding is triggered.
+pub struct Resolved {
+    /// The action to carry out, if any.
     pub action: Option<Action>,
 
-    /// Optional context to switch to when this binding is activated.
+    /// The context to switch to, if any.
     pub context: Option<Context>,
 }
 
-impl Binding {
-    /// Checks if this binding matches the given terminal input.
-    pub fn matches(&self, input: &tuinix::Input) -> bool {
-        self.triggers.iter().any(|t| t.matches(input))
+/// Resolves `input` in `context` to the action and context switch it means.
+///
+/// Returns `None` when nothing in the context is bound to that input; callers
+/// report that to the user.
+///
+/// The input has to be a key: no mouse, paste, or unrecognized input is bound.
+pub fn resolve(context: Context, input: &tuinix::Input) -> Option<Resolved> {
+    let key = match input {
+        tuinix::Input::Key(key) => key,
+        _ => return None,
+    };
+
+    match context {
+        Context::Main => resolve_main(key),
+        Context::Grep => resolve_grep(key),
+        Context::Ext => resolve_ext(key),
+        Context::Goto => resolve_goto(key),
     }
 }
 
-/// The set of hard-coded bindings, resolved at startup.
-#[derive(Debug)]
-pub struct Bindings {
-    main: Vec<Binding>,
-    grep: Vec<Binding>,
-    ext: Vec<Binding>,
-    goto: Vec<Binding>,
-}
-
-impl Default for Bindings {
-    fn default() -> Self {
-        Self::new()
+/// Runs `action` and stays in the current context.
+fn act(action: Action) -> Resolved {
+    Resolved {
+        action: Some(action),
+        context: None,
     }
 }
 
-impl Bindings {
-    /// Builds the binding tables from the hard-coded definitions.
-    pub fn new() -> Self {
-        Self {
-            main: crate::bindings::main_bindings(),
-            grep: crate::bindings::grep_bindings(),
-            ext: crate::bindings::ext_bindings(),
-            goto: crate::bindings::goto_bindings(),
+/// Runs `action` and then switches to `context`.
+fn then(action: Action, context: Context) -> Resolved {
+    Resolved {
+        action: Some(action),
+        context: Some(context),
+    }
+}
+
+/// Switches to `context` without running anything.
+fn only(context: Context) -> Resolved {
+    Resolved {
+        action: None,
+        context: Some(context),
+    }
+}
+
+/// Ends the prompt and restores the main context.
+fn cancel() -> Resolved {
+    then(Action::Cancel, Context::Main)
+}
+
+fn skip_chars(chars: &str) -> SkipChars {
+    SkipChars {
+        chars: chars.to_owned(),
+    }
+}
+
+const IDENT_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+
+fn resolve_main(key: &tuinix::KeyInput) -> Option<Resolved> {
+    let tuinix::KeyInput { ctrl, alt, code } = *key;
+
+    Some(match (ctrl, alt, code) {
+        (true, false, tuinix::KeyCode::Char('c')) => act(Action::Quit),
+        (true, false, tuinix::KeyCode::Char('g')) => cancel(),
+        (true, false, tuinix::KeyCode::Char('r')) => {
+            then(Action::Grep(GrepAction { forward: false }), Context::Grep)
         }
-    }
-
-    /// Returns the bindings for the given context.
-    pub fn get(&self, context: Context) -> &[Binding] {
-        match context {
-            Context::Main => &self.main,
-            Context::Grep => &self.grep,
-            Context::Ext => &self.ext,
-            Context::Goto => &self.goto,
+        (true, false, tuinix::KeyCode::Char('s')) => {
+            then(Action::Grep(GrepAction { forward: true }), Context::Grep)
         }
-    }
+        (true, false, tuinix::KeyCode::Char('x')) => only(Context::Ext),
+        (false, true, tuinix::KeyCode::Char('g')) => only(Context::Goto),
+        (true, false, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
+        (true, false, tuinix::KeyCode::Char('w')) => act(Action::MarkCut),
+        (false, true, tuinix::KeyCode::Char('w')) => act(Action::MarkCopy),
+        (false, true, tuinix::KeyCode::Char('r')) => act(Action::BufferReload),
+        (false, true, tuinix::KeyCode::Char('m')) => act(Action::Multiple(vec![
+            Action::CursorLeftSkipChars(skip_chars(IDENT_CHARS)),
+            Action::CursorRight,
+            Action::MarkSet,
+            Action::CursorRightSkipChars(skip_chars(IDENT_CHARS)),
+        ])),
+        (false, true, tuinix::KeyCode::Char('l')) => act(Action::Multiple(vec![
+            Action::CursorLineStart,
+            Action::MarkSet,
+            Action::CursorLineEnd,
+        ])),
+        (false, true, tuinix::KeyCode::Char('<')) => act(Action::CursorBufferStart),
+        (false, true, tuinix::KeyCode::Char('>')) => act(Action::CursorBufferEnd),
+        (true, false, tuinix::KeyCode::Char('/' | 'u' | '\u{7f}')) => act(Action::BufferUndo),
+        (true, false, tuinix::KeyCode::Char(' ' | '`')) => act(Action::MarkSet),
+        (true, false, tuinix::KeyCode::Char('l')) => act(Action::ViewRecenter),
+        (true, false, tuinix::KeyCode::Char('k')) => act(Action::LineDelete),
+        (true, false, tuinix::KeyCode::Char('a')) => act(Action::CursorLineStart),
+        (true, false, tuinix::KeyCode::Char('e')) => act(Action::CursorLineEnd),
+        (true, false, tuinix::KeyCode::Char('d')) => act(Action::CharDeleteForward),
+        (true, false, tuinix::KeyCode::Char('h')) => act(Action::CharDeleteBackward),
+        (true, false, tuinix::KeyCode::Char('j')) => act(Action::NewlineInsert),
+        (true, false, tuinix::KeyCode::Char('p')) => act(Action::CursorUp),
+        (true, false, tuinix::KeyCode::Char('n')) => act(Action::CursorDown),
+        (true, false, tuinix::KeyCode::Char('b')) => act(Action::CursorLeft),
+        (true, false, tuinix::KeyCode::Char('f')) => act(Action::CursorRight),
+        (false, false, tuinix::KeyCode::Delete) => act(Action::CharDeleteForward),
+        (false, false, tuinix::KeyCode::Backspace) => act(Action::CharDeleteBackward),
+        (false, false, tuinix::KeyCode::Enter) => act(Action::NewlineInsert),
+        (false, false, tuinix::KeyCode::Up) => act(Action::CursorUp),
+        (false, false, tuinix::KeyCode::Down) => act(Action::CursorDown),
+        (false, false, tuinix::KeyCode::Left) => act(Action::CursorLeft),
+        (false, false, tuinix::KeyCode::Right) => act(Action::CursorRight),
+        (true, false, tuinix::KeyCode::Left) => act(Action::CursorUp),
+        (true, false, tuinix::KeyCode::Right) => act(Action::CursorDown),
+        (true, false, tuinix::KeyCode::Up) => act(Action::CursorPageUp),
+        (true, false, tuinix::KeyCode::Down) => act(Action::CursorPageDown),
+        (false, false, tuinix::KeyCode::PageUp) => act(Action::CursorPageUp),
+        (false, false, tuinix::KeyCode::PageDown) => act(Action::CursorPageDown),
+        // Any other bare, non-control character is text, not a binding.
+        (false, false, tuinix::KeyCode::Char(ch)) if !ch.is_control() => act(Action::CharInsert),
+        _ => return None,
+    })
+}
+
+fn resolve_grep(key: &tuinix::KeyInput) -> Option<Resolved> {
+    let tuinix::KeyInput { ctrl, alt, code } = *key;
+
+    Some(match (ctrl, alt, code) {
+        (true, false, tuinix::KeyCode::Char('g')) => cancel(),
+        (false, false, tuinix::KeyCode::Enter) => cancel(),
+        (true, false, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
+        (true, false, tuinix::KeyCode::Char('s')) => act(Action::GrepNextHit),
+        (true, false, tuinix::KeyCode::Char('r')) => act(Action::GrepPrevHit),
+        (false, false, tuinix::KeyCode::Tab) => act(Action::GrepNextHit),
+        (false, false, tuinix::KeyCode::BackTab) => act(Action::GrepPrevHit),
+        (false, true, tuinix::KeyCode::Char('m')) => then(
+            Action::Multiple(vec![
+                Action::Cancel,
+                Action::CursorLeftSkipChars(skip_chars(IDENT_CHARS)),
+                Action::CursorRight,
+                Action::MarkSet,
+                Action::CursorRightSkipChars(skip_chars(IDENT_CHARS)),
+                Action::MarkCopy,
+            ]),
+            Context::Main,
+        ),
+        (true, false, tuinix::KeyCode::Char('a')) => act(Action::CursorLineStart),
+        (true, false, tuinix::KeyCode::Char('e')) => act(Action::CursorLineEnd),
+        (true, false, tuinix::KeyCode::Char('d')) => act(Action::CharDeleteForward),
+        (true, false, tuinix::KeyCode::Char('h')) => act(Action::CharDeleteBackward),
+        (true, false, tuinix::KeyCode::Char('b')) => act(Action::CursorLeft),
+        (true, false, tuinix::KeyCode::Char('f')) => act(Action::CursorRight),
+        (false, false, tuinix::KeyCode::Delete) => act(Action::CharDeleteForward),
+        (false, false, tuinix::KeyCode::Backspace) => act(Action::CharDeleteBackward),
+        (false, false, tuinix::KeyCode::Left) => act(Action::CursorLeft),
+        (false, false, tuinix::KeyCode::Right) => act(Action::CursorRight),
+        // Any other bare, non-control character is part of the query.
+        (false, false, tuinix::KeyCode::Char(ch)) if !ch.is_control() => act(Action::CharInsert),
+        _ => return None,
+    })
+}
+
+fn resolve_ext(key: &tuinix::KeyInput) -> Option<Resolved> {
+    let tuinix::KeyInput { ctrl, alt, code } = *key;
+
+    Some(match (ctrl, alt, code) {
+        (true, false, tuinix::KeyCode::Char('g')) => cancel(),
+        (true, false, tuinix::KeyCode::Char('s')) => then(
+            Action::Multiple(vec![
+                Action::BufferSave,
+                Action::Cancel,
+                Action::Echo(EchoAction {
+                    message: "Saved!".to_owned(),
+                }),
+            ]),
+            Context::Main,
+        ),
+        _ => return None,
+    })
+}
+
+fn resolve_goto(key: &tuinix::KeyInput) -> Option<Resolved> {
+    let tuinix::KeyInput { ctrl, alt, code } = *key;
+
+    Some(match (ctrl, alt, code) {
+        (true, false, tuinix::KeyCode::Char('g')) => cancel(),
+        (false, false, tuinix::KeyCode::Char('p')) => then(
+            Action::Multiple(vec![Action::CursorUpSkipSpaces, Action::Cancel]),
+            Context::Main,
+        ),
+        (false, false, tuinix::KeyCode::Char('n')) => then(
+            Action::Multiple(vec![Action::CursorDownSkipSpaces, Action::Cancel]),
+            Context::Main,
+        ),
+        _ => return None,
+    })
 }

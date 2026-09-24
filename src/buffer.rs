@@ -273,11 +273,6 @@ impl TextLine {
         TextLine(chars)
     }
 
-    /// Returns the line's characters as a string.
-    pub fn to_string(&self) -> String {
-        self.0.iter().collect()
-    }
-
     /// Appends every character of `other` to this line.
     pub fn extend_from_line(&mut self, other: TextLine) {
         self.0.extend(other.0);
@@ -393,11 +388,6 @@ impl TextLine {
         self.0.len()
     }
 
-    /// Returns the number of characters in the line.
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
     /// Returns the display column where the `char_index`-th character starts,
     /// or the line's width when `char_index` is past the end.
     pub fn col_at_char_index(&self, char_index: usize) -> usize {
@@ -409,6 +399,15 @@ impl TextLine {
             col += crate::terminal::char_cols(ch);
         }
         col
+    }
+}
+
+impl std::fmt::Display for TextLine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for &ch in &self.0 {
+            std::fmt::Write::write_char(f, ch)?;
+        }
+        Ok(())
     }
 }
 
