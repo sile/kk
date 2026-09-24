@@ -62,11 +62,11 @@ fn the_ext_legend_fills_a_frame_exactly_its_size() {
     let mut frame = exact_frame(kk::Context::Ext);
     let cols = frame.size().cols;
     kk::LegendRenderer.render(kk::Context::Ext, &mut frame);
-    assert_eq!(row_text(&frame, 0, cols), "\u{2502} C-g cancel\u{2502}");
-    assert_eq!(row_text(&frame, 1, cols), "\u{2502} C-s save  \u{2502}");
+    assert_eq!(row_text(&frame, 0, cols), "\u{2502} C-g cancel");
+    assert_eq!(row_text(&frame, 1, cols), "\u{2502} C-s save  ");
     assert_eq!(
         row_text(&frame, 2, cols),
-        "\u{2500}\u{2500}\u{2500} ext \u{2500}\u{2500}\u{2500}\u{2500}\u{2502}"
+        "\u{2500}\u{2500}\u{2500} ext \u{2500}\u{2500}\u{2500}\u{2500}"
     );
 }
 
@@ -79,30 +79,30 @@ fn the_main_legend_is_exactly_this_text() {
     // The very same strings `kk::legend` lists, with the box painted around
     // them; a row that disagrees with the table is a rendering bug.
     let expected = [
-        "\u{2502} C-c quit        \u{2502}",
-        "\u{2502} C-g cancel      \u{2502}",
-        "\u{2502} C-r rgrep       \u{2502}",
-        "\u{2502} C-s grep        \u{2502}",
-        "\u{2502} C-x ext         \u{2502}",
-        "\u{2502} C-y paste       \u{2502}",
-        "\u{2502} C-w cut         \u{2502}",
-        "\u{2502} C-  mark        \u{2502}",
-        "\u{2502} M-r reload      \u{2502}",
-        "\u{2502} C-l recenter    \u{2502}",
-        "\u{2502} C-k kill-line   \u{2502}",
-        "\u{2502} C-a line-start  \u{2502}",
-        "\u{2502} C-e line-end    \u{2502}",
-        "\u{2502} M-< buffer-start\u{2502}",
-        "\u{2502} M-> buffer-end  \u{2502}",
-        "\u{2502} C-p up          \u{2502}",
-        "\u{2502} C-n down        \u{2502}",
-        "\u{2502} C-b left        \u{2502}",
-        "\u{2502} C-f right       \u{2502}",
-        "\u{2502} C-j newline     \u{2502}",
-        "\u{2502} C-h backspace   \u{2502}",
-        "\u{2502} C-d delete      \u{2502}",
-        "\u{2502} C-/ undo        \u{2502}",
-        "\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} main \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2502}",
+        "\u{2502} C-c quit        ",
+        "\u{2502} C-g cancel      ",
+        "\u{2502} C-r rgrep       ",
+        "\u{2502} C-s grep        ",
+        "\u{2502} C-x ext         ",
+        "\u{2502} C-y paste       ",
+        "\u{2502} C-w cut         ",
+        "\u{2502} C-  mark        ",
+        "\u{2502} M-r reload      ",
+        "\u{2502} C-l recenter    ",
+        "\u{2502} C-k kill-line   ",
+        "\u{2502} C-a line-start  ",
+        "\u{2502} C-e line-end    ",
+        "\u{2502} M-< buffer-start",
+        "\u{2502} M-> buffer-end  ",
+        "\u{2502} C-p up          ",
+        "\u{2502} C-n down        ",
+        "\u{2502} C-b left        ",
+        "\u{2502} C-f right       ",
+        "\u{2502} C-j newline     ",
+        "\u{2502} C-h backspace   ",
+        "\u{2502} C-d delete      ",
+        "\u{2502} C-/ undo        ",
+        "\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} main \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 
     assert_eq!(expected.len(), kk::legend(kk::Context::Main).len() + 1);
@@ -118,17 +118,17 @@ fn the_grep_legend_is_exactly_this_text() {
     kk::LegendRenderer.render(kk::Context::Grep, &mut frame);
 
     let expected = [
-        "\u{2502} C-g cancel    \u{2502}",
-        "\u{2502} C-s next-hit  \u{2502}",
-        "\u{2502} C-r prev-hit  \u{2502}",
-        "\u{2502} C-y paste     \u{2502}",
-        "\u{2502} C-a line-start\u{2502}",
-        "\u{2502} C-e line-end  \u{2502}",
-        "\u{2502} C-b left      \u{2502}",
-        "\u{2502} C-f right     \u{2502}",
-        "\u{2502} C-h backspace \u{2502}",
-        "\u{2502} C-d delete    \u{2502}",
-        "\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} grep \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2502}",
+        "\u{2502} C-g cancel    ",
+        "\u{2502} C-s next-hit  ",
+        "\u{2502} C-r prev-hit  ",
+        "\u{2502} C-y paste     ",
+        "\u{2502} C-a line-start",
+        "\u{2502} C-e line-end  ",
+        "\u{2502} C-b left      ",
+        "\u{2502} C-f right     ",
+        "\u{2502} C-h backspace ",
+        "\u{2502} C-d delete    ",
+        "\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} grep \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 
     assert_eq!(expected.len(), kk::legend(kk::Context::Grep).len() + 1);
@@ -165,14 +165,14 @@ fn the_legend_height_is_one_row_per_binding_plus_a_border() {
 }
 
 #[test]
-fn the_legend_width_is_the_widest_row_plus_two_borders() {
+fn the_legend_width_is_the_widest_row() {
     for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
         let widest = kk::legend(context)
             .iter()
             .map(|row| kk::str_cols(row))
             .max()
             .unwrap_or(0);
-        assert_eq!(full_size(context).cols, widest + 2, "{context:?}");
+        assert_eq!(full_size(context).cols, widest, "{context:?}");
     }
 }
 
@@ -190,15 +190,34 @@ fn every_row_of_the_box_is_the_same_width() {
                 size.cols,
                 "{context:?} row {row}: {text:?}"
             );
-            if row + 1 < size.rows {
-                assert!(
-                    text.starts_with('\u{2502}'),
-                    "{context:?} row {row} has no left border: {text:?}"
-                );
-            }
+        }
+    }
+}
+
+#[test]
+fn every_binding_row_paints_its_table_row_and_never_closes_with_a_border() {
+    for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+        let size = full_size(context);
+        let mut frame = exact_frame(context);
+        kk::LegendRenderer.render(context, &mut frame);
+
+        for (row, binding) in kk::legend(context).iter().enumerate() {
+            let text = row_text(&frame, row, size.cols);
             assert!(
-                text.ends_with('\u{2502}'),
-                "{context:?} row {row} has no right border: {text:?}"
+                text.starts_with(binding),
+                "{context:?} row {row} does not open with its table row: {text:?}"
+            );
+            assert!(
+                text[binding.len()..].trim().is_empty(),
+                "{context:?} row {row} paints past its table row: {text:?}"
+            );
+            assert!(
+                binding.starts_with(kk::BORDER_VERTICAL),
+                "{context:?} row {row} has no left border: {binding:?}"
+            );
+            assert!(
+                !text.trim_end().ends_with(kk::BORDER_VERTICAL),
+                "{context:?} row {row} closes with a border: {text:?}"
             );
         }
     }

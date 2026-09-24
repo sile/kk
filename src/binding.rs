@@ -2,6 +2,12 @@
 
 use crate::action::{Action, GrepAction};
 
+/// The vertical box-drawing stroke between a legend row and its label.
+pub const BORDER_VERTICAL: &str = "\u{2502}";
+
+/// The horizontal box-drawing stroke of the legend's bottom border.
+pub const BORDER_HORIZONTAL: &str = "\u{2500}";
+
 /// The title the legend shows for `context`.
 ///
 /// This is the context spelled out, so the box is labelled `main` or `grep`
@@ -17,52 +23,52 @@ pub fn title(context: Context) -> &'static str {
 
 /// The legend rows for the main context, in legend order.
 ///
-/// Each row is the text between the box's left and right borders, written out as
-/// the user reads it: the chord, the spaces that separate it from its label, and
-/// the label. The bindings are hard-coded, so this table is too, and the two are
-/// kept in step by hand.
+/// Each row is a whole row of the legend, written out as the user reads it: the
+/// border stroke, the chord, the spaces that separate it from its label, and the
+/// label. Only the left border is drawn. The bindings are hard-coded, so this
+/// table is too, and the two are kept in step by hand.
 pub const MAIN_LEGEND: &[&str] = &[
-    " C-c quit",
-    " C-g cancel",
-    " C-r rgrep",
-    " C-s grep",
-    " C-x ext",
-    " C-y paste",
-    " C-w cut",
-    " C-  mark",
-    " M-r reload",
-    " C-l recenter",
-    " C-k kill-line",
-    " C-a line-start",
-    " C-e line-end",
-    " M-< buffer-start",
-    " M-> buffer-end",
-    " C-p up",
-    " C-n down",
-    " C-b left",
-    " C-f right",
-    " C-j newline",
-    " C-h backspace",
-    " C-d delete",
-    " C-/ undo",
+    "\u{2502} C-c quit",
+    "\u{2502} C-g cancel",
+    "\u{2502} C-r rgrep",
+    "\u{2502} C-s grep",
+    "\u{2502} C-x ext",
+    "\u{2502} C-y paste",
+    "\u{2502} C-w cut",
+    "\u{2502} C-  mark",
+    "\u{2502} M-r reload",
+    "\u{2502} C-l recenter",
+    "\u{2502} C-k kill-line",
+    "\u{2502} C-a line-start",
+    "\u{2502} C-e line-end",
+    "\u{2502} M-< buffer-start",
+    "\u{2502} M-> buffer-end",
+    "\u{2502} C-p up",
+    "\u{2502} C-n down",
+    "\u{2502} C-b left",
+    "\u{2502} C-f right",
+    "\u{2502} C-j newline",
+    "\u{2502} C-h backspace",
+    "\u{2502} C-d delete",
+    "\u{2502} C-/ undo",
 ];
 
 /// The legend rows for the grep context, in legend order.
 pub const GREP_LEGEND: &[&str] = &[
-    " C-g cancel",
-    " C-s next-hit",
-    " C-r prev-hit",
-    " C-y paste",
-    " C-a line-start",
-    " C-e line-end",
-    " C-b left",
-    " C-f right",
-    " C-h backspace",
-    " C-d delete",
+    "\u{2502} C-g cancel",
+    "\u{2502} C-s next-hit",
+    "\u{2502} C-r prev-hit",
+    "\u{2502} C-y paste",
+    "\u{2502} C-a line-start",
+    "\u{2502} C-e line-end",
+    "\u{2502} C-b left",
+    "\u{2502} C-f right",
+    "\u{2502} C-h backspace",
+    "\u{2502} C-d delete",
 ];
 
 /// The legend rows for the extension context, in legend order.
-pub const EXT_LEGEND: &[&str] = &[" C-g cancel", " C-s save"];
+pub const EXT_LEGEND: &[&str] = &["\u{2502} C-g cancel", "\u{2502} C-s save"];
 
 /// Returns the legend rows of `context`, in legend order.
 pub fn legend(context: Context) -> &'static [&'static str] {
@@ -73,17 +79,17 @@ pub fn legend(context: Context) -> &'static [&'static str] {
     }
 }
 
-/// The columns a rendered legend occupies, borders included.
+/// The columns a rendered legend occupies.
 ///
-/// The width is the widest row plus the two `│` borders, and the height is one
-/// row per binding plus one for the bottom border. Every row of the box is this
-/// wide, so a caller can size a frame to hold it whole.
+/// The width is the widest legend row, and the height is one row per binding
+/// plus one for the bottom border. Every row of the box is this wide, so a
+/// caller can size a frame to hold it whole.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LegendSize {
-    /// The box width in columns, including both `│` borders.
+    /// The box width in columns.
     pub cols: usize,
 
-    /// The box height in rows, including the `─` bottom border.
+    /// The box height in rows, the bottom border included.
     pub rows: usize,
 }
 
@@ -98,7 +104,7 @@ pub struct LegendSize {
 /// let room = tuinix::Size { rows: 40, cols: 100 };
 /// let ext = kk::legend_size(kk::Context::Ext, room);
 /// assert_eq!(ext.rows, 3);
-/// assert_eq!(ext.cols, 13);
+/// assert_eq!(ext.cols, 12);
 /// ```
 pub fn legend_size(context: Context, limit: tuinix::Size) -> LegendSize {
     let rows = legend(context).len() + 1;
@@ -106,8 +112,7 @@ pub fn legend_size(context: Context, limit: tuinix::Size) -> LegendSize {
         .iter()
         .map(|row| crate::terminal::str_cols(row))
         .max()
-        .unwrap_or(0)
-        + 2;
+        .unwrap_or(0);
     LegendSize {
         cols: cols.min(limit.cols),
         rows: rows.min(limit.rows),
