@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use mame::terminal::UnicodeTerminalFrame as TerminalFrame;
+use crate::terminal::UnicodeTerminalFrame as TerminalFrame;
 use orfail::OrFail;
 use tuinix::TerminalStyle;
 

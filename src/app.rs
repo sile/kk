@@ -1,51 +1,45 @@
 use std::path::PathBuf;
 
-use mame::terminal::UnicodeTerminalFrame as TerminalFrame;
 use orfail::OrFail;
 use tuinix::{Terminal, TerminalEvent, TerminalInput, TerminalRegion};
 
 use crate::{
     action::Action,
     anchor::CursorAnchorLog,
+    binding::{Bindings, Context},
     grep_mode::{GrepMode, GrepQueryRenderer, Highlight},
     message_line::MessageLineRenderer,
     state::State,
     status_line::StatusLineRenderer,
+    terminal::UnicodeTerminalFrame as TerminalFrame,
     text_area::TextAreaRenderer,
 };
 
 #[derive(Debug)]
 pub struct App {
     terminal: Terminal,
-    config: mame::action::BindingConfig<Action>,
-    context: mame::action::BindingContextName,
+    bindings: Bindings,
+    context: Context,
     state: State,
     anchor_log: CursorAnchorLog,
     text_area: TextAreaRenderer,
     message_line: MessageLineRenderer,
     status_line: StatusLineRenderer,
-    file_preview: Option<mame::preview::FilePreview>,
     exit: bool,
 }
 
 impl App {
     pub fn new(path: PathBuf) -> orfail::Result<Self> {
         let terminal = Terminal::new().or_fail()?;
-        let config = mame::action::BindingConfig::load_from_str(
-            "<DEFAULT>",
-            include_str!("../config.jsonc"),
-        )
-        .or_fail()?;
         Ok(Self {
             terminal,
             state: State::new(path).or_fail()?,
             anchor_log: CursorAnchorLog::default(),
-            context: config.initial_context().clone(),
-            config,
+            context: Context::Main,
+            bindings: Bindings::new(),
             text_area: TextAreaRenderer,
             message_line: MessageLineRenderer,
             status_line: StatusLineRenderer,
-            file_preview: None,
             exit: false,
         })
     }
@@ -83,18 +77,20 @@ impl App {
 
     fn handle_input(&mut self, input: TerminalInput) -> orfail::Result<()> {
         let Some(binding) = self
-            .config
-            .get_bindings(&self.context)
-            .and_then(|bindings| bindings.iter().find(|b| b.matches(input)))
+            .bindings
+            .get(self.context)
+            .iter()
+            .find(|b| b.matches(input))
         else {
             self.state
-                .set_message(format!("No action found: '{}'", mame::fmt::input(input)));
+                .set_message(format!("No action found: '{}'", crate::fmt::input(input)));
             return Ok(());
         };
 
-        let next_context = binding.context.clone();
+        let next_context = binding.context;
+        let action = binding.action.clone();
 
-        if let Some(action) = binding.action.clone() {
+        if let Some(action) = action {
             self.handle_action(action, input).or_fail()?;
         }
 
@@ -220,12 +216,6 @@ impl App {
             Action::CursorLeftSkipChars(c) => self.state.handle_cursor_left_skip_chars(&c.chars),
             Action::CursorRightSkipChars(c) => self.state.handle_cursor_right_skip_chars(&c.chars),
             Action::GrepReplaceHit => self.state.handle_grep_replace_hit().or_fail()?,
-            Action::FilePreviewOpen(spec) => {
-                self.file_preview = Some(mame::preview::FilePreview::new(&spec).or_fail()?);
-            }
-            Action::FilePreviewClose => {
-                self.file_preview = None;
-            }
         }
         Ok(())
     }
@@ -238,17 +228,11 @@ impl App {
     fn render(&mut self) -> orfail::Result<()> {
         let mut frame = TerminalFrame::new(self.terminal.size());
 
-        let mut preview = self.file_preview.take();
         let region = self.text_area_region();
         self.state.adjust_viewport(region.size);
         self.render_region(&mut frame, region, |frame| {
-            self.text_area.render(&self.state, frame).or_fail()?;
-            if let Some(preview) = &mut preview {
-                preview.render(frame).or_fail()?;
-            }
-            Ok(())
+            self.text_area.render(&self.state, frame).or_fail()
         })?;
-        self.file_preview = preview;
 
         let mut frame_region = frame.size().to_region();
         let mut grep_region = frame_region;
@@ -269,17 +253,6 @@ impl App {
         self.render_region(&mut frame, region, |frame| {
             self.message_line.render(&self.state, frame).or_fail()
         })?;
-
-        let legend = mame::legend::Legend::new(
-            self.context.get(),
-            self.config
-                .get_bindings(&self.context)
-                .into_iter()
-                .flatten()
-                .filter_map(|b| b.label.as_ref())
-                .map(|s| format!(" {s}")),
-        );
-        legend.render(&mut frame).or_fail()?;
 
         if let Some(grep) = &self.state.grep_mode {
             self.terminal

@@ -6,11 +6,10 @@ version = 4
 name = "kk"
 version = "0.0.1"
 dependencies = [
- "mame",
  "noargs",
- "nojson",
  "orfail",
  "tuinix",
+ "unicode-width",
 ]
 
 [[package]]
@@ -20,27 +19,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bcc35a38544a891a5f7c865aca548a982ccb3b8650a5b06d0fd33a10283c56fc"
 
 [[package]]
-name = "mame"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a15ad4453af7fb59762bdca7355bfa29d1670cf08f02969bbba7d38aa8af3128"
-dependencies = [
- "nojson",
- "tuinix",
- "unicode-width",
-]
-
-[[package]]
 name = "noargs"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e5dc223a8d69eaeb19c31218a69a55112fe79965764430f092532aed848f1b8"
-
-[[package]]
-name = "nojson"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20f9facf70a088279ffcf06cb5f897660ebd32621629b51872f4d4b25c77e494"
 
 [[package]]
 name = "orfail"
