@@ -74,16 +74,6 @@
         "action": [{"type": "line-delete"}]
       },
       {
-        "triggers": ["M-j"],
-        "label": "M-j: json-mode",
-        "context": "@json",
-      },
-      {
-        "triggers": ["M-u"],
-        "label": "M-u: rust-mode",
-        "context": "@rust",
-      },
-      {
         "triggers": ["C-x"],
         "label": "C-x: ext-mode",
         "context": "@ext",
@@ -109,45 +99,9 @@
         ]
       },
       {
-        "triggers": ["M-h"],
-        "label": "M-h: niho",
-        "action": [
-          {"type": "cursor-line-start"},
-          {"type": "mark-set"},
-          {"type": "cursor-line-end"},
-          {"type": "external-command", "command": "fish", "args": ["-c", "niho"]}
-        ]
-      },
-      {
-        "triggers": ["M-p"],
-        "label": "M-p: daberu-ret",
-        "action": [
-          {"type": "external-command", "command": "fish", "args": ["-c", "daberu -x last"]}
-        ]
-      },
-      {
         "triggers": ["M-l"],
         "label": "M-l: mark-line",
         "action": [{"type": "cursor-line-start"}, {"type": "mark-set"}, {"type": "cursor-line-end"}]
-      },
-      {
-        "triggers": ["C-t"],
-        "label": "C-t: check",
-        "action": [
-          {"type": "buffer-save"},
-          {
-            "type": "command",
-            "command": "cargo",
-            "args": ["check"],
-            "stdout": {"type": "file", "path": "target/stdout"},
-            "stderr": {"type": "file", "path": "target/stderr"},
-          },
-          {
-            "type": "file-preview-open",
-            "left-pane": {"file": "target/stdout"},
-            "right-pane": {"file": "target/stderr"},
-          }
-        ]
       },
       {
         "triggers": ["C-a"],
@@ -358,97 +312,6 @@
         "action": [{"type": "cursor-down-skip-spaces"}, {"type": "cancel"}],
         "context": "@main",
       }
-    ],
-    "@json": [
-      {
-        "triggers": ["C-g"],
-        "label": "C-g: cancel",
-        "action": [{"type": "cancel"}, {"type": "file-preview-close"}],
-        "context": "@main",
-      },
-      {
-        "triggers": ["f"],
-        "label": "f: jcfmt",
-        "action": [
-          {"type": "buffer-save"},
-          {"type": "external-command", "command": "fish", "args": ["-c", "cat $KK_CURRENT_FILE | jcfmt -o $KK_CURRENT_FILE"]},
-          {"type": "buffer-reload"},
-          {"type": "cursor-skip-spaces"},
-          {"type": "cancel"},
-          {"type": "echo", "message": "Formatted!"}
-        ],
-        "context": "@main",
-      }
-    ],
-    "@rust": [
-      {
-        "triggers": ["C-g"],
-        "label": "C-g: cancel",
-        "action": [{"type": "cancel"}, {"type": "file-preview-close"}],
-        "context": "@main",
-      },
-      {
-        "triggers": ["x"],
-        "label": "x: fix",
-        "action": [
-          {"type": "buffer-save"},
-          {
-            "type": "command",
-            "command": "cargo",
-            "args": ["fix", "--allow-dirty"],
-            "stdout": {"type": "file", "path": "target/stdout"},
-            "stderr": {"type": "file", "path": "target/stderr"},
-          },
-          {
-            "type": "file-preview-open",
-            "left-pane": {"file": "target/stdout"},
-            "right-pane": {"file": "target/stderr"},
-          },
-          {"type": "buffer-reload"},
-        ],
-        "context": "@main",
-      },
-      {
-        "triggers": ["c"],
-        "label": "c: clippy",
-        "action": [
-          {"type": "buffer-save"},
-          {
-            "type": "command",
-            "command": "cargo",
-            "args": ["clippy"],
-            "stdout": {"type": "file", "path": "target/stdout"},
-            "stderr": {"type": "file", "path": "target/stderr"},
-          },
-          {
-            "type": "file-preview-open",
-            "left-pane": {"file": "target/stdout"},
-            "right-pane": {"file": "target/stderr"},
-          },
-          {"type": "buffer-reload"},
-        ],
-        "context": "@main",
-      },
-      {
-        "triggers": ["t"],
-        "label": "t: test",
-        "action": [
-          {"type": "buffer-save"},
-          {
-            "type": "command",
-            "command": "cargo",
-            "args": ["test"],
-            "stdout": {"type": "file", "path": "target/stdout"},
-            "stderr": {"type": "file", "path": "target/stderr"},
-          },
-          {
-            "type": "file-preview-open",
-            "left-pane": {"file": "target/stdout"},
-            "right-pane": {"file": "target/stderr"},
-          }
-        ],
-        "context": "@main",
-      },
     ],
   }
 }
