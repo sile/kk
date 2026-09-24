@@ -26,7 +26,7 @@ mod status_line;
 mod terminal;
 mod text_area;
 
-pub use action::{Action, EchoAction, GrepAction, SkipChars};
+pub use action::{Action, EchoAction, GrepAction};
 pub use binding::{Context, Resolved, resolve};
 pub use buffer::{TextBuffer, TextLine, TextPosition};
 pub use clipboard::Clipboard;

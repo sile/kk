@@ -211,9 +211,6 @@ impl App {
                 let text_area_size = self.text_area_region().size;
                 self.state.handle_cursor_page_down(text_area_size);
             }
-            kk::Action::CursorSkipSpaces => self.state.handle_cursor_skip_spaces(),
-            kk::Action::CursorUpSkipSpaces => self.state.handle_cursor_up_skip_spaces(),
-            kk::Action::CursorDownSkipSpaces => self.state.handle_cursor_down_skip_spaces(),
             kk::Action::ViewRecenter => self.state.handle_view_recenter(),
             kk::Action::NewlineInsert => self.state.handle_newline_insert(),
             kk::Action::CharInsert => {
@@ -250,12 +247,6 @@ impl App {
                 } else {
                     self.state.set_message("No grep hits available");
                 }
-            }
-            kk::Action::CursorLeftSkipChars(c) => {
-                self.state.handle_cursor_left_skip_chars(&c.chars)
-            }
-            kk::Action::CursorRightSkipChars(c) => {
-                self.state.handle_cursor_right_skip_chars(&c.chars)
             }
         }
 

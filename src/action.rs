@@ -53,21 +53,6 @@ pub enum Action {
     /// Moves the cursor down by one visible page.
     CursorPageDown,
 
-    /// Moves the cursor past the run of spaces around it.
-    CursorSkipSpaces,
-
-    /// Moves the cursor up to the next line's first non-space column.
-    CursorUpSkipSpaces,
-
-    /// Moves the cursor down to the next line's first non-space column.
-    CursorDownSkipSpaces,
-
-    /// Moves the cursor left by the given characters.
-    CursorLeftSkipChars(SkipChars),
-
-    /// Moves the cursor right by the given characters.
-    CursorRightSkipChars(SkipChars),
-
     /// Scrolls so the cursor's line is vertically centered.
     ViewRecenter,
 
@@ -126,11 +111,4 @@ pub struct GrepAction {
 pub struct EchoAction {
     /// The text to show on the message line.
     pub message: String,
-}
-
-/// The characters a cursor-skipping action steps over.
-#[derive(Debug, Clone)]
-pub struct SkipChars {
-    /// The characters to skip, in the order they are consumed.
-    pub chars: String,
 }

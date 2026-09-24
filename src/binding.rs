@@ -1,6 +1,6 @@
 //! Input contexts and the `match`-based resolvers that map input to actions.
 
-use crate::action::{Action, EchoAction, GrepAction, SkipChars};
+use crate::action::{Action, EchoAction, GrepAction};
 
 /// Identifies one of the built-in input contexts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -13,9 +13,6 @@ pub enum Context {
 
     /// A context reserved for extensions.
     Ext,
-
-    /// The context active while a go-to line prompt is collecting input.
-    Goto,
 }
 
 /// What a single terminal input does: an action to run and a context to switch
@@ -45,7 +42,6 @@ pub fn resolve(context: Context, input: &tuinix::Input) -> Option<Resolved> {
         Context::Main => resolve_main(key),
         Context::Grep => resolve_grep(key),
         Context::Ext => resolve_ext(key),
-        Context::Goto => resolve_goto(key),
     }
 }
 
@@ -78,14 +74,6 @@ fn cancel() -> Resolved {
     then(Action::Cancel, Context::Main)
 }
 
-fn skip_chars(chars: &str) -> SkipChars {
-    SkipChars {
-        chars: chars.to_owned(),
-    }
-}
-
-const IDENT_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
-
 fn resolve_main(key: &tuinix::KeyInput) -> Option<Resolved> {
     let tuinix::KeyInput { ctrl, alt, code } = *key;
 
@@ -99,22 +87,10 @@ fn resolve_main(key: &tuinix::KeyInput) -> Option<Resolved> {
             then(Action::Grep(GrepAction { forward: true }), Context::Grep)
         }
         (true, false, tuinix::KeyCode::Char('x')) => only(Context::Ext),
-        (false, true, tuinix::KeyCode::Char('g')) => only(Context::Goto),
         (true, false, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
         (true, false, tuinix::KeyCode::Char('w')) => act(Action::MarkCut),
         (false, true, tuinix::KeyCode::Char('w')) => act(Action::MarkCopy),
         (false, true, tuinix::KeyCode::Char('r')) => act(Action::BufferReload),
-        (false, true, tuinix::KeyCode::Char('m')) => act(Action::Multiple(vec![
-            Action::CursorLeftSkipChars(skip_chars(IDENT_CHARS)),
-            Action::CursorRight,
-            Action::MarkSet,
-            Action::CursorRightSkipChars(skip_chars(IDENT_CHARS)),
-        ])),
-        (false, true, tuinix::KeyCode::Char('l')) => act(Action::Multiple(vec![
-            Action::CursorLineStart,
-            Action::MarkSet,
-            Action::CursorLineEnd,
-        ])),
         (false, true, tuinix::KeyCode::Char('<')) => act(Action::CursorBufferStart),
         (false, true, tuinix::KeyCode::Char('>')) => act(Action::CursorBufferEnd),
         (true, false, tuinix::KeyCode::Char('/' | 'u' | '\u{7f}')) => act(Action::BufferUndo),
@@ -160,17 +136,6 @@ fn resolve_grep(key: &tuinix::KeyInput) -> Option<Resolved> {
         (true, false, tuinix::KeyCode::Char('r')) => act(Action::GrepPrevHit),
         (false, false, tuinix::KeyCode::Tab) => act(Action::GrepNextHit),
         (false, false, tuinix::KeyCode::BackTab) => act(Action::GrepPrevHit),
-        (false, true, tuinix::KeyCode::Char('m')) => then(
-            Action::Multiple(vec![
-                Action::Cancel,
-                Action::CursorLeftSkipChars(skip_chars(IDENT_CHARS)),
-                Action::CursorRight,
-                Action::MarkSet,
-                Action::CursorRightSkipChars(skip_chars(IDENT_CHARS)),
-                Action::MarkCopy,
-            ]),
-            Context::Main,
-        ),
         (true, false, tuinix::KeyCode::Char('a')) => act(Action::CursorLineStart),
         (true, false, tuinix::KeyCode::Char('e')) => act(Action::CursorLineEnd),
         (true, false, tuinix::KeyCode::Char('d')) => act(Action::CharDeleteForward),
@@ -200,23 +165,6 @@ fn resolve_ext(key: &tuinix::KeyInput) -> Option<Resolved> {
                     message: "Saved!".to_owned(),
                 }),
             ]),
-            Context::Main,
-        ),
-        _ => return None,
-    })
-}
-
-fn resolve_goto(key: &tuinix::KeyInput) -> Option<Resolved> {
-    let tuinix::KeyInput { ctrl, alt, code } = *key;
-
-    Some(match (ctrl, alt, code) {
-        (true, false, tuinix::KeyCode::Char('g')) => cancel(),
-        (false, false, tuinix::KeyCode::Char('p')) => then(
-            Action::Multiple(vec![Action::CursorUpSkipSpaces, Action::Cancel]),
-            Context::Main,
-        ),
-        (false, false, tuinix::KeyCode::Char('n')) => then(
-            Action::Multiple(vec![Action::CursorDownSkipSpaces, Action::Cancel]),
             Context::Main,
         ),
         _ => return None,

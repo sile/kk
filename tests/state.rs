@@ -357,34 +357,3 @@ fn a_recenter_request_centres_the_cursor_and_is_consumed() {
     );
     assert!(!state.recenter_viewport, "the request is used once");
 }
-
-#[test]
-fn cursor_skip_spaces_stops_at_the_next_non_space() {
-    let mut state = state_of("a    b\n");
-    state.cursor = at(0, 1);
-
-    state.handle_cursor_skip_spaces();
-
-    assert_eq!(state.cursor, at(0, 5));
-}
-
-#[test]
-fn cursor_up_skip_spaces_falls_back_to_the_buffer_start() {
-    let mut state = state_of("  \n   \nx\n");
-    state.cursor = at(2, 0);
-
-    state.handle_cursor_up_skip_spaces();
-
-    assert_eq!(state.cursor, at(0, 0));
-}
-
-#[test]
-fn cursor_down_skip_spaces_falls_back_to_the_end_of_the_buffer() {
-    let mut state = state_of("x\n  \n   \n");
-    state.cursor = at(0, 0);
-
-    state.handle_cursor_down_skip_spaces();
-
-    assert_eq!(state.cursor.row, state.buffer.rows());
-    assert_eq!(state.cursor.col, 0);
-}

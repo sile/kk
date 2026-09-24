@@ -48,12 +48,7 @@ fn left_press() -> tuinix::MouseInput {
 }
 
 /// Every context the resolver knows about.
-const CONTEXTS: [kk::Context; 4] = [
-    kk::Context::Main,
-    kk::Context::Grep,
-    kk::Context::Ext,
-    kk::Context::Goto,
-];
+const CONTEXTS: [kk::Context; 3] = [kk::Context::Main, kk::Context::Grep, kk::Context::Ext];
 
 /// The key chords the built-in tables are expected to bind, gathered from the
 /// same vocabulary the tests below spell out.
@@ -82,10 +77,7 @@ fn built_in_keys() -> Vec<tuinix::KeyInput> {
         ctrl_key(' '),
         ctrl_key('`'),
         ctrl_key('\u{7f}'),
-        alt_key('g'),
         alt_key('r'),
-        alt_key('m'),
-        alt_key('l'),
         alt_key('w'),
         alt_key('<'),
         alt_key('>'),
@@ -195,24 +187,10 @@ fn ctrl_c_quits_the_main_context() {
 }
 
 #[test]
-fn goto_keys_are_not_plain_text_in_goto() {
-    // A bare `p` is text in Main but a jump in Goto: the catch-all for
-    // printable characters must not shadow Goto's own chords.
-    assert!(matches!(
-        action_of(kk::Context::Main, char_key('p')),
-        Some(kk::Action::CharInsert)
-    ));
-    assert!(!matches!(
-        action_of(kk::Context::Goto, char_key('p')),
-        Some(kk::Action::CharInsert)
-    ));
-}
-
-#[test]
 fn every_non_main_context_has_a_way_back_to_main() {
-    // Grep, Ext, and Goto are entered from Main, so a chord that cancels back
-    // to Main is what keeps them from trapping the editor.
-    for &context in &[kk::Context::Grep, kk::Context::Ext, kk::Context::Goto] {
+    // Grep and Ext are entered from Main, so a chord that cancels back to
+    // Main is what keeps them from trapping the editor.
+    for &context in &[kk::Context::Grep, kk::Context::Ext] {
         let returns = built_in_keys().into_iter().any(|key| {
             matches!(
                 kk::resolve(context, &tuinix::Input::Key(key)),
@@ -228,13 +206,13 @@ fn every_non_main_context_has_a_way_back_to_main() {
 
 #[test]
 fn each_context_resolves_its_own_chords() {
-    // Main has the kill-line chord; Goto does not.
+    // Main has the kill-line chord; Grep does not.
     assert!(action_of(kk::Context::Main, ctrl_key('k')).is_some());
-    assert!(action_of(kk::Context::Goto, ctrl_key('k')).is_none());
+    assert!(action_of(kk::Context::Grep, ctrl_key('k')).is_none());
 
-    // Goto has its own keys.
-    assert!(action_of(kk::Context::Goto, char_key('p')).is_some());
-    assert!(action_of(kk::Context::Goto, char_key('n')).is_some());
+    // Grep has its own keys, which Main does not.
+    assert!(action_of(kk::Context::Grep, code_key(tuinix::KeyCode::Tab)).is_some());
+    assert!(action_of(kk::Context::Main, code_key(tuinix::KeyCode::Tab)).is_none());
 }
 
 #[test]
