@@ -1,7 +1,6 @@
 //! The in-buffer search prompt and its highlight.
 
 use crate::terminal::{char_cols, put_str};
-use tuinix::{Frame, Position, Region, Style};
 
 use crate::{
     action::GrepAction,
@@ -40,7 +39,7 @@ impl GrepMode {
     ///
     /// The position accounts for the prompt's width and for every character
     /// before the cursor.
-    pub fn cursor_position(&self, region: Region) -> Position {
+    pub fn cursor_position(&self, region: tuinix::Region) -> tuinix::Position {
         let mut pos = region.position;
         pos.col += crate::terminal::str_cols(PROMPT);
         for ch in self.query.iter().take(self.cursor) {
@@ -162,13 +161,13 @@ impl GrepQueryRenderer {
     ///
     /// Panics if [`State::grep_mode`] is `None`, since there is then no query
     /// to paint.
-    pub fn render(&self, state: &State, frame: &mut Frame) {
+    pub fn render(&self, state: &State, frame: &mut tuinix::Frame) {
         let Some(grep) = &state.grep_mode else {
             unreachable!();
         };
 
         let query: String = grep.query.iter().collect();
         let text = format!("{PROMPT}{query}");
-        put_str(frame, Position::ORIGIN, &text, Style::new());
+        put_str(frame, tuinix::Position::ORIGIN, &text, tuinix::Style::new());
     }
 }

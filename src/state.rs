@@ -7,8 +7,6 @@
 
 use std::{collections::VecDeque, path::PathBuf};
 
-use tuinix::{KeyCode, Position, Size};
-
 use crate::{
     buffer::{TextBuffer, TextPosition},
     clipboard::Clipboard,
@@ -97,11 +95,11 @@ impl State {
 
     /// Returns the cursor's position relative to the visible text area, which
     /// is where the terminal cursor belongs.
-    pub fn terminal_cursor_position(&self) -> Position {
+    pub fn terminal_cursor_position(&self) -> tuinix::Position {
         let pos = self.cursor_position();
         let screen_row = pos.row.saturating_sub(self.viewport.row);
         let screen_col = pos.col.saturating_sub(self.viewport.col);
-        Position {
+        tuinix::Position {
             row: screen_row,
             col: screen_col,
         }
@@ -116,7 +114,7 @@ impl State {
     ///
     /// When [`recenter_viewport`](State::recenter_viewport) is set, the cursor
     /// is centered instead and the flag is cleared.
-    pub fn adjust_viewport(&mut self, text_area_size: Size) {
+    pub fn adjust_viewport(&mut self, text_area_size: tuinix::Size) {
         let cursor_pos = self.cursor_position();
         let available_rows = text_area_size.rows;
         let available_cols = text_area_size.cols;
@@ -370,7 +368,7 @@ impl State {
 
         self.start_editing();
         // Only insert printable characters
-        if let KeyCode::Char(ch) = key.code
+        if let tuinix::KeyCode::Char(ch) = key.code
             && !ch.is_control()
         {
             self.cursor = self.buffer.insert_char_at(self.cursor, ch);
@@ -734,13 +732,13 @@ impl State {
     }
 
     /// Moves the cursor up by one page of `text_area_size` rows.
-    pub fn handle_cursor_page_up(&mut self, text_area_size: Size) {
+    pub fn handle_cursor_page_up(&mut self, text_area_size: tuinix::Size) {
         self.finish_editing();
         self.cursor.row = self.cursor.row.saturating_sub(text_area_size.rows);
     }
 
     /// Moves the cursor down by one page of `text_area_size` rows.
-    pub fn handle_cursor_page_down(&mut self, text_area_size: Size) {
+    pub fn handle_cursor_page_down(&mut self, text_area_size: tuinix::Size) {
         self.finish_editing();
         let max_row = self.buffer.rows();
         self.cursor.row = (self.cursor.row + text_area_size.rows).min(max_row);

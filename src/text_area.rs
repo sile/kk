@@ -1,7 +1,6 @@
 //! Paints the buffer text.
 
 use crate::terminal::put_str;
-use tuinix::{Frame, Position, Style};
 
 use crate::{buffer::TextLine, buffer::TextPosition, state::State};
 
@@ -13,7 +12,7 @@ pub struct TextAreaRenderer;
 impl TextAreaRenderer {
     /// Paints the buffer rows that fall inside `frame`, starting at
     /// [`State::viewport`].
-    pub fn render(&self, state: &State, frame: &mut Frame) {
+    pub fn render(&self, state: &State, frame: &mut tuinix::Frame) {
         let available_rows = frame.size().rows;
 
         // Render visible lines from the buffer starting at viewport position
@@ -38,7 +37,7 @@ impl TextAreaRenderer {
         &self,
         line: &TextLine,
         start_col: usize,
-        frame: &mut Frame,
+        frame: &mut tuinix::Frame,
         state: &State,
         line_row: usize,
         screen_row: usize,
@@ -64,7 +63,7 @@ impl TextAreaRenderer {
                     .is_some_and(|(start, end)| current_col >= *start && current_col < *end);
                 let is_highlighted = state.highlight.contains(pos);
 
-                let mut style = Style::new();
+                let mut style = tuinix::Style::new();
                 if is_marked {
                     style = style.reverse();
                 }
@@ -78,7 +77,7 @@ impl TextAreaRenderer {
                         style = style.underline();
                     }
                 }
-                let at = Position {
+                let at = tuinix::Position {
                     row: screen_row,
                     col: current_col - start_col,
                 };

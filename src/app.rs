@@ -1,9 +1,9 @@
 //! The I/O edge: poll loop, raw terminal, file access, and frame diffing.
 //!
 //! This module is compiled into the binary only (`mod app;` in `main.rs`); the
-//! library stays Sans I/O. It owns the [`TerminalDriver`], and it is the one
-//! place that reads the edited file, writes it back on save, and reads input
-//! from and paints frames to the terminal. The [`kk`] core it drives takes
+//! library stays Sans I/O. It owns the [`tuinix::TerminalDriver`], and it is the
+//! one place that reads the edited file, writes it back on save, and reads
+//! input from and paints frames to the terminal. The [`kk`] core it drives takes
 //! plain values and returns plain values, and never calls back into here.
 //!
 //! The one timeout is for the lone `ESC` byte: `tuinix`'s decoder holds it back
@@ -13,12 +13,6 @@
 use std::io::{Read, Write};
 use std::path::Path;
 
-use kk::{
-    Action, Bindings, Context, GrepMode, GrepQueryRenderer, Highlight, MessageLineRenderer, State,
-    StatusLineRenderer, TextAreaRenderer, TextBuffer,
-};
-use tuinix::{Frame, Input, InputDecoder, Region, TerminalDriver};
-
 /// How long to wait for the rest of an escape sequence before a lone `ESC` byte
 /// is treated as the Escape key.
 const ESCAPE_TIMEOUT_MS: libc::c_int = 50;
@@ -26,15 +20,15 @@ const ESCAPE_TIMEOUT_MS: libc::c_int = 50;
 /// Owns the terminal edge and drives the core until the user quits.
 #[derive(Debug)]
 pub struct App {
-    driver: TerminalDriver,
-    input: InputDecoder,
-    prev_frame: Option<Frame>,
-    bindings: Bindings,
-    context: Context,
-    state: State,
-    text_area: TextAreaRenderer,
-    message_line: MessageLineRenderer,
-    status_line: StatusLineRenderer,
+    driver: tuinix::TerminalDriver,
+    input: tuinix::InputDecoder,
+    prev_frame: Option<tuinix::Frame>,
+    bindings: kk::Bindings,
+    context: kk::Context,
+    state: kk::State,
+    text_area: kk::TextAreaRenderer,
+    message_line: kk::MessageLineRenderer,
+    status_line: kk::StatusLineRenderer,
     exit: bool,
 }
 
@@ -42,24 +36,25 @@ impl App {
     /// Reads `path` from disk and takes over the terminal.
     ///
     /// Reading the file here keeps the core free of the file system: the core is
-    /// handed an already-loaded [`TextBuffer`], and only remembers `path` as data
+    /// handed an already-loaded [`TextBuffer`](kk::TextBuffer), and only remembers
+    /// `path` as data
     /// for the status line and for later saves.
     pub fn new(path: impl AsRef<Path>) -> std::io::Result<Self> {
         let path = path.as_ref().to_path_buf();
         let text = std::fs::read_to_string(&path)?;
-        let buffer = TextBuffer::from_text(&text);
+        let buffer = kk::TextBuffer::from_text(&text);
 
-        let driver = TerminalDriver::new()?;
+        let driver = tuinix::TerminalDriver::new()?;
         Ok(Self {
             driver,
-            input: InputDecoder::new(),
+            input: tuinix::InputDecoder::new(),
             prev_frame: None,
-            state: State::new(path, buffer),
-            context: Context::Main,
-            bindings: Bindings::new(),
-            text_area: TextAreaRenderer,
-            message_line: MessageLineRenderer,
-            status_line: StatusLineRenderer,
+            state: kk::State::new(path, buffer),
+            context: kk::Context::Main,
+            bindings: kk::Bindings::new(),
+            text_area: kk::TextAreaRenderer,
+            message_line: kk::MessageLineRenderer,
+            status_line: kk::StatusLineRenderer,
             exit: false,
         })
     }
@@ -146,7 +141,7 @@ impl App {
         Ok(())
     }
 
-    fn handle_input(&mut self, input: Input) -> std::io::Result<()> {
+    fn handle_input(&mut self, input: tuinix::Input) -> std::io::Result<()> {
         let Some(binding) = self
             .bindings
             .get(self.context)
@@ -172,88 +167,92 @@ impl App {
         Ok(())
     }
 
-    /// Carries out a core [`Action`] at the edge.
+    /// Carries out a core [`Action`](kk::Action) at the edge.
     ///
     /// It returns [`std::io::Result`] because a few actions touch the file
     /// system (save and reload); every other arm is infallible and simply does
     /// not use `?`.
-    fn handle_action(&mut self, action: Action, input: &Input) -> std::io::Result<()> {
+    fn handle_action(&mut self, action: kk::Action, input: &tuinix::Input) -> std::io::Result<()> {
         match action {
-            Action::Multiple(actions) => {
+            kk::Action::Multiple(actions) => {
                 for action in actions {
                     self.handle_action(action, input)?;
                 }
             }
-            Action::Quit => {
+            kk::Action::Quit => {
                 self.exit = true;
             }
-            Action::Cancel => {
+            kk::Action::Cancel => {
                 self.state.mark = None;
                 self.state.grep_mode = None;
-                self.state.highlight = Highlight::default();
+                self.state.highlight = kk::Highlight::default();
                 self.state.set_message("Canceled");
             }
-            Action::BufferSave => self.handle_buffer_save()?,
-            Action::BufferReload => self.handle_buffer_reload()?,
-            Action::BufferUndo => self.state.handle_buffer_undo(),
-            Action::CursorUp => self.state.handle_cursor_up(),
-            Action::CursorDown => self.state.handle_cursor_down(),
-            Action::CursorLeft => self.state.handle_cursor_left(),
-            Action::CursorRight => self.state.handle_cursor_right(),
-            Action::CursorLineStart => self.state.handle_cursor_line_start(),
-            Action::CursorLineEnd => self.state.handle_cursor_line_end(),
-            Action::CursorBufferStart => self.state.handle_cursor_buffer_start(),
-            Action::CursorBufferEnd => self.state.handle_cursor_buffer_end(),
-            Action::CursorPageUp => {
+            kk::Action::BufferSave => self.handle_buffer_save()?,
+            kk::Action::BufferReload => self.handle_buffer_reload()?,
+            kk::Action::BufferUndo => self.state.handle_buffer_undo(),
+            kk::Action::CursorUp => self.state.handle_cursor_up(),
+            kk::Action::CursorDown => self.state.handle_cursor_down(),
+            kk::Action::CursorLeft => self.state.handle_cursor_left(),
+            kk::Action::CursorRight => self.state.handle_cursor_right(),
+            kk::Action::CursorLineStart => self.state.handle_cursor_line_start(),
+            kk::Action::CursorLineEnd => self.state.handle_cursor_line_end(),
+            kk::Action::CursorBufferStart => self.state.handle_cursor_buffer_start(),
+            kk::Action::CursorBufferEnd => self.state.handle_cursor_buffer_end(),
+            kk::Action::CursorPageUp => {
                 let text_area_size = self.text_area_region().size;
                 self.state.handle_cursor_page_up(text_area_size);
             }
-            Action::CursorPageDown => {
+            kk::Action::CursorPageDown => {
                 let text_area_size = self.text_area_region().size;
                 self.state.handle_cursor_page_down(text_area_size);
             }
-            Action::CursorSkipSpaces => self.state.handle_cursor_skip_spaces(),
-            Action::CursorUpSkipSpaces => self.state.handle_cursor_up_skip_spaces(),
-            Action::CursorDownSkipSpaces => self.state.handle_cursor_down_skip_spaces(),
-            Action::ViewRecenter => self.state.handle_view_recenter(),
-            Action::NewlineInsert => self.state.handle_newline_insert(),
-            Action::CharInsert => {
-                if let Input::Key(key) = input {
+            kk::Action::CursorSkipSpaces => self.state.handle_cursor_skip_spaces(),
+            kk::Action::CursorUpSkipSpaces => self.state.handle_cursor_up_skip_spaces(),
+            kk::Action::CursorDownSkipSpaces => self.state.handle_cursor_down_skip_spaces(),
+            kk::Action::ViewRecenter => self.state.handle_view_recenter(),
+            kk::Action::NewlineInsert => self.state.handle_newline_insert(),
+            kk::Action::CharInsert => {
+                if let tuinix::Input::Key(key) = input {
                     self.state.handle_char_insert(*key);
                 }
             }
-            Action::CharDeleteBackward => self.state.handle_char_delete_backward(),
-            Action::CharDeleteForward => self.state.handle_char_delete_forward(),
-            Action::LineDelete => self.state.handle_line_delete(),
-            Action::MarkSet => self.state.handle_mark_set(),
-            Action::MarkCopy => self.state.handle_mark_copy(),
-            Action::MarkCut => self.state.handle_mark_cut(),
-            Action::ClipboardPaste => self.state.handle_clipboard_paste(),
-            Action::Echo(m) => {
+            kk::Action::CharDeleteBackward => self.state.handle_char_delete_backward(),
+            kk::Action::CharDeleteForward => self.state.handle_char_delete_forward(),
+            kk::Action::LineDelete => self.state.handle_line_delete(),
+            kk::Action::MarkSet => self.state.handle_mark_set(),
+            kk::Action::MarkCopy => self.state.handle_mark_copy(),
+            kk::Action::MarkCut => self.state.handle_mark_cut(),
+            kk::Action::ClipboardPaste => self.state.handle_clipboard_paste(),
+            kk::Action::Echo(m) => {
                 self.state.set_message(&m.message);
             }
-            Action::Grep(action) => {
+            kk::Action::Grep(action) => {
                 self.state.finish_editing();
-                self.state.grep_mode = Some(GrepMode::new(action));
+                self.state.grep_mode = Some(kk::GrepMode::new(action));
                 self.state.mark = None;
                 self.state.set_message("Entered grep mode");
             }
-            Action::GrepNextHit => {
+            kk::Action::GrepNextHit => {
                 if !self.state.highlight.items.is_empty() {
                     self.state.handle_grep_next_hit();
                 } else {
                     self.state.set_message("No grep hits available");
                 }
             }
-            Action::GrepPrevHit => {
+            kk::Action::GrepPrevHit => {
                 if !self.state.highlight.items.is_empty() {
                     self.state.handle_grep_prev_hit();
                 } else {
                     self.state.set_message("No grep hits available");
                 }
             }
-            Action::CursorLeftSkipChars(c) => self.state.handle_cursor_left_skip_chars(&c.chars),
-            Action::CursorRightSkipChars(c) => self.state.handle_cursor_right_skip_chars(&c.chars),
+            kk::Action::CursorLeftSkipChars(c) => {
+                self.state.handle_cursor_left_skip_chars(&c.chars)
+            }
+            kk::Action::CursorRightSkipChars(c) => {
+                self.state.handle_cursor_right_skip_chars(&c.chars)
+            }
         }
 
         Ok(())
@@ -277,13 +276,13 @@ impl App {
         Ok(())
     }
 
-    fn text_area_region(&self) -> Region {
+    fn text_area_region(&self) -> tuinix::Region {
         let footer_rows = if self.state.grep_mode.is_some() { 3 } else { 2 };
         self.driver.size().to_region().drop_bottom(footer_rows)
     }
 
     fn render(&mut self) -> std::io::Result<()> {
-        let mut frame = Frame::new(self.driver.size());
+        let mut frame = tuinix::Frame::new(self.driver.size());
 
         let region = self.text_area_region();
         self.state.adjust_viewport(region.size);
@@ -296,7 +295,7 @@ impl App {
         if self.state.grep_mode.is_some() {
             grep_region = frame_region.take_bottom(1);
             self.render_region(&mut frame, grep_region, |frame| {
-                GrepQueryRenderer.render(&self.state, frame)
+                kk::GrepQueryRenderer.render(&self.state, frame)
             });
             frame_region = frame_region.drop_bottom(1);
         }
@@ -326,11 +325,11 @@ impl App {
         Ok(())
     }
 
-    fn render_region<F>(&self, frame: &mut Frame, region: Region, f: F)
+    fn render_region<F>(&self, frame: &mut tuinix::Frame, region: tuinix::Region, f: F)
     where
-        F: FnOnce(&mut Frame),
+        F: FnOnce(&mut tuinix::Frame),
     {
-        let mut sub_frame = Frame::new(region.size);
+        let mut sub_frame = tuinix::Frame::new(region.size);
         f(&mut sub_frame);
         frame.put_frame(region.position, &sub_frame);
     }

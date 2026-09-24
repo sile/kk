@@ -1,7 +1,6 @@
 //! Paints the status line.
 
 use crate::terminal::put_str;
-use tuinix::{Frame, Position, Style};
 
 use crate::state::State;
 
@@ -16,8 +15,8 @@ pub struct StatusLineRenderer;
 
 impl StatusLineRenderer {
     /// Paints the status line into `frame`.
-    pub fn render(&self, state: &State, frame: &mut Frame) {
-        let style = Style::new().reverse().bold();
+    pub fn render(&self, state: &State, frame: &mut tuinix::Frame) {
+        let style = tuinix::Style::new().reverse().bold();
 
         let dirty = if state.buffer.dirty { '*' } else { ' ' };
         let path = state.path.display();
@@ -37,6 +36,6 @@ impl StatusLineRenderer {
         );
         // Pad the whole row so the reverse style covers it.
         let padded = format!("{text:<width$}", width = frame.size().cols);
-        put_str(frame, Position::ORIGIN, &padded, style);
+        put_str(frame, tuinix::Position::ORIGIN, &padded, style);
     }
 }

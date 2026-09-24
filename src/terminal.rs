@@ -1,7 +1,5 @@
 //! Unicode-aware terminal utilities for character width calculation and rendering.
 
-use tuinix::{Char, Frame, Position, Style};
-
 /// Calculates the display width of a string in terminal columns.
 pub fn str_cols(s: &str) -> usize {
     unicode_width::UnicodeWidthStr::width(s)
@@ -20,7 +18,12 @@ pub fn char_cols(c: char) -> usize {
 ///
 /// Newlines move to the next row, tabs advance to the next tab stop, and other
 /// control characters are skipped. Characters whose width is zero are ignored.
-pub fn put_str(frame: &mut Frame, at: Position, text: &str, style: Style) -> Position {
+pub fn put_str(
+    frame: &mut tuinix::Frame,
+    at: tuinix::Position,
+    text: &str,
+    style: tuinix::Style,
+) -> tuinix::Position {
     let mut at = at;
     for c in text.chars() {
         match c {
@@ -32,7 +35,7 @@ pub fn put_str(frame: &mut Frame, at: Position, text: &str, style: Style) -> Pos
             }
             c => {
                 let width = char_cols(c);
-                let Some(ch) = Char::new(c, width, style) else {
+                let Some(ch) = tuinix::Char::new(c, width, style) else {
                     continue;
                 };
                 at = frame.put_char(at, ch);

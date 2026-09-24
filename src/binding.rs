@@ -1,7 +1,5 @@
 //! Hard-coded input bindings.
 
-use tuinix::{KeyCode, KeyInput};
-
 use crate::action::Action;
 
 /// Identifies one of the built-in input contexts.
@@ -24,7 +22,7 @@ pub enum Context {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputMatcher {
     /// Matches an exact key combination.
-    Key(KeyInput),
+    Key(tuinix::KeyInput),
 
     /// Matches any printable character.
     Printable,
@@ -40,10 +38,10 @@ impl InputMatcher {
             tuinix::Input::Key(key) => match self {
                 InputMatcher::Key(k) => k == *key,
                 InputMatcher::Printable => {
-                    matches!(key, KeyInput {
+                    matches!(key, tuinix::KeyInput {
                         ctrl: false,
                         alt: false,
-                        code: KeyCode::Char(ch),
+                        code: tuinix::KeyCode::Char(ch),
                     } if !ch.is_control())
                 }
                 InputMatcher::Mouse(_) => false,
@@ -98,23 +96,23 @@ impl std::str::FromStr for InputMatcher {
         }
 
         // Handle special keys.
-        let key = |code| InputMatcher::Key(KeyInput { ctrl, alt, code });
+        let key = |code| InputMatcher::Key(tuinix::KeyInput { ctrl, alt, code });
         match remaining {
-            "<UP>" => return Ok(key(KeyCode::Up)),
-            "<DOWN>" => return Ok(key(KeyCode::Down)),
-            "<LEFT>" => return Ok(key(KeyCode::Left)),
-            "<RIGHT>" => return Ok(key(KeyCode::Right)),
-            "<ENTER>" => return Ok(key(KeyCode::Enter)),
-            "<ESCAPE>" => return Ok(key(KeyCode::Escape)),
-            "<BACKSPACE>" => return Ok(key(KeyCode::Backspace)),
-            "<TAB>" => return Ok(key(KeyCode::Tab)),
-            "<BACKTAB>" => return Ok(key(KeyCode::BackTab)),
-            "<DELETE>" => return Ok(key(KeyCode::Delete)),
-            "<INSERT>" => return Ok(key(KeyCode::Insert)),
-            "<HOME>" => return Ok(key(KeyCode::Home)),
-            "<END>" => return Ok(key(KeyCode::End)),
-            "<PAGEUP>" => return Ok(key(KeyCode::PageUp)),
-            "<PAGEDOWN>" => return Ok(key(KeyCode::PageDown)),
+            "<UP>" => return Ok(key(tuinix::KeyCode::Up)),
+            "<DOWN>" => return Ok(key(tuinix::KeyCode::Down)),
+            "<LEFT>" => return Ok(key(tuinix::KeyCode::Left)),
+            "<RIGHT>" => return Ok(key(tuinix::KeyCode::Right)),
+            "<ENTER>" => return Ok(key(tuinix::KeyCode::Enter)),
+            "<ESCAPE>" => return Ok(key(tuinix::KeyCode::Escape)),
+            "<BACKSPACE>" => return Ok(key(tuinix::KeyCode::Backspace)),
+            "<TAB>" => return Ok(key(tuinix::KeyCode::Tab)),
+            "<BACKTAB>" => return Ok(key(tuinix::KeyCode::BackTab)),
+            "<DELETE>" => return Ok(key(tuinix::KeyCode::Delete)),
+            "<INSERT>" => return Ok(key(tuinix::KeyCode::Insert)),
+            "<HOME>" => return Ok(key(tuinix::KeyCode::Home)),
+            "<END>" => return Ok(key(tuinix::KeyCode::End)),
+            "<PAGEUP>" => return Ok(key(tuinix::KeyCode::PageUp)),
+            "<PAGEDOWN>" => return Ok(key(tuinix::KeyCode::PageDown)),
             _ => {}
         }
 
@@ -123,14 +121,14 @@ impl std::str::FromStr for InputMatcher {
         if let Some(ch) = chars.next()
             && chars.next().is_none()
         {
-            return Ok(key(KeyCode::Char(ch)));
+            return Ok(key(tuinix::KeyCode::Char(ch)));
         }
 
         // Handle hex notation for control chars such as 0x7f.
         if let Some(hex_str) = remaining.strip_prefix("0x") {
             return match u32::from_str_radix(hex_str, 16) {
                 Ok(code_point) => match char::from_u32(code_point) {
-                    Some(ch) => Ok(key(KeyCode::Char(ch))),
+                    Some(ch) => Ok(key(tuinix::KeyCode::Char(ch))),
                     None => Err(format!("invalid Unicode code point: 0x{code_point:x}")),
                 },
                 Err(_) => Err(format!("invalid hex notation: {remaining}")),
@@ -154,24 +152,24 @@ impl std::fmt::Display for InputMatcher {
                 }
 
                 match key.code {
-                    KeyCode::Up => write!(f, "<UP>"),
-                    KeyCode::Down => write!(f, "<DOWN>"),
-                    KeyCode::Left => write!(f, "<LEFT>"),
-                    KeyCode::Right => write!(f, "<RIGHT>"),
-                    KeyCode::Enter => write!(f, "<ENTER>"),
-                    KeyCode::Escape => write!(f, "<ESCAPE>"),
-                    KeyCode::Backspace => write!(f, "<BACKSPACE>"),
-                    KeyCode::Tab => write!(f, "<TAB>"),
-                    KeyCode::BackTab => write!(f, "<BACKTAB>"),
-                    KeyCode::Delete => write!(f, "<DELETE>"),
-                    KeyCode::Insert => write!(f, "<INSERT>"),
-                    KeyCode::Home => write!(f, "<HOME>"),
-                    KeyCode::End => write!(f, "<END>"),
-                    KeyCode::PageUp => write!(f, "<PAGEUP>"),
-                    KeyCode::PageDown => write!(f, "<PAGEDOWN>"),
-                    KeyCode::F(n) => write!(f, "<F{n}>"),
-                    KeyCode::Char(ch) if ch.is_control() => write!(f, "0x{:x}", ch as u32),
-                    KeyCode::Char(ch) => write!(f, "{ch}"),
+                    tuinix::KeyCode::Up => write!(f, "<UP>"),
+                    tuinix::KeyCode::Down => write!(f, "<DOWN>"),
+                    tuinix::KeyCode::Left => write!(f, "<LEFT>"),
+                    tuinix::KeyCode::Right => write!(f, "<RIGHT>"),
+                    tuinix::KeyCode::Enter => write!(f, "<ENTER>"),
+                    tuinix::KeyCode::Escape => write!(f, "<ESCAPE>"),
+                    tuinix::KeyCode::Backspace => write!(f, "<BACKSPACE>"),
+                    tuinix::KeyCode::Tab => write!(f, "<TAB>"),
+                    tuinix::KeyCode::BackTab => write!(f, "<BACKTAB>"),
+                    tuinix::KeyCode::Delete => write!(f, "<DELETE>"),
+                    tuinix::KeyCode::Insert => write!(f, "<INSERT>"),
+                    tuinix::KeyCode::Home => write!(f, "<HOME>"),
+                    tuinix::KeyCode::End => write!(f, "<END>"),
+                    tuinix::KeyCode::PageUp => write!(f, "<PAGEUP>"),
+                    tuinix::KeyCode::PageDown => write!(f, "<PAGEDOWN>"),
+                    tuinix::KeyCode::F(n) => write!(f, "<F{n}>"),
+                    tuinix::KeyCode::Char(ch) if ch.is_control() => write!(f, "0x{:x}", ch as u32),
+                    tuinix::KeyCode::Char(ch) => write!(f, "{ch}"),
                 }
             }
             Self::Mouse(mouse) => match mouse {

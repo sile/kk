@@ -1,7 +1,6 @@
 //! Paints the message line.
 
 use crate::terminal::put_str;
-use tuinix::{Frame, Position, Style};
 
 use crate::state::State;
 
@@ -13,10 +12,15 @@ pub struct MessageLineRenderer;
 
 impl MessageLineRenderer {
     /// Paints the pending message, if any, into `frame`.
-    pub fn render(&self, state: &State, frame: &mut Frame) {
+    pub fn render(&self, state: &State, frame: &mut tuinix::Frame) {
         let Some(message) = &state.message else {
             return;
         };
-        put_str(frame, Position::ORIGIN, message, Style::new());
+        put_str(
+            frame,
+            tuinix::Position::ORIGIN,
+            message,
+            tuinix::Style::new(),
+        );
     }
 }
