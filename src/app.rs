@@ -28,6 +28,7 @@ pub struct App {
     text_area: kk::TextAreaRenderer,
     message_line: kk::MessageLineRenderer,
     status_line: kk::StatusLineRenderer,
+    legend: kk::LegendRenderer,
     exit: bool,
 }
 
@@ -69,6 +70,7 @@ impl App {
             text_area: kk::TextAreaRenderer,
             message_line: kk::MessageLineRenderer,
             status_line: kk::StatusLineRenderer,
+            legend: kk::LegendRenderer,
             exit: false,
         })
     }
@@ -292,6 +294,8 @@ impl App {
         self.render_region(&mut frame, region, |frame| {
             self.message_line.render(&self.state, frame)
         });
+
+        self.legend.render(self.context, &mut frame);
 
         let cursor = if let Some(grep) = &self.state.grep_mode {
             Some(grep.cursor_position(grep_region))

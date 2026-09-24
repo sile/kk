@@ -2,6 +2,118 @@
 
 use crate::action::{Action, GrepAction};
 
+/// The title the legend shows for `context`.
+///
+/// This is the context spelled out, so the box is labelled `main` or `grep`
+/// rather than by an enum name. It is centered in the bottom border, and a title
+/// too wide for the box is dropped.
+pub fn title(context: Context) -> &'static str {
+    match context {
+        Context::Main => "main",
+        Context::Grep => "grep",
+        Context::Ext => "ext",
+    }
+}
+
+/// The legend rows for the main context, in legend order.
+///
+/// Each row is the text between the box's left and right borders, written out as
+/// the user reads it: the chord, the spaces that separate it from its label, and
+/// the label. The bindings are hard-coded, so this table is too, and the two are
+/// kept in step by hand.
+pub const MAIN_LEGEND: &[&str] = &[
+    " C-c quit",
+    " C-g cancel",
+    " C-r rgrep",
+    " C-s grep",
+    " C-x ext",
+    " C-y paste",
+    " C-w cut",
+    " C-  mark",
+    " M-r reload",
+    " C-l recenter",
+    " C-k kill-line",
+    " C-a line-start",
+    " C-e line-end",
+    " M-< buffer-start",
+    " M-> buffer-end",
+    " C-p up",
+    " C-n down",
+    " C-b left",
+    " C-f right",
+    " C-j newline",
+    " C-h backspace",
+    " C-d delete",
+    " C-/ undo",
+];
+
+/// The legend rows for the grep context, in legend order.
+pub const GREP_LEGEND: &[&str] = &[
+    " C-g cancel",
+    " C-s next-hit",
+    " C-r prev-hit",
+    " C-y paste",
+    " C-a line-start",
+    " C-e line-end",
+    " C-b left",
+    " C-f right",
+    " C-h backspace",
+    " C-d delete",
+];
+
+/// The legend rows for the extension context, in legend order.
+pub const EXT_LEGEND: &[&str] = &[" C-g cancel", " C-s save"];
+
+/// Returns the legend rows of `context`, in legend order.
+pub fn legend(context: Context) -> &'static [&'static str] {
+    match context {
+        Context::Main => MAIN_LEGEND,
+        Context::Grep => GREP_LEGEND,
+        Context::Ext => EXT_LEGEND,
+    }
+}
+
+/// The columns a rendered legend occupies, borders included.
+///
+/// The width is the widest row plus the two `│` borders, and the height is one
+/// row per binding plus one for the bottom border. Every row of the box is this
+/// wide, so a caller can size a frame to hold it whole.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LegendSize {
+    /// The box width in columns, including both `│` borders.
+    pub cols: usize,
+
+    /// The box height in rows, including the `─` bottom border.
+    pub rows: usize,
+}
+
+/// Returns the size the legend of `context` needs, limited to `limit`.
+///
+/// A limit smaller than the legend reports the limit, so a caller that compares
+/// the result against the limit can tell the legend was clipped.
+///
+/// # Examples
+///
+/// ```
+/// let room = tuinix::Size { rows: 40, cols: 100 };
+/// let ext = kk::legend_size(kk::Context::Ext, room);
+/// assert_eq!(ext.rows, 3);
+/// assert_eq!(ext.cols, 13);
+/// ```
+pub fn legend_size(context: Context, limit: tuinix::Size) -> LegendSize {
+    let rows = legend(context).len() + 1;
+    let cols = legend(context)
+        .iter()
+        .map(|row| crate::terminal::str_cols(row))
+        .max()
+        .unwrap_or(0)
+        + 2;
+    LegendSize {
+        cols: cols.min(limit.cols),
+        rows: rows.min(limit.rows),
+    }
+}
+
 /// Identifies one of the built-in input contexts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Context {
