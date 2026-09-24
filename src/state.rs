@@ -367,8 +367,11 @@ impl State {
         }
 
         self.start_editing();
-        // Only insert printable characters
+        // Only insert printable characters, matching `InputMatcher::Printable`:
+        // a ctrl or alt chord is a binding, not text.
         if let tuinix::KeyCode::Char(ch) = key.code
+            && !key.ctrl
+            && !key.alt
             && !ch.is_control()
         {
             self.cursor = self.buffer.insert_char_at(self.cursor, ch);

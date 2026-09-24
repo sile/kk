@@ -8,6 +8,7 @@ version = "0.0.1"
 dependencies = [
  "libc",
  "noargs",
+ "noprop",
  "tuinix",
  "unicode-width",
 ]
@@ -23,6 +24,12 @@ name = "noargs"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e5dc223a8d69eaeb19c31218a69a55112fe79965764430f092532aed848f1b8"
+
+[[package]]
+name = "noprop"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b59efba88ff29e9fb1fea914a60aa69aea73f02f2bcbd76b369f7a07cdda95a"
 
 [[package]]
 name = "tuinix"
