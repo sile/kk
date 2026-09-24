@@ -26,7 +26,7 @@ fn main() -> noargs::Result<()> {
     // Before the positional: a trailing `-c` would otherwise be bound as FILE.
     let create_new = noargs::flag("create-new")
         .short('c')
-        .doc("Create the file if it does not exist")
+        .doc("Create the file, which must not already exist")
         .take(&mut args)
         .is_present();
 
