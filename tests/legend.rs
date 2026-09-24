@@ -62,11 +62,11 @@ fn the_ext_legend_fills_a_frame_exactly_its_size() {
     let mut frame = exact_frame(kk::Context::Ext);
     let cols = frame.size().cols;
     kk::LegendRenderer.render(kk::Context::Ext, &mut frame);
-    assert_eq!(row_text(&frame, 0, cols), "\u{2502} C-g cancel");
-    assert_eq!(row_text(&frame, 1, cols), "\u{2502} C-s save  ");
+    assert_eq!(row_text(&frame, 0, cols), "\u{2502} C-g cancel ");
+    assert_eq!(row_text(&frame, 1, cols), "\u{2502} C-s save   ");
     assert_eq!(
         row_text(&frame, 2, cols),
-        "\u{2500}\u{2500}\u{2500} ext \u{2500}\u{2500}\u{2500}\u{2500}"
+        "\u{2514}\u{2500}\u{2500}\u{2500} ext \u{2500}\u{2500}\u{2500}\u{2500}"
     );
 }
 
@@ -102,10 +102,10 @@ fn the_main_legend_is_exactly_this_text() {
         "\u{2502} C-h backspace   ",
         "\u{2502} C-d delete      ",
         "\u{2502} C-/ undo        ",
-        "\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} main \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} main \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 
-    assert_eq!(expected.len(), kk::legend(kk::Context::Main).len() + 1);
+    assert_eq!(expected.len(), kk::legend(kk::Context::Main).len());
     for (row, line) in expected.iter().enumerate() {
         assert_eq!(row_text(&frame, row, cols), *line, "row {row}");
     }
@@ -118,20 +118,20 @@ fn the_grep_legend_is_exactly_this_text() {
     kk::LegendRenderer.render(kk::Context::Grep, &mut frame);
 
     let expected = [
-        "\u{2502} C-g cancel    ",
-        "\u{2502} C-s next-hit  ",
-        "\u{2502} C-r prev-hit  ",
-        "\u{2502} C-y paste     ",
-        "\u{2502} C-a line-start",
-        "\u{2502} C-e line-end  ",
-        "\u{2502} C-b left      ",
-        "\u{2502} C-f right     ",
-        "\u{2502} C-h backspace ",
-        "\u{2502} C-d delete    ",
-        "\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} grep \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+        "\u{2502} C-g cancel     ",
+        "\u{2502} C-s next-hit   ",
+        "\u{2502} C-r prev-hit   ",
+        "\u{2502} C-y paste      ",
+        "\u{2502} C-a line-start ",
+        "\u{2502} C-e line-end   ",
+        "\u{2502} C-b left       ",
+        "\u{2502} C-f right      ",
+        "\u{2502} C-h backspace  ",
+        "\u{2502} C-d delete     ",
+        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} grep \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 
-    assert_eq!(expected.len(), kk::legend(kk::Context::Grep).len() + 1);
+    assert_eq!(expected.len(), kk::legend(kk::Context::Grep).len());
     for (row, line) in expected.iter().enumerate() {
         assert_eq!(row_text(&frame, row, cols), *line, "row {row}");
     }
@@ -154,11 +154,11 @@ fn every_row_of_the_legend_holds_exactly_one_chord_and_one_label() {
 }
 
 #[test]
-fn the_legend_height_is_one_row_per_binding_plus_a_border() {
+fn the_legend_height_counts_every_row_including_the_bottom_border() {
     for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
         assert_eq!(
             full_size(context).rows,
-            kk::legend(context).len() + 1,
+            kk::legend(context).len(),
             "{context:?}"
         );
     }
@@ -195,31 +195,57 @@ fn every_row_of_the_box_is_the_same_width() {
 }
 
 #[test]
-fn every_binding_row_paints_its_table_row_and_never_closes_with_a_border() {
+fn every_row_paints_its_table_row_and_never_closes_with_a_border() {
     for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
         let size = full_size(context);
         let mut frame = exact_frame(context);
         kk::LegendRenderer.render(context, &mut frame);
 
-        for (row, binding) in kk::legend(context).iter().enumerate() {
+        for (row, table_row) in kk::legend(context).iter().enumerate() {
             let text = row_text(&frame, row, size.cols);
             assert!(
-                text.starts_with(binding),
+                text.starts_with(table_row),
                 "{context:?} row {row} does not open with its table row: {text:?}"
             );
             assert!(
-                text[binding.len()..].trim().is_empty(),
+                text[table_row.len()..].trim().is_empty(),
                 "{context:?} row {row} paints past its table row: {text:?}"
             );
+        }
+    }
+}
+
+#[test]
+fn the_binding_rows_open_with_the_left_border() {
+    for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+        let rows = kk::legend(context);
+        // The last row is the bottom border, which opens with its own corner.
+        for (row, binding) in rows[..rows.len() - 1].iter().enumerate() {
             assert!(
                 binding.starts_with(kk::BORDER_VERTICAL),
                 "{context:?} row {row} has no left border: {binding:?}"
             );
             assert!(
-                !text.trim_end().ends_with(kk::BORDER_VERTICAL),
-                "{context:?} row {row} closes with a border: {text:?}"
+                !binding.ends_with(kk::BORDER_VERTICAL),
+                "{context:?} row {row} closes with a border: {binding:?}"
             );
         }
+    }
+}
+
+#[test]
+fn the_bottom_border_opens_with_its_own_corner() {
+    for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+        let rows = kk::legend(context);
+        let bottom = rows.last().expect("a legend has a bottom border");
+        assert!(
+            bottom.starts_with(kk::BORDER_BOTTOM_LEFT),
+            "{context:?} bottom border has no corner: {bottom:?}"
+        );
+        assert!(
+            bottom.ends_with(kk::BORDER_HORIZONTAL),
+            "{context:?} bottom border does not close with a dash: {bottom:?}"
+        );
     }
 }
 

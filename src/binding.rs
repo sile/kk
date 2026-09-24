@@ -2,31 +2,24 @@
 
 use crate::action::{Action, GrepAction};
 
-/// The vertical box-drawing stroke between a legend row and its label.
+/// The vertical box-drawing stroke that opens a legend row.
 pub const BORDER_VERTICAL: &str = "\u{2502}";
 
-/// The horizontal box-drawing stroke of the legend's bottom border.
+/// The box-drawing stroke that opens the legend's bottom border.
+pub const BORDER_BOTTOM_LEFT: &str = "\u{2514}";
+
+/// The box-drawing stroke the legend's bottom border is filled with.
 pub const BORDER_HORIZONTAL: &str = "\u{2500}";
 
-/// The title the legend shows for `context`.
-///
-/// This is the context spelled out, so the box is labelled `main` or `grep`
-/// rather than by an enum name. It is centered in the bottom border, and a title
-/// too wide for the box is dropped.
-pub fn title(context: Context) -> &'static str {
-    match context {
-        Context::Main => "main",
-        Context::Grep => "grep",
-        Context::Ext => "ext",
-    }
-}
-
-/// The legend rows for the main context, in legend order.
+/// The legend rows for the main context, in legend order, the bottom border
+/// last.
 ///
 /// Each row is a whole row of the legend, written out as the user reads it: the
 /// border stroke, the chord, the spaces that separate it from its label, and the
-/// label. Only the left border is drawn. The bindings are hard-coded, so this
-/// table is too, and the two are kept in step by hand.
+/// label. Only the left border is drawn, so no row is closed on the right, and
+/// the last row is the bottom border with the context title centered in it. The
+/// bindings are hard-coded, so this table is too, and the two are kept in step
+/// by hand.
 pub const MAIN_LEGEND: &[&str] = &[
     "\u{2502} C-c quit",
     "\u{2502} C-g cancel",
@@ -51,9 +44,11 @@ pub const MAIN_LEGEND: &[&str] = &[
     "\u{2502} C-h backspace",
     "\u{2502} C-d delete",
     "\u{2502} C-/ undo",
+    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} main \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
-/// The legend rows for the grep context, in legend order.
+/// The legend rows for the grep context, in legend order, the bottom border
+/// last.
 pub const GREP_LEGEND: &[&str] = &[
     "\u{2502} C-g cancel",
     "\u{2502} C-s next-hit",
@@ -65,10 +60,16 @@ pub const GREP_LEGEND: &[&str] = &[
     "\u{2502} C-f right",
     "\u{2502} C-h backspace",
     "\u{2502} C-d delete",
+    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} grep \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
-/// The legend rows for the extension context, in legend order.
-pub const EXT_LEGEND: &[&str] = &["\u{2502} C-g cancel", "\u{2502} C-s save"];
+/// The legend rows for the extension context, in legend order, the bottom
+/// border last.
+pub const EXT_LEGEND: &[&str] = &[
+    "\u{2502} C-g cancel",
+    "\u{2502} C-s save",
+    "\u{2514}\u{2500}\u{2500}\u{2500} ext \u{2500}\u{2500}\u{2500}\u{2500}",
+];
 
 /// Returns the legend rows of `context`, in legend order.
 pub fn legend(context: Context) -> &'static [&'static str] {
@@ -81,9 +82,9 @@ pub fn legend(context: Context) -> &'static [&'static str] {
 
 /// The columns a rendered legend occupies.
 ///
-/// The width is the widest legend row, and the height is one row per binding
-/// plus one for the bottom border. Every row of the box is this wide, so a
-/// caller can size a frame to hold it whole.
+/// The width is the widest legend row and the height is the number of rows, the
+/// bottom border included. Every row of the box is this wide, so a caller can
+/// size a frame to hold it whole.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LegendSize {
     /// The box width in columns.
@@ -104,10 +105,10 @@ pub struct LegendSize {
 /// let room = tuinix::Size { rows: 40, cols: 100 };
 /// let ext = kk::legend_size(kk::Context::Ext, room);
 /// assert_eq!(ext.rows, 3);
-/// assert_eq!(ext.cols, 12);
+/// assert_eq!(ext.cols, 13);
 /// ```
 pub fn legend_size(context: Context, limit: tuinix::Size) -> LegendSize {
-    let rows = legend(context).len() + 1;
+    let rows = legend(context).len();
     let cols = legend(context)
         .iter()
         .map(|row| crate::terminal::str_cols(row))

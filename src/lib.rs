@@ -29,8 +29,8 @@ mod text_area;
 
 pub use action::{Action, GrepAction};
 pub use binding::{
-    BORDER_HORIZONTAL, BORDER_VERTICAL, Context, LegendSize, Resolved, legend, legend_size,
-    resolve, title,
+    BORDER_BOTTOM_LEFT, BORDER_HORIZONTAL, BORDER_VERTICAL, Context, LegendSize, Resolved, legend,
+    legend_size, resolve,
 };
 pub use buffer::{TextBuffer, TextLine, TextPosition};
 pub use clipboard::Clipboard;

@@ -1,16 +1,17 @@
 //! Paints the key-binding legend.
 
-use crate::terminal::{put_str, str_cols};
+use crate::terminal::put_str;
 
-use crate::binding::{self, BORDER_HORIZONTAL, Context, LegendSize};
+use crate::binding::{self, Context, LegendSize};
 
 /// Paints the key-binding legend.
 ///
 /// The legend sits in the frame's top-right corner: one binding per row, and
-/// under them a horizontal border with the context title centered in it. Each
-/// row draws its own left border, and no row draws a right border. It paints
-/// nothing when the frame cannot hold the legend whole: a legend clipped to fit
-/// would show chords without their labels.
+/// under them a bottom border with the context title centered in it. Every row
+/// is painted as it is written in [`legend`](binding::legend), border strokes
+/// and all, so the box needs no drawing arithmetic. It paints nothing when the
+/// frame cannot hold the legend whole: a legend clipped to fit would show chords
+/// without their labels.
 #[derive(Debug)]
 pub struct LegendRenderer;
 
@@ -35,13 +36,6 @@ impl LegendRenderer {
             };
             put_str(frame, at, row, style);
         }
-
-        let bottom = tuinix::Position {
-            row: origin.row + binding::legend(context).len(),
-            col: origin.col,
-        };
-        let border = bottom_border(binding::title(context), legend.cols);
-        put_str(frame, bottom, &border, style);
     }
 }
 
@@ -53,24 +47,5 @@ fn full_size(context: Context) -> LegendSize {
             rows: usize::MAX,
             cols: usize::MAX,
         },
-    )
-}
-
-/// Centers `title` between dashes, in a run of `width` columns.
-///
-/// The run is [`BORDER_HORIZONTAL`] repeated with ` title ` in the middle; a
-/// title too wide for the run is dropped and the whole run is dashes.
-fn bottom_border(title: &str, width: usize) -> String {
-    let title_cols = str_cols(title);
-    if title_cols == 0 || title_cols + 2 > width {
-        return BORDER_HORIZONTAL.repeat(width);
-    }
-    let left = (width - title_cols - 2) / 2;
-    let right = width - title_cols - 2 - left;
-    format!(
-        "{} {} {}",
-        BORDER_HORIZONTAL.repeat(left),
-        title,
-        BORDER_HORIZONTAL.repeat(right)
     )
 }
