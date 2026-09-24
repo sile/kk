@@ -89,7 +89,7 @@ impl State {
     }
 
     /// Queues `message` to be shown once, on the next render.
-    pub fn set_message(&mut self, message: impl Into<String>) {
+    pub fn set_message<S: Into<String>>(&mut self, message: S) {
         self.message = Some(message.into());
     }
 

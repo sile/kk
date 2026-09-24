@@ -32,7 +32,7 @@ fn main() -> noargs::Result<()> {
         return Ok(());
     }
 
-    match app::App::new(&path) {
+    match app::App::new(path) {
         Ok(app) => app.run()?,
         Err(err) => {
             eprintln!("kk: {err}");

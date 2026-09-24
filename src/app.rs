@@ -39,7 +39,7 @@ impl App {
     /// handed an already-loaded [`TextBuffer`](kk::TextBuffer), and only remembers
     /// `path` as data
     /// for the status line and for later saves.
-    pub fn new(path: impl AsRef<Path>) -> std::io::Result<Self> {
+    pub fn new<P: AsRef<Path>>(path: P) -> std::io::Result<Self> {
         let path = path.as_ref().to_path_buf();
         let text = std::fs::read_to_string(&path)?;
         let buffer = kk::TextBuffer::from_text(&text);
@@ -225,7 +225,7 @@ impl App {
             kk::Action::MarkCut => self.state.handle_mark_cut(),
             kk::Action::ClipboardPaste => self.state.handle_clipboard_paste(),
             kk::Action::Echo(m) => {
-                self.state.set_message(&m.message);
+                self.state.set_message(m.message.clone());
             }
             kk::Action::Grep(action) => {
                 self.state.finish_editing();
