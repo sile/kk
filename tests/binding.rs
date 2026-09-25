@@ -75,9 +75,6 @@ fn built_in_keys() -> Vec<tuinix::KeyInput> {
         ctrl_key('u'),
         ctrl_key(' '),
         ctrl_key('`'),
-        alt_key('r'),
-        alt_key('<'),
-        alt_key('>'),
         code_key(tuinix::KeyCode::Up),
         code_key(tuinix::KeyCode::Down),
         code_key(tuinix::KeyCode::Left),
@@ -254,6 +251,43 @@ fn every_non_main_context_has_a_way_back_to_main() {
             )
         });
         assert!(returns, "{context:?} cannot return to the main context");
+    }
+}
+
+#[test]
+fn the_ext_context_folds_the_alt_prefix_into_ctrl_x() {
+    // `M-r`, `M-<`, and `M->` are gone; the same three commands live behind
+    // `C-x`, which is already the way into the Ext context. Each runs and
+    // returns to Main, so the chord is `C-x` then the letter.
+    for (ch, expected) in [('r', 0), ('a', 1), ('e', 2)] {
+        let resolved = kk::resolve(kk::Context::Ext, &tuinix::Input::Key(ctrl_key(ch)))
+            .unwrap_or_else(|| panic!("C-{ch} is not bound in Ext"));
+        assert_eq!(
+            resolved.context,
+            Some(kk::Context::Main),
+            "C-{ch} does not return to Main"
+        );
+        assert!(
+            matches!(
+                (expected, &resolved.action),
+                (0, Some(kk::Action::BufferReload))
+                    | (1, Some(kk::Action::CursorBufferStart))
+                    | (2, Some(kk::Action::CursorBufferEnd))
+            ),
+            "C-{ch} carries out the wrong action: {:?}",
+            resolved.action
+        );
+    }
+}
+
+#[test]
+fn no_alt_chord_is_bound_in_main() {
+    // The `M-` prefix is gone entirely, so no alt chord resolves anywhere.
+    for ch in ['r', '<', '>', 'm', 'l', 'w', 'g'] {
+        assert!(
+            action_of(kk::Context::Main, alt_key(ch)).is_none(),
+            "M-{ch} is still bound in Main"
+        );
     }
 }
 

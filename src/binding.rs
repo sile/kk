@@ -29,13 +29,10 @@ pub const MAIN_LEGEND: &[&str] = &[
     "\u{2502} C-y paste",
     "\u{2502} C-w cut",
     "\u{2502} C-  mark",
-    "\u{2502} M-r reload",
     "\u{2502} C-l recenter",
     "\u{2502} C-k kill-line",
     "\u{2502} C-a line-start",
     "\u{2502} C-e line-end",
-    "\u{2502} M-< buffer-start",
-    "\u{2502} M-> buffer-end",
     "\u{2502} C-p up",
     "\u{2502} C-n down",
     "\u{2502} C-b left",
@@ -68,7 +65,10 @@ pub const GREP_LEGEND: &[&str] = &[
 pub const EXT_LEGEND: &[&str] = &[
     "\u{2502} C-g cancel",
     "\u{2502} C-s save",
-    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}",
+    "\u{2502} C-r reload",
+    "\u{2502} C-a buffer-start",
+    "\u{2502} C-e buffer-end",
+    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
 /// Returns the legend rows of `context`, in legend order.
@@ -104,8 +104,8 @@ pub struct LegendSize {
 /// ```
 /// let room = tuinix::Size { rows: 40, cols: 100 };
 /// let ext = kk::legend_size(kk::Context::Ext, room);
-/// assert_eq!(ext.rows, 3);
-/// assert_eq!(ext.cols, 12);
+/// assert_eq!(ext.rows, 6);
+/// assert_eq!(ext.cols, 20);
 /// ```
 pub fn legend_size(context: Context, limit: tuinix::Size) -> LegendSize {
     let rows = legend(context).len();
@@ -207,9 +207,6 @@ fn resolve_main(key: &tuinix::KeyInput) -> Option<Resolved> {
         (true, false, tuinix::KeyCode::Char('x')) => only(Context::Ext),
         (true, false, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
         (true, false, tuinix::KeyCode::Char('w')) => act(Action::MarkCut),
-        (false, true, tuinix::KeyCode::Char('r')) => act(Action::BufferReload),
-        (false, true, tuinix::KeyCode::Char('<')) => act(Action::CursorBufferStart),
-        (false, true, tuinix::KeyCode::Char('>')) => act(Action::CursorBufferEnd),
         (true, false, tuinix::KeyCode::Char('u')) => act(Action::BufferUndo),
         // A lone `ESC` is held back by the decoder and then committed as
         // `Escape` with no modifiers, so the plain code is the whole chord.
@@ -275,6 +272,9 @@ fn resolve_ext(key: &tuinix::KeyInput) -> Option<Resolved> {
     Some(match (ctrl, alt, code) {
         (true, false, tuinix::KeyCode::Char('g')) => cancel(),
         (true, false, tuinix::KeyCode::Char('s')) => then(Action::BufferSave, Context::Main),
+        (true, false, tuinix::KeyCode::Char('r')) => then(Action::BufferReload, Context::Main),
+        (true, false, tuinix::KeyCode::Char('a')) => then(Action::CursorBufferStart, Context::Main),
+        (true, false, tuinix::KeyCode::Char('e')) => then(Action::CursorBufferEnd, Context::Main),
         (false, false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),
         _ => return None,
     })

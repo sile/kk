@@ -62,11 +62,14 @@ fn the_ext_legend_fills_a_frame_exactly_its_size() {
     let mut frame = exact_frame(kk::Context::Ext);
     let cols = frame.size().cols;
     kk::LegendRenderer.render(kk::Context::Ext, &mut frame);
-    assert_eq!(row_text(&frame, 0, cols), "\u{2502} C-g cancel");
-    assert_eq!(row_text(&frame, 1, cols), "\u{2502} C-s save  ");
+    assert_eq!(row_text(&frame, 0, cols), "\u{2502} C-g cancel        ");
+    assert_eq!(row_text(&frame, 1, cols), "\u{2502} C-s save          ");
+    assert_eq!(row_text(&frame, 2, cols), "\u{2502} C-r reload        ");
+    assert_eq!(row_text(&frame, 3, cols), "\u{2502} C-a buffer-start  ");
+    assert_eq!(row_text(&frame, 4, cols), "\u{2502} C-e buffer-end    ");
     assert_eq!(
-        row_text(&frame, 2, cols),
-        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}"
+        row_text(&frame, 5, cols),
+        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}"
     );
 }
 
@@ -87,13 +90,10 @@ fn the_main_legend_is_exactly_this_text() {
         "\u{2502} C-y paste       ",
         "\u{2502} C-w cut         ",
         "\u{2502} C-  mark        ",
-        "\u{2502} M-r reload      ",
         "\u{2502} C-l recenter    ",
         "\u{2502} C-k kill-line   ",
         "\u{2502} C-a line-start  ",
         "\u{2502} C-e line-end    ",
-        "\u{2502} M-< buffer-start",
-        "\u{2502} M-> buffer-end  ",
         "\u{2502} C-p up          ",
         "\u{2502} C-n down        ",
         "\u{2502} C-b left        ",
