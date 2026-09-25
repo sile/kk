@@ -18,3 +18,4 @@ unicode-width = "0.2.0"
 
 [dev-dependencies]
 noprop = "0.2"
+termnix = "0.4.1"
