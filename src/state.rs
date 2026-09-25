@@ -368,10 +368,10 @@ impl State {
 
         self.start_editing();
         // Only insert printable characters, matching the catch-all arm of the
-        // key resolver: a ctrl or alt chord is a binding, not text.
+        // key resolver: a ctrl chord is a binding, not text. Alt is ignored,
+        // so an Alt chord inserts the same character as the plain one.
         if let tuinix::KeyCode::Char(ch) = key.code
             && !key.ctrl
-            && !key.alt
             && !ch.is_control()
         {
             self.cursor = self.buffer.insert_char_at(self.cursor, ch);

@@ -27,6 +27,15 @@ fn alt_key(ch: char) -> tuinix::KeyInput {
     }
 }
 
+/// A ctrl+alt chord on a character key.
+fn alt_ctrl_key(ch: char) -> tuinix::KeyInput {
+    tuinix::KeyInput {
+        ctrl: true,
+        alt: true,
+        code: tuinix::KeyCode::Char(ch),
+    }
+}
+
 /// A bare special key with no modifiers.
 fn code_key(code: tuinix::KeyCode) -> tuinix::KeyInput {
     tuinix::KeyInput {
@@ -142,7 +151,7 @@ fn printable_characters_are_text_in_main() {
 }
 
 #[test]
-fn main_rejects_control_and_modified_characters() {
+fn main_rejects_control_characters() {
     // A control character is not text; it is either a binding or nothing.
     for ch in ['\n', '\t', '\r', '\u{7f}', '\u{0}'] {
         assert!(
@@ -154,13 +163,9 @@ fn main_rejects_control_and_modified_characters() {
         );
     }
 
-    // A ctrl/alt chord is a binding, not text.
+    // A ctrl chord is a binding, not text.
     assert!(!matches!(
         action_of(kk::Context::Main, ctrl_key('z')),
-        Some(kk::Action::CharInsert)
-    ));
-    assert!(!matches!(
-        action_of(kk::Context::Main, alt_key('z')),
         Some(kk::Action::CharInsert)
     ));
 
@@ -255,10 +260,10 @@ fn every_non_main_context_has_a_way_back_to_main() {
 }
 
 #[test]
-fn the_ext_context_folds_the_alt_prefix_into_ctrl_x() {
-    // `M-r`, `M-<`, and `M->` are gone; the same three commands live behind
-    // `C-x`, which is already the way into the Ext context. Each runs and
-    // returns to Main, so the chord is `C-x` then the letter.
+fn the_ext_context_binds_its_chords_after_ctrl_x() {
+    // The three buffer-level commands live behind `C-x`, which is the way
+    // into the Ext context. Each runs and returns to Main, so the chord is
+    // `C-x` then the letter.
     for (ch, expected) in [('r', 0), ('a', 1), ('e', 2)] {
         let resolved = kk::resolve(kk::Context::Ext, &tuinix::Input::Key(ctrl_key(ch)))
             .unwrap_or_else(|| panic!("C-{ch} is not bound in Ext"));
@@ -281,14 +286,32 @@ fn the_ext_context_folds_the_alt_prefix_into_ctrl_x() {
 }
 
 #[test]
-fn no_alt_chord_is_bound_in_main() {
-    // The `M-` prefix is gone entirely, so no alt chord resolves anywhere.
-    for ch in ['r', '<', '>', 'm', 'l', 'w', 'g'] {
-        assert!(
-            action_of(kk::Context::Main, alt_key(ch)).is_none(),
-            "M-{ch} is still bound in Main"
-        );
+fn alt_is_ignored_in_every_context() {
+    // Alt is not a modifier `kk` acts on, so an alt chord resolves exactly as
+    // the same chord without alt: `M-r` is plain `r`, and `M-C-r` is `C-r`.
+    for &context in &CONTEXTS {
+        for ch in ['r', '<', '>', 'm', 'l', 'w', 'g', 'z', 'c'] {
+            assert_eq!(
+                format!("{:?}", action_of(context, alt_key(ch))),
+                format!("{:?}", action_of(context, char_key(ch))),
+                "M-{ch} does not resolve as {ch} in {context:?}"
+            );
+            assert_eq!(
+                format!("{:?}", action_of(context, alt_ctrl_key(ch))),
+                format!("{:?}", action_of(context, ctrl_key(ch))),
+                "M-C-{ch} does not resolve as C-{ch} in {context:?}"
+            );
+        }
     }
+}
+
+#[test]
+fn main_accepts_an_alt_chord_as_text() {
+    // The flip side of ignoring alt: `M-z` is `z`, which inserts.
+    assert!(matches!(
+        action_of(kk::Context::Main, alt_key('z')),
+        Some(kk::Action::CharInsert)
+    ));
 }
 
 #[test]

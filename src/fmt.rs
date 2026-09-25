@@ -10,13 +10,13 @@ pub fn input(input: &tuinix::Input) -> String {
     }
 }
 
-/// Renders a key chord as its `M-`/`C-` spelling, with special keys in angle
+/// Renders a key chord as its `C-` spelling, with special keys in angle
 /// brackets and control characters in hex.
+///
+/// Alt is a modifier `kk` does not act on, so it is not part of the spelling:
+/// an Alt chord renders as the same chord without Alt.
 fn key_input(key: &tuinix::KeyInput) -> String {
     let mut out = String::new();
-    if key.alt {
-        out.push_str("M-");
-    }
     if key.ctrl {
         out.push_str("C-");
     }

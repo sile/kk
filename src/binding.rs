@@ -184,89 +184,89 @@ fn cancel() -> Resolved {
 }
 
 fn resolve_main(key: &tuinix::KeyInput) -> Option<Resolved> {
-    let tuinix::KeyInput { ctrl, alt, code } = *key;
+    let tuinix::KeyInput { ctrl, code, .. } = *key;
 
-    Some(match (ctrl, alt, code) {
-        (true, false, tuinix::KeyCode::Char('c')) => act(Action::Quit),
-        (true, false, tuinix::KeyCode::Char('g')) => cancel(),
-        (true, false, tuinix::KeyCode::Char('r')) => {
+    Some(match (ctrl, code) {
+        (true, tuinix::KeyCode::Char('c')) => act(Action::Quit),
+        (true, tuinix::KeyCode::Char('g')) => cancel(),
+        (true, tuinix::KeyCode::Char('r')) => {
             then(Action::Grep(GrepAction { forward: false }), Context::Grep)
         }
-        (true, false, tuinix::KeyCode::Char('s')) => {
+        (true, tuinix::KeyCode::Char('s')) => {
             then(Action::Grep(GrepAction { forward: true }), Context::Grep)
         }
-        (true, false, tuinix::KeyCode::Char('x')) => only(Context::Ext),
-        (true, false, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
-        (true, false, tuinix::KeyCode::Char('w')) => act(Action::MarkCut),
-        (true, false, tuinix::KeyCode::Char('u')) => act(Action::BufferUndo),
+        (true, tuinix::KeyCode::Char('x')) => only(Context::Ext),
+        (true, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
+        (true, tuinix::KeyCode::Char('w')) => act(Action::MarkCut),
+        (true, tuinix::KeyCode::Char('u')) => act(Action::BufferUndo),
         // A lone `ESC` is held back by the decoder and then committed as
         // `Escape` with no modifiers, so the plain code is the whole chord.
-        (false, false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),
-        (true, false, tuinix::KeyCode::Char(' ' | '`')) => act(Action::MarkSet),
-        (true, false, tuinix::KeyCode::Char('l')) => act(Action::ViewRecenter),
-        (true, false, tuinix::KeyCode::Char('k')) => act(Action::LineDelete),
-        (true, false, tuinix::KeyCode::Char('a')) => act(Action::CursorLineStart),
-        (true, false, tuinix::KeyCode::Char('e')) => act(Action::CursorLineEnd),
-        (true, false, tuinix::KeyCode::Char('d')) => act(Action::CharDeleteForward),
-        (true, false, tuinix::KeyCode::Char('h')) => act(Action::CharDeleteBackward),
-        (true, false, tuinix::KeyCode::Char('j')) => act(Action::NewlineInsert),
-        (true, false, tuinix::KeyCode::Char('p')) => act(Action::CursorUp),
-        (true, false, tuinix::KeyCode::Char('n')) => act(Action::CursorDown),
-        (true, false, tuinix::KeyCode::Char('b')) => act(Action::CursorLeft),
-        (true, false, tuinix::KeyCode::Char('f')) => act(Action::CursorRight),
-        (false, false, tuinix::KeyCode::Delete) => act(Action::CharDeleteForward),
-        (false, false, tuinix::KeyCode::Backspace) => act(Action::CharDeleteBackward),
-        (false, false, tuinix::KeyCode::Enter) => act(Action::NewlineInsert),
-        (false, false, tuinix::KeyCode::Up) => act(Action::CursorUp),
-        (false, false, tuinix::KeyCode::Down) => act(Action::CursorDown),
-        (false, false, tuinix::KeyCode::Left) => act(Action::CursorLeft),
-        (false, false, tuinix::KeyCode::Right) => act(Action::CursorRight),
-        (true, false, tuinix::KeyCode::Left) => act(Action::CursorUp),
-        (true, false, tuinix::KeyCode::Right) => act(Action::CursorDown),
+        (false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),
+        (true, tuinix::KeyCode::Char(' ' | '`')) => act(Action::MarkSet),
+        (true, tuinix::KeyCode::Char('l')) => act(Action::ViewRecenter),
+        (true, tuinix::KeyCode::Char('k')) => act(Action::LineDelete),
+        (true, tuinix::KeyCode::Char('a')) => act(Action::CursorLineStart),
+        (true, tuinix::KeyCode::Char('e')) => act(Action::CursorLineEnd),
+        (true, tuinix::KeyCode::Char('d')) => act(Action::CharDeleteForward),
+        (true, tuinix::KeyCode::Char('h')) => act(Action::CharDeleteBackward),
+        (true, tuinix::KeyCode::Char('j')) => act(Action::NewlineInsert),
+        (true, tuinix::KeyCode::Char('p')) => act(Action::CursorUp),
+        (true, tuinix::KeyCode::Char('n')) => act(Action::CursorDown),
+        (true, tuinix::KeyCode::Char('b')) => act(Action::CursorLeft),
+        (true, tuinix::KeyCode::Char('f')) => act(Action::CursorRight),
+        (false, tuinix::KeyCode::Delete) => act(Action::CharDeleteForward),
+        (false, tuinix::KeyCode::Backspace) => act(Action::CharDeleteBackward),
+        (false, tuinix::KeyCode::Enter) => act(Action::NewlineInsert),
+        (false, tuinix::KeyCode::Up) => act(Action::CursorUp),
+        (false, tuinix::KeyCode::Down) => act(Action::CursorDown),
+        (false, tuinix::KeyCode::Left) => act(Action::CursorLeft),
+        (false, tuinix::KeyCode::Right) => act(Action::CursorRight),
+        (true, tuinix::KeyCode::Left) => act(Action::CursorUp),
+        (true, tuinix::KeyCode::Right) => act(Action::CursorDown),
         // Any other bare, non-control character is text, not a binding.
-        (false, false, tuinix::KeyCode::Char(ch)) if !ch.is_control() => act(Action::CharInsert),
+        (false, tuinix::KeyCode::Char(ch)) if !ch.is_control() => act(Action::CharInsert),
         _ => return None,
     })
 }
 
 fn resolve_grep(key: &tuinix::KeyInput) -> Option<Resolved> {
-    let tuinix::KeyInput { ctrl, alt, code } = *key;
+    let tuinix::KeyInput { ctrl, code, .. } = *key;
 
-    Some(match (ctrl, alt, code) {
-        (true, false, tuinix::KeyCode::Char('g')) => cancel(),
-        (false, false, tuinix::KeyCode::Enter) => cancel(),
-        (true, false, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
-        (true, false, tuinix::KeyCode::Char('s')) => act(Action::GrepNextHit),
-        (true, false, tuinix::KeyCode::Char('r')) => act(Action::GrepPrevHit),
-        (false, false, tuinix::KeyCode::Tab) => act(Action::GrepNextHit),
-        (false, false, tuinix::KeyCode::BackTab) => act(Action::GrepPrevHit),
-        (true, false, tuinix::KeyCode::Char('a')) => act(Action::CursorLineStart),
-        (true, false, tuinix::KeyCode::Char('e')) => act(Action::CursorLineEnd),
-        (true, false, tuinix::KeyCode::Char('d')) => act(Action::CharDeleteForward),
-        (true, false, tuinix::KeyCode::Char('h')) => act(Action::CharDeleteBackward),
-        (true, false, tuinix::KeyCode::Char('b')) => act(Action::CursorLeft),
-        (true, false, tuinix::KeyCode::Char('f')) => act(Action::CursorRight),
-        (false, false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),
-        (false, false, tuinix::KeyCode::Delete) => act(Action::CharDeleteForward),
-        (false, false, tuinix::KeyCode::Backspace) => act(Action::CharDeleteBackward),
-        (false, false, tuinix::KeyCode::Left) => act(Action::CursorLeft),
-        (false, false, tuinix::KeyCode::Right) => act(Action::CursorRight),
+    Some(match (ctrl, code) {
+        (true, tuinix::KeyCode::Char('g')) => cancel(),
+        (false, tuinix::KeyCode::Enter) => cancel(),
+        (true, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
+        (true, tuinix::KeyCode::Char('s')) => act(Action::GrepNextHit),
+        (true, tuinix::KeyCode::Char('r')) => act(Action::GrepPrevHit),
+        (false, tuinix::KeyCode::Tab) => act(Action::GrepNextHit),
+        (false, tuinix::KeyCode::BackTab) => act(Action::GrepPrevHit),
+        (true, tuinix::KeyCode::Char('a')) => act(Action::CursorLineStart),
+        (true, tuinix::KeyCode::Char('e')) => act(Action::CursorLineEnd),
+        (true, tuinix::KeyCode::Char('d')) => act(Action::CharDeleteForward),
+        (true, tuinix::KeyCode::Char('h')) => act(Action::CharDeleteBackward),
+        (true, tuinix::KeyCode::Char('b')) => act(Action::CursorLeft),
+        (true, tuinix::KeyCode::Char('f')) => act(Action::CursorRight),
+        (false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),
+        (false, tuinix::KeyCode::Delete) => act(Action::CharDeleteForward),
+        (false, tuinix::KeyCode::Backspace) => act(Action::CharDeleteBackward),
+        (false, tuinix::KeyCode::Left) => act(Action::CursorLeft),
+        (false, tuinix::KeyCode::Right) => act(Action::CursorRight),
         // Any other bare, non-control character is part of the query.
-        (false, false, tuinix::KeyCode::Char(ch)) if !ch.is_control() => act(Action::CharInsert),
+        (false, tuinix::KeyCode::Char(ch)) if !ch.is_control() => act(Action::CharInsert),
         _ => return None,
     })
 }
 
 fn resolve_ext(key: &tuinix::KeyInput) -> Option<Resolved> {
-    let tuinix::KeyInput { ctrl, alt, code } = *key;
+    let tuinix::KeyInput { ctrl, code, .. } = *key;
 
-    Some(match (ctrl, alt, code) {
-        (true, false, tuinix::KeyCode::Char('g')) => cancel(),
-        (true, false, tuinix::KeyCode::Char('s')) => then(Action::BufferSave, Context::Main),
-        (true, false, tuinix::KeyCode::Char('r')) => then(Action::BufferReload, Context::Main),
-        (true, false, tuinix::KeyCode::Char('a')) => then(Action::CursorBufferStart, Context::Main),
-        (true, false, tuinix::KeyCode::Char('e')) => then(Action::CursorBufferEnd, Context::Main),
-        (false, false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),
+    Some(match (ctrl, code) {
+        (true, tuinix::KeyCode::Char('g')) => cancel(),
+        (true, tuinix::KeyCode::Char('s')) => then(Action::BufferSave, Context::Main),
+        (true, tuinix::KeyCode::Char('r')) => then(Action::BufferReload, Context::Main),
+        (true, tuinix::KeyCode::Char('a')) => then(Action::CursorBufferStart, Context::Main),
+        (true, tuinix::KeyCode::Char('e')) => then(Action::CursorBufferEnd, Context::Main),
+        (false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),
         _ => return None,
     })
 }
