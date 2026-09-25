@@ -2,15 +2,6 @@
 
 use crate::action::{Action, GrepAction};
 
-/// The vertical box-drawing stroke that opens a legend row.
-pub const BORDER_VERTICAL: &str = "\u{2502}";
-
-/// The box-drawing stroke that opens the legend's bottom border.
-pub const BORDER_BOTTOM_LEFT: &str = "\u{2514}";
-
-/// The box-drawing stroke the legend's bottom border is filled with.
-pub const BORDER_HORIZONTAL: &str = "\u{2500}";
-
 /// The legend rows for the main context, in legend order, the bottom border
 /// last.
 ///

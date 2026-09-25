@@ -4,6 +4,13 @@ mod helpers_frame;
 
 use helpers_frame::row_text;
 
+// The box strokes this test file expects to see. They are spelled here rather
+// than taken from the crate, so the assertions below state the look the legend
+// must have instead of agreeing with whatever the crate happens to define.
+const VERTICAL: &str = "\u{2502}";
+const BOTTOM_LEFT: &str = "\u{2514}";
+const HORIZONTAL: &str = "\u{2500}";
+
 /// The size the legend of `context` needs in an ample frame.
 fn full_size(context: kk::Context) -> kk::LegendSize {
     kk::legend_size(
@@ -222,11 +229,11 @@ fn the_binding_rows_open_with_the_left_border() {
         // The last row is the bottom border, which opens with its own corner.
         for (row, binding) in rows[..rows.len() - 1].iter().enumerate() {
             assert!(
-                binding.starts_with(kk::BORDER_VERTICAL),
+                binding.starts_with(VERTICAL),
                 "{context:?} row {row} has no left border: {binding:?}"
             );
             assert!(
-                !binding.ends_with(kk::BORDER_VERTICAL),
+                !binding.ends_with(VERTICAL),
                 "{context:?} row {row} closes with a border: {binding:?}"
             );
         }
@@ -239,11 +246,11 @@ fn the_bottom_border_opens_with_its_own_corner() {
         let rows = kk::legend(context);
         let bottom = rows.last().expect("a legend has a bottom border");
         assert!(
-            bottom.starts_with(kk::BORDER_BOTTOM_LEFT),
+            bottom.starts_with(BOTTOM_LEFT),
             "{context:?} bottom border has no corner: {bottom:?}"
         );
         assert!(
-            bottom.ends_with(kk::BORDER_HORIZONTAL),
+            bottom.ends_with(HORIZONTAL),
             "{context:?} bottom border does not close with a dash: {bottom:?}"
         );
     }
