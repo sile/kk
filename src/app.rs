@@ -29,6 +29,7 @@ pub struct App {
     message_line: kk::MessageLineRenderer,
     status_line: kk::StatusLineRenderer,
     legend: kk::LegendRenderer,
+    legend_visible: bool,
     exit: bool,
 }
 
@@ -71,6 +72,7 @@ impl App {
             message_line: kk::MessageLineRenderer,
             status_line: kk::StatusLineRenderer,
             legend: kk::LegendRenderer,
+            legend_visible: true,
             exit: false,
         })
     }
@@ -197,6 +199,7 @@ impl App {
             }
             kk::Action::BufferReload => self.handle_buffer_reload()?,
             kk::Action::BufferUndo => self.state.handle_buffer_undo(),
+            kk::Action::LegendToggle => self.legend_visible = !self.legend_visible,
             kk::Action::CursorUp => self.state.handle_cursor_up(),
             kk::Action::CursorDown => self.state.handle_cursor_down(),
             kk::Action::CursorLeft => self.state.handle_cursor_left(),
@@ -295,7 +298,9 @@ impl App {
             self.message_line.render(&self.state, frame)
         });
 
-        self.legend.render(self.context, &mut frame);
+        if self.legend_visible {
+            self.legend.render(self.context, &mut frame);
+        }
 
         let cursor = if let Some(grep) = &self.state.grep_mode {
             Some(grep.cursor_position(grep_region))

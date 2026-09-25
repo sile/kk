@@ -24,6 +24,10 @@ pub enum Action {
     /// Undoes the most recent edit.
     BufferUndo,
 
+    /// Shows the key-binding legend if it is hidden, and hides it if it is
+    /// shown.
+    LegendToggle,
+
     /// Moves the cursor up one row.
     CursorUp,
 

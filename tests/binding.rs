@@ -72,11 +72,9 @@ fn built_in_keys() -> Vec<tuinix::KeyInput> {
         ctrl_key('n'),
         ctrl_key('b'),
         ctrl_key('f'),
-        ctrl_key('/'),
         ctrl_key('u'),
         ctrl_key(' '),
         ctrl_key('`'),
-        ctrl_key('\u{7f}'),
         alt_key('r'),
         alt_key('<'),
         alt_key('>'),
@@ -89,6 +87,7 @@ fn built_in_keys() -> Vec<tuinix::KeyInput> {
         code_key(tuinix::KeyCode::Delete),
         code_key(tuinix::KeyCode::Tab),
         code_key(tuinix::KeyCode::BackTab),
+        code_key(tuinix::KeyCode::Escape),
     ];
     keys.sort_by_key(|key| format!("{key:?}"));
     keys
@@ -173,6 +172,63 @@ fn main_rejects_control_and_modified_characters() {
         action_of(kk::Context::Main, code_key(tuinix::KeyCode::Enter)),
         Some(kk::Action::CharInsert)
     ));
+}
+
+#[test]
+fn escape_toggles_the_legend_in_every_context() {
+    // A lone `ESC` is committed by the decoder as `Escape` with no modifiers,
+    // so the plain code is the whole chord in every context.
+    for &context in &CONTEXTS {
+        assert!(
+            matches!(
+                action_of(context, code_key(tuinix::KeyCode::Escape)),
+                Some(kk::Action::LegendToggle)
+            ),
+            "{context:?} does not toggle the legend on Escape"
+        );
+    }
+}
+
+#[test]
+fn no_ctrl_chord_toggles_the_legend() {
+    // `C-?` used to be the toggle, but the decoder turns it into a DEL byte's
+    // neighbour and it read as a backspace; Escape is unambiguous.
+    for &context in &CONTEXTS {
+        for ch in ['\u{7f}', '?', '/', 'u'] {
+            assert!(
+                !matches!(
+                    action_of(context, ctrl_key(ch)),
+                    Some(kk::Action::LegendToggle)
+                ),
+                "{context:?} still toggles the legend on C-{ch:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn undo_is_bound_to_ctrl_u_alone() {
+    assert!(
+        matches!(
+            action_of(kk::Context::Main, ctrl_key('u')),
+            Some(kk::Action::BufferUndo)
+        ),
+        "C-u no longer undoes"
+    );
+    assert!(
+        !matches!(
+            action_of(kk::Context::Main, ctrl_key('/')),
+            Some(kk::Action::BufferUndo)
+        ),
+        "C-/ must not undo any more"
+    );
+    assert!(
+        !matches!(
+            action_of(kk::Context::Main, code_key(tuinix::KeyCode::Escape)),
+            Some(kk::Action::BufferUndo)
+        ),
+        "Escape must not undo; it toggles the legend"
+    );
 }
 
 #[test]

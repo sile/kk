@@ -43,8 +43,8 @@ pub const MAIN_LEGEND: &[&str] = &[
     "\u{2502} C-j newline",
     "\u{2502} C-h backspace",
     "\u{2502} C-d delete",
-    "\u{2502} C-/ undo",
-    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} main \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+    "\u{2502} C-u undo",
+    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
 /// The legend rows for the grep context, in legend order, the bottom border
@@ -60,7 +60,7 @@ pub const GREP_LEGEND: &[&str] = &[
     "\u{2502} C-f right",
     "\u{2502} C-h backspace",
     "\u{2502} C-d delete",
-    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} grep \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
 /// The legend rows for the extension context, in legend order, the bottom
@@ -68,7 +68,7 @@ pub const GREP_LEGEND: &[&str] = &[
 pub const EXT_LEGEND: &[&str] = &[
     "\u{2502} C-g cancel",
     "\u{2502} C-s save",
-    "\u{2514}\u{2500}\u{2500}\u{2500} ext \u{2500}\u{2500}\u{2500}\u{2500}",
+    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}",
 ];
 
 /// Returns the legend rows of `context`, in legend order.
@@ -105,7 +105,7 @@ pub struct LegendSize {
 /// let room = tuinix::Size { rows: 40, cols: 100 };
 /// let ext = kk::legend_size(kk::Context::Ext, room);
 /// assert_eq!(ext.rows, 3);
-/// assert_eq!(ext.cols, 13);
+/// assert_eq!(ext.cols, 12);
 /// ```
 pub fn legend_size(context: Context, limit: tuinix::Size) -> LegendSize {
     let rows = legend(context).len();
@@ -210,7 +210,10 @@ fn resolve_main(key: &tuinix::KeyInput) -> Option<Resolved> {
         (false, true, tuinix::KeyCode::Char('r')) => act(Action::BufferReload),
         (false, true, tuinix::KeyCode::Char('<')) => act(Action::CursorBufferStart),
         (false, true, tuinix::KeyCode::Char('>')) => act(Action::CursorBufferEnd),
-        (true, false, tuinix::KeyCode::Char('/' | 'u' | '\u{7f}')) => act(Action::BufferUndo),
+        (true, false, tuinix::KeyCode::Char('u')) => act(Action::BufferUndo),
+        // A lone `ESC` is held back by the decoder and then committed as
+        // `Escape` with no modifiers, so the plain code is the whole chord.
+        (false, false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),
         (true, false, tuinix::KeyCode::Char(' ' | '`')) => act(Action::MarkSet),
         (true, false, tuinix::KeyCode::Char('l')) => act(Action::ViewRecenter),
         (true, false, tuinix::KeyCode::Char('k')) => act(Action::LineDelete),
@@ -255,6 +258,7 @@ fn resolve_grep(key: &tuinix::KeyInput) -> Option<Resolved> {
         (true, false, tuinix::KeyCode::Char('h')) => act(Action::CharDeleteBackward),
         (true, false, tuinix::KeyCode::Char('b')) => act(Action::CursorLeft),
         (true, false, tuinix::KeyCode::Char('f')) => act(Action::CursorRight),
+        (false, false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),
         (false, false, tuinix::KeyCode::Delete) => act(Action::CharDeleteForward),
         (false, false, tuinix::KeyCode::Backspace) => act(Action::CharDeleteBackward),
         (false, false, tuinix::KeyCode::Left) => act(Action::CursorLeft),
@@ -271,6 +275,7 @@ fn resolve_ext(key: &tuinix::KeyInput) -> Option<Resolved> {
     Some(match (ctrl, alt, code) {
         (true, false, tuinix::KeyCode::Char('g')) => cancel(),
         (true, false, tuinix::KeyCode::Char('s')) => then(Action::BufferSave, Context::Main),
+        (false, false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),
         _ => return None,
     })
 }

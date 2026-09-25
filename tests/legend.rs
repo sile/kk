@@ -62,11 +62,11 @@ fn the_ext_legend_fills_a_frame_exactly_its_size() {
     let mut frame = exact_frame(kk::Context::Ext);
     let cols = frame.size().cols;
     kk::LegendRenderer.render(kk::Context::Ext, &mut frame);
-    assert_eq!(row_text(&frame, 0, cols), "\u{2502} C-g cancel ");
-    assert_eq!(row_text(&frame, 1, cols), "\u{2502} C-s save   ");
+    assert_eq!(row_text(&frame, 0, cols), "\u{2502} C-g cancel");
+    assert_eq!(row_text(&frame, 1, cols), "\u{2502} C-s save  ");
     assert_eq!(
         row_text(&frame, 2, cols),
-        "\u{2514}\u{2500}\u{2500}\u{2500} ext \u{2500}\u{2500}\u{2500}\u{2500}"
+        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}"
     );
 }
 
@@ -101,8 +101,8 @@ fn the_main_legend_is_exactly_this_text() {
         "\u{2502} C-j newline     ",
         "\u{2502} C-h backspace   ",
         "\u{2502} C-d delete      ",
-        "\u{2502} C-/ undo        ",
-        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} main \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+        "\u{2502} C-u undo        ",
+        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 
     assert_eq!(expected.len(), kk::legend(kk::Context::Main).len());
@@ -128,7 +128,7 @@ fn the_grep_legend_is_exactly_this_text() {
         "\u{2502} C-f right      ",
         "\u{2502} C-h backspace  ",
         "\u{2502} C-d delete     ",
-        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} grep \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 
     assert_eq!(expected.len(), kk::legend(kk::Context::Grep).len());
