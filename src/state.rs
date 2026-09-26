@@ -362,19 +362,16 @@ impl State {
         self.buffer.delete_char_at(self.cursor);
     }
 
+    /// Recomputes the highlight for the query typed so far.
+    ///
+    /// It only refreshes the matches: the cursor stays where it is until `C-s`
+    /// or `C-r` asks for a hit, so typing a query does not drag the buffer
+    /// around under the prompt.
     fn rerun_query(&mut self) {
-        let Some(search) = &mut self.search_mode else {
+        let Some(search) = &self.search_mode else {
             return;
         };
-        let highlight = search.search(&self.buffer);
-        self.highlight = highlight;
-        if !self.highlight.contains(self.cursor) {
-            if search.forward {
-                self.handle_search_next_hit();
-            } else {
-                self.handle_search_prev_hit();
-            }
-        }
+        self.highlight = search.search(&self.buffer);
     }
 
     /// Renders the buffer for saving and returns the text to persist.

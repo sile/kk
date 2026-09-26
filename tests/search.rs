@@ -238,6 +238,30 @@ fn typing_a_query_fills_in_the_highlight() {
 }
 
 #[test]
+fn typing_a_query_leaves_the_cursor_alone_even_when_it_matches() {
+    let mut state = state_of("one two one\n");
+    state.search_mode = Some(SearchMode::new(true));
+    state.cursor = kk::TextPosition { row: 0, col: 4 };
+
+    // Every character matches, so the old behaviour would have jumped to the
+    // first hit on the first keypress.
+    for ch in "one".chars() {
+        state.handle_char_insert(ch);
+    }
+
+    assert_eq!(state.highlight.items.len(), 2, "the matches are found");
+    assert_eq!(
+        state.cursor,
+        kk::TextPosition { row: 0, col: 4 },
+        "the cursor stays put until a hit is asked for"
+    );
+
+    // `C-s` is what moves it, and it jumps past the cursor to the hit after it.
+    state.handle_search_next_hit();
+    assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 8 });
+}
+
+#[test]
 fn the_next_hit_advances_and_wraps_around() {
     let mut state = state_of("one two one\n");
     state.search_mode = Some(SearchMode::new(true));

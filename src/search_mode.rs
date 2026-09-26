@@ -61,7 +61,7 @@ impl SearchMode {
     /// Runs the query against `buffer` and returns every match.
     ///
     /// An empty query matches nothing.
-    pub fn search(&mut self, buffer: &TextBuffer) -> Highlight {
+    pub fn search(&self, buffer: &TextBuffer) -> Highlight {
         if self.query.is_empty() {
             return Highlight::default();
         }

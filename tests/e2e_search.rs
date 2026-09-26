@@ -20,11 +20,16 @@ fn search_enters_search_mode_and_finds_a_later_match() {
     // Type the query, one character at a time.
     kk.send_text("gamma");
 
-    // The prompt holds the query, and the status line counts the matches: the
-    // one `gamma` in the buffer, with the cursor already on it.
+    // Typing finds the match but does not move the cursor to it: the status
+    // line counts the one `gamma` in the buffer, and the cursor is still before
+    // it, so `0/1`.
     kk.wait_until("query visible", |h| {
-        h.screen_text().contains("Search: gamma") && h.screen_text().contains("1/1")
+        h.screen_text().contains("Search: gamma") && h.screen_text().contains("0/1")
     });
+
+    // `C-s` in Search is what jumps to the hit, which puts the cursor on it.
+    kk.send_ctrl('s');
+    kk.wait_until("cursor on the hit", |h| h.screen_text().contains("1/1"));
 
     // `Enter` accepts the search and returns to editing at the match.
     kk.send_key(termnix::KeyCode::Enter, termnix::Modifiers::new());
