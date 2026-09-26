@@ -37,17 +37,17 @@ pub const EDIT_LEGEND: &[&str] = &[
 /// last.
 pub const SEARCH_LEGEND: &[&str] = &[
     "\u{2502}C-g cancel",
-    "\u{2502}C-r \u{21e4} prev-hit",
-    "\u{2502}C-s \u{21e5} next-hit",
-    "\u{2502}C-y paste",
+    "\u{2502}C-r \u{21e4} prev",
+    "\u{2502}C-s \u{21e5} next",
     "\u{2502}C-k cut-line",
+    "\u{2502}C-y paste",
     "\u{2502}C-a bol",
     "\u{2502}C-e eol",
     "\u{2502}C-b \u{2190} left",
     "\u{2502}C-f \u{2192} right",
     "\u{2502}C-h \u{232b} bs",
     "\u{2502}C-d \u{2326} delete",
-    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+    "\u{2514}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
 /// The legend rows for the extension context, in legend order, the bottom

@@ -124,18 +124,18 @@ fn the_search_legend_is_exactly_this_text() {
     kk::LegendRenderer.render(kk::Context::Search, &mut frame);
 
     let expected = [
-        "\u{2502}C-g cancel    ",
-        "\u{2502}C-r \u{21e4} prev-hit",
-        "\u{2502}C-s \u{21e5} next-hit",
-        "\u{2502}C-y paste     ",
-        "\u{2502}C-k cut-line  ",
-        "\u{2502}C-a bol       ",
-        "\u{2502}C-e eol       ",
-        "\u{2502}C-b \u{2190} left    ",
-        "\u{2502}C-f \u{2192} right   ",
-        "\u{2502}C-h \u{232b} bs      ",
-        "\u{2502}C-d \u{2326} delete  ",
-        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+        "\u{2502}C-g cancel  ",
+        "\u{2502}C-r \u{21e4} prev  ",
+        "\u{2502}C-s \u{21e5} next  ",
+        "\u{2502}C-k cut-line",
+        "\u{2502}C-y paste   ",
+        "\u{2502}C-a bol     ",
+        "\u{2502}C-e eol     ",
+        "\u{2502}C-b \u{2190} left  ",
+        "\u{2502}C-f \u{2192} right ",
+        "\u{2502}C-h \u{232b} bs    ",
+        "\u{2502}C-d \u{2326} delete",
+        "\u{2514}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 
     assert_eq!(expected.len(), kk::legend(kk::Context::Search).len());
