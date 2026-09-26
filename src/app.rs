@@ -351,6 +351,37 @@ impl App {
         self.driver.size().to_region().drop_bottom(2)
     }
 
+    /// Returns the region the legend of `context` is painted into, or `None`
+    /// when the frame is too small to hold it whole.
+    ///
+    /// The legend is not painted at all when it does not fit, so a `None` here
+    /// means there is nothing for the cursor to share and nothing to hide.
+    fn legend_region(&self, context: kk::Context) -> Option<tuinix::Region> {
+        let size = self.driver.size();
+        let legend = kk::legend_size(context, size);
+        let full = kk::legend_size(
+            context,
+            tuinix::Size {
+                rows: usize::MAX,
+                cols: usize::MAX,
+            },
+        );
+        if legend != full {
+            return None;
+        }
+
+        Some(tuinix::Region {
+            position: tuinix::Position {
+                row: 0,
+                col: size.cols - legend.cols,
+            },
+            size: tuinix::Size {
+                rows: legend.rows,
+                cols: legend.cols,
+            },
+        })
+    }
+
     fn render(&mut self) -> std::io::Result<()> {
         let mut frame = tuinix::Frame::new(self.driver.size());
 
@@ -373,10 +404,6 @@ impl App {
             self.message_line.render(&self.state, frame)
         });
 
-        if self.legend_visible {
-            self.legend.render(self.context, &mut frame);
-        }
-
         // The cursor is in the query while one is open, and on the buffer's
         // cursor otherwise; the query shares the message line, so that is the
         // region its position is measured in.
@@ -385,6 +412,18 @@ impl App {
         } else {
             Some(self.state.terminal_cursor_position())
         };
+
+        // The legend is painted last so it sits above the text, but the cursor
+        // is painted above everything, so a legend over the cursor would hide
+        // it. It steps aside for as long as the cursor is inside it, and comes
+        // back on its own: `legend_visible` is left alone, so the `Esc` toggle
+        // still means what the user last asked for.
+        if let Some(legend_region) = self.legend_region(self.context) {
+            let cursor_shares_legend = cursor.is_some_and(|at| legend_region.contains(at));
+            if self.legend_visible && !cursor_shares_legend {
+                self.legend.render(self.context, &mut frame);
+            }
+        }
 
         let out = frame.render(self.prev_frame.as_ref(), cursor);
         self.driver.write_all(&out)?;
