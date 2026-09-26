@@ -4,8 +4,12 @@ use crate::terminal::put_str;
 
 use crate::{buffer::TextLine, buffer::TextPosition, state::State};
 
-/// Paints the visible slice of the buffer, with the cursor, mark, and search
-/// highlight.
+/// Paints the visible slice of the buffer, with the mark and search highlight.
+///
+/// A marked range and the character the cursor sits on while a search prompt is
+/// open are both reversed, so the cursor stands out as plainly as a mark. A
+/// matched range is bold and underlined instead, so a hit and a mark cannot be
+/// taken for one another.
 #[derive(Debug)]
 pub struct TextAreaRenderer;
 
@@ -62,21 +66,15 @@ impl TextAreaRenderer {
                     .as_ref()
                     .is_some_and(|(start, end)| current_col >= *start && current_col < *end);
                 let is_highlighted = state.highlight.contains(pos);
+                let is_cursor = state.search_mode.is_some() && pos == state.cursor;
 
-                let mut style = tuinix::Style::new();
-                if is_marked {
-                    style = style.reverse();
-                }
-                if is_highlighted {
-                    style = style.bg_color(tuinix::Color::Rgb(220, 220, 220));
-                }
-                if pos == state.cursor {
-                    if state.search_mode.is_some() {
-                        style = style.underline().bold();
-                    } else {
-                        style = style.underline();
-                    }
-                }
+                let style = if is_cursor || is_marked {
+                    tuinix::Style::new().reverse()
+                } else if is_highlighted {
+                    tuinix::Style::new().bold().underline()
+                } else {
+                    tuinix::Style::new()
+                };
                 let at = tuinix::Position {
                     row: screen_row,
                     col: current_col - start_col,

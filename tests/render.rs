@@ -22,6 +22,18 @@ fn painted_cells(frame: &tuinix::Frame) -> usize {
     frame.chars().filter(|(_, ch)| !ch.is_blank()).count()
 }
 
+/// The style `frame` painted at `(row, col)`.
+///
+/// A position no renderer wrote to keeps [`tuinix::Style::RESET`], so an
+/// unpainted cell and a painted-but-unstyled one look alike here.
+fn style_at(frame: &tuinix::Frame, row: usize, col: usize) -> tuinix::Style {
+    let at = tuinix::Position { row, col };
+    frame
+        .chars()
+        .find(|(position, _)| *position == at)
+        .map_or(tuinix::Style::RESET, |(_, ch)| ch.style())
+}
+
 #[test]
 fn the_text_area_never_paints_outside_the_frame() -> noprop::TestResult {
     let seed = noprop::seed_from_env_or_time("KK_SEED")?;
@@ -71,6 +83,106 @@ fn the_text_area_paints_the_visible_slice_from_the_viewport() {
 
     assert_eq!(row_text(&frame, 0, 3), "wo ");
     assert_eq!(row_text(&frame, 1, 3), "hre");
+}
+
+#[test]
+fn a_search_bolds_and_underlines_the_matches() {
+    let mut state = state_of("one two\n");
+    state.search_mode = Some(kk::SearchMode::new(true));
+    state.handle_char_insert('t');
+    state.handle_char_insert('w');
+    state.handle_char_insert('o');
+    // The cursor is put away from the match so that no hit column is also the
+    // cursor, which would be reversed instead.
+    state.cursor = kk::TextPosition { row: 0, col: 0 };
+    let mut frame = frame_of(1, 7);
+
+    kk::TextAreaRenderer.render(&state, &mut frame);
+
+    // `two` starts at column 4; its three columns are marked as a hit, `one` is
+    // not. A hit is bold and underlined rather than reversed, since the reverse
+    // is what the cursor and the mark use.
+    for col in 4..7 {
+        let style = style_at(&frame, 0, col);
+        assert!(style.bold, "column {col} is a match: {style:?}");
+        assert!(style.underline, "column {col} is a match: {style:?}");
+    }
+    let plain = style_at(&frame, 0, 0);
+    assert!(!plain.bold && !plain.underline, "`one` is not a match");
+}
+
+#[test]
+fn a_match_is_not_reversed() {
+    let mut state = state_of("one\n");
+    state.search_mode = Some(kk::SearchMode::new(true));
+    state.handle_char_insert('o');
+    state.handle_char_insert('n');
+    state.handle_char_insert('e');
+    let mut frame = frame_of(1, 3);
+
+    kk::TextAreaRenderer.render(&state, &mut frame);
+
+    // The cursor sits on the first match, so that one column is reversed; the
+    // rest of the match stays bold and underlined.
+    assert!(
+        !style_at(&frame, 0, 1).reverse,
+        "a hit other than the cursor is not reversed"
+    );
+}
+
+#[test]
+fn an_empty_query_leaves_the_text_area_plain_apart_from_the_cursor() {
+    let mut state = state_of("one\n");
+    state.search_mode = Some(kk::SearchMode::new(true));
+    state.cursor = kk::TextPosition { row: 0, col: 1 };
+    let mut frame = frame_of(2, 3);
+
+    kk::TextAreaRenderer.render(&state, &mut frame);
+
+    // The empty query matches nothing, so the text away from the cursor is
+    // plainly styled: a search neither dims nor underlines it.
+    for col in [0, 2] {
+        assert_eq!(
+            style_at(&frame, 0, col),
+            tuinix::Style::new(),
+            "column {col} carries no search style"
+        );
+    }
+}
+
+#[test]
+fn a_search_reverses_the_character_under_the_cursor() {
+    let mut state = state_of("one\n");
+    state.search_mode = Some(kk::SearchMode::new(true));
+    state.cursor = kk::TextPosition { row: 0, col: 1 };
+    let mut frame = frame_of(1, 3);
+
+    kk::TextAreaRenderer.render(&state, &mut frame);
+
+    assert!(
+        style_at(&frame, 0, 1).reverse,
+        "the character under the cursor is reversed"
+    );
+    assert!(
+        !style_at(&frame, 0, 0).reverse,
+        "the characters beside it are not"
+    );
+}
+
+#[test]
+fn the_cursor_is_not_reversed_outside_a_search() {
+    let mut state = state_of("one\n");
+    state.cursor = kk::TextPosition { row: 0, col: 1 };
+    let mut frame = frame_of(1, 3);
+
+    kk::TextAreaRenderer.render(&state, &mut frame);
+
+    // The terminal's own cursor marks the position in the buffer, so the cell
+    // under it is painted like any other.
+    assert!(
+        !style_at(&frame, 0, 1).reverse,
+        "the cursor carries no style of its own"
+    );
 }
 
 #[test]
