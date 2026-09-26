@@ -2,13 +2,11 @@
 
 mod helpers_frame;
 
-use std::path::PathBuf;
-
 use helpers_frame::row_text;
 
 /// A state over `text`, cursored at the start.
 fn state_of(text: &str) -> kk::State {
-    kk::State::new(PathBuf::from("test.txt"), kk::TextBuffer::from_text(text))
+    kk::State::new(kk::TextBuffer::from_text(text))
 }
 
 /// A fresh frame of the given size.
@@ -22,15 +20,6 @@ fn frame_of(rows: usize, cols: usize) -> tuinix::Frame {
 /// of painted cells filters those out.
 fn painted_cells(frame: &tuinix::Frame) -> usize {
     frame.chars().filter(|(_, ch)| !ch.is_blank()).count()
-}
-
-/// A plain character key with no modifiers.
-fn char_key(ch: char) -> tuinix::KeyInput {
-    tuinix::KeyInput {
-        ctrl: false,
-        alt: false,
-        code: tuinix::KeyCode::Char(ch),
-    }
 }
 
 #[test]
@@ -110,7 +99,7 @@ fn the_status_line_reports_path_position_and_flag() {
     let mut state = state_of("one\ntwo\n");
     let mut frame = frame_of(1, 40);
 
-    kk::StatusLineRenderer.render(&state, &mut frame);
+    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
 
     let text = row_text(&frame, 0, 40);
     assert!(
@@ -118,9 +107,9 @@ fn the_status_line_reports_path_position_and_flag() {
         "clean buffer, row 1 of 2, column 1 of 3: {text:?}"
     );
 
-    state.handle_char_insert(char_key('!'));
+    state.handle_char_insert('!');
     let mut frame = frame_of(1, 40);
-    kk::StatusLineRenderer.render(&state, &mut frame);
+    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
     let text = row_text(&frame, 0, 40);
     assert!(
         text.starts_with(" * [test.txt:1(2):2(4)] "),
@@ -133,7 +122,7 @@ fn the_status_line_pads_the_whole_row() {
     let state = state_of("x\n");
     let mut frame = frame_of(1, 60);
 
-    kk::StatusLineRenderer.render(&state, &mut frame);
+    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
 
     assert_eq!(
         painted_cells(&frame),
@@ -148,7 +137,7 @@ fn the_status_line_shows_only_the_clipboards_first_line() {
     state.clipboard.write("copied\nsecond line");
     let mut frame = frame_of(1, 60);
 
-    kk::StatusLineRenderer.render(&state, &mut frame);
+    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
 
     let text = row_text(&frame, 0, 60);
     assert!(text.contains("copied"), "the first line shows: {text:?}");
@@ -185,7 +174,7 @@ fn the_query_line_prompts_and_shows_the_query() {
     let mut state = state_of("one\n");
     state.grep_mode = Some(kk::GrepMode::new(kk::GrepAction { forward: true }));
     for ch in "ab".chars() {
-        state.handle_char_insert(char_key(ch));
+        state.handle_char_insert(ch);
     }
     let mut frame = frame_of(1, 20);
 
@@ -212,7 +201,7 @@ fn the_query_cursor_follows_the_prompt_and_the_typed_query() {
     );
 
     for ch in "ab".chars() {
-        state.handle_char_insert(char_key(ch));
+        state.handle_char_insert(ch);
     }
     let grep = state.grep_mode.as_ref().expect("grep mode");
     assert_eq!(grep.cursor_position(region).col, kk::str_cols("Search: ab"));

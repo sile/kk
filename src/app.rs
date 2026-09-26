@@ -11,7 +11,7 @@
 //! [`ESCAPE_TIMEOUT_MS`] and then commits it.
 
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// How long to wait for the rest of an escape sequence before a lone `ESC` byte
 /// is treated as the Escape key.
@@ -23,6 +23,7 @@ pub struct App {
     driver: tuinix::TerminalDriver,
     input: tuinix::InputDecoder,
     prev_frame: Option<tuinix::Frame>,
+    path: PathBuf,
     context: kk::Context,
     state: kk::State,
     text_area: kk::TextAreaRenderer,
@@ -37,9 +38,8 @@ impl App {
     /// Reads `path` from disk and takes over the terminal.
     ///
     /// Reading the file here keeps the core free of the file system: the core is
-    /// handed an already-loaded [`TextBuffer`](kk::TextBuffer), and only remembers
-    /// `path` as data
-    /// for the status line and for later saves.
+    /// handed an already-loaded [`TextBuffer`](kk::TextBuffer), and this edge
+    /// keeps `path` for later saves and reloads.
     ///
     /// A missing file is created by `--create-new`, as
     /// [`std::fs::File::create_new`] would; if the file already exists that is an
@@ -58,7 +58,7 @@ impl App {
 
         let buffer = kk::TextBuffer::from_text(&text);
 
-        let mut state = kk::State::new(path, buffer);
+        let mut state = kk::State::new(buffer);
         state.set_message(if create_new { "Created" } else { "Opened" });
         let driver = tuinix::TerminalDriver::new()?;
 
@@ -66,6 +66,7 @@ impl App {
             driver,
             input: tuinix::InputDecoder::new(),
             prev_frame: None,
+            path,
             state,
             context: kk::Context::Main,
             text_area: kk::TextAreaRenderer,
@@ -211,8 +212,12 @@ impl App {
             kk::Action::ViewRecenter => self.state.handle_view_recenter(),
             kk::Action::NewlineInsert => self.state.handle_newline_insert(),
             kk::Action::CharInsert => {
-                if let tuinix::Input::Key(key) = input {
-                    self.state.handle_char_insert(*key);
+                if let tuinix::Input::Key(tuinix::KeyInput {
+                    code: tuinix::KeyCode::Char(ch),
+                    ..
+                }) = input
+                {
+                    self.state.handle_char_insert(*ch);
                 }
             }
             kk::Action::CharDeleteBackward => self.state.handle_char_delete_backward(),
@@ -252,14 +257,14 @@ impl App {
     /// that follows a successful one, happen here.
     fn handle_buffer_save(&mut self) -> std::io::Result<()> {
         let text = self.state.handle_buffer_save();
-        std::fs::write(&self.state.path, &text)?;
+        std::fs::write(&self.path, &text)?;
         self.state.mark_saved(text.chars().count());
         Ok(())
     }
 
     /// Reads `path` back and hands the text to the core to reload from.
     fn handle_buffer_reload(&mut self) -> std::io::Result<()> {
-        let text = std::fs::read_to_string(&self.state.path)?;
+        let text = std::fs::read_to_string(&self.path)?;
         self.state.handle_buffer_reload(&text);
         Ok(())
     }
@@ -289,8 +294,9 @@ impl App {
         }
 
         let region = frame_region.take_bottom(2).take_top(1);
+        let path = self.path.display().to_string();
         self.render_region(&mut frame, region, |frame| {
-            self.status_line.render(&self.state, frame)
+            self.status_line.render(&self.state, &path, frame)
         });
 
         let region = frame_region.take_bottom(1);

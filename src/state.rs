@@ -5,7 +5,7 @@
 //! reloading -- return the text to write and accept the text that was read, and
 //! the edge performs the actual read and write (see [`crate::Action`]).
 
-use std::{collections::VecDeque, path::PathBuf};
+use std::collections::VecDeque;
 
 use crate::{
     buffer::{TextBuffer, TextPosition},
@@ -24,9 +24,6 @@ pub const MAX_HISTORY_SIZE: usize = 1000;
 /// viewport stay consistent.
 #[derive(Debug)]
 pub struct State {
-    /// The buffer's path, kept as data for the status line and for the edge.
-    pub path: PathBuf,
-
     /// The cursor's position in [`buffer`](State::buffer).
     pub cursor: TextPosition,
 
@@ -67,12 +64,8 @@ pub struct State {
 
 impl State {
     /// Builds the editor state around an already-loaded `buffer`.
-    ///
-    /// `path` is kept only as data, for the status line and for the I/O edge to
-    /// know where to read and write; nothing here touches the file system.
-    pub fn new(path: PathBuf, buffer: TextBuffer) -> Self {
+    pub fn new(buffer: TextBuffer) -> Self {
         Self {
-            path,
             cursor: TextPosition::default(),
             viewport: TextPosition::default(),
             recenter_viewport: false,
@@ -319,14 +312,14 @@ impl State {
     /// The caller (the I/O edge) writes it and then calls [`Self::mark_saved`]
     /// once the write succeeded; the core never touches the file system.
     pub fn handle_buffer_save(&mut self) -> String {
-        self.set_message(format!("Saving: {}", self.path.display()));
+        self.set_message("Saving");
         self.buffer.to_text()
     }
 
     /// Marks the buffer as written and reports how many characters were saved.
     pub fn mark_saved(&mut self, chars: usize) {
         self.buffer.mark_saved();
-        self.set_message(format!("Saved {} chars: {}", chars, self.path.display()));
+        self.set_message(format!("Saved {chars} chars"));
     }
 
     /// Replaces the buffer with `text`, as the edge would after reading the file
@@ -351,31 +344,23 @@ impl State {
         // Adjust cursor to proper character boundary
         self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
 
-        self.set_message(format!("Reloaded: {}", self.path.display()));
+        self.set_message("Reloaded");
         self.finish_editing();
     }
 
-    /// Inserts `key`'s character at the cursor.
+    /// Inserts `ch` at the cursor.
     ///
-    /// A non-printable key inserts nothing. While a search prompt is open, the
-    /// character enters the query instead and re-runs it.
-    pub fn handle_char_insert(&mut self, key: tuinix::KeyInput) {
+    /// While a search prompt is open, the character enters the query instead
+    /// and re-runs it.
+    pub fn handle_char_insert(&mut self, ch: char) {
         if let Some(grep) = &mut self.grep_mode {
-            grep.handle_char_insert(key);
+            grep.insert_char(ch);
             self.regrep();
             return;
         }
 
         self.start_editing();
-        // Only insert printable characters, matching the catch-all arm of the
-        // key resolver: a ctrl chord is a binding, not text. Alt is ignored,
-        // so an Alt chord inserts the same character as the plain one.
-        if let tuinix::KeyCode::Char(ch) = key.code
-            && !key.ctrl
-            && !ch.is_control()
-        {
-            self.cursor = self.buffer.insert_char_at(self.cursor, ch);
-        }
+        self.cursor = self.buffer.insert_char_at(self.cursor, ch);
     }
 
     /// Splits the line at the cursor.

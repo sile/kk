@@ -1,11 +1,10 @@
 //! Properties and examples of the editor state's handlers.
 
 use std::cell::Cell;
-use std::path::PathBuf;
 
-/// A state over `text`, which is `path`. Nothing touches the file system.
+/// A state over `text`. Nothing touches the file system.
 fn state_of(text: &str) -> kk::State {
-    kk::State::new(PathBuf::from("test.txt"), kk::TextBuffer::from_text(text))
+    kk::State::new(kk::TextBuffer::from_text(text))
 }
 
 /// The buffer's text as the edge would write it.
@@ -16,15 +15,6 @@ fn saved_text(state: &kk::State) -> String {
 /// A cursor at `(row, col)`.
 fn at(row: usize, col: usize) -> kk::TextPosition {
     kk::TextPosition { row, col }
-}
-
-/// A plain character key with no modifiers.
-fn char_key(ch: char) -> tuinix::KeyInput {
-    tuinix::KeyInput {
-        ctrl: false,
-        alt: false,
-        code: tuinix::KeyCode::Char(ch),
-    }
 }
 
 /// A text area of the given size, for the handlers that need one.
@@ -52,7 +42,7 @@ impl Edit {
     fn apply(self, state: &mut kk::State) {
         match self {
             Edit::Insert(ch) => {
-                state.handle_char_insert(char_key(ch));
+                state.handle_char_insert(ch);
             }
             Edit::Newline => state.handle_newline_insert(),
             Edit::Delete => state.handle_char_delete_forward(),
@@ -128,29 +118,14 @@ fn a_char_insert_reports_and_advances_by_the_character_width() {
     let mut state = state_of("ab\n");
     state.cursor = at(0, 1);
 
-    state.handle_char_insert(char_key('X'));
+    state.handle_char_insert('X');
     assert_eq!(state.cursor, at(0, 2));
     assert_eq!(saved_text(&state), "aXb\n");
     assert!(state.buffer.dirty);
 
-    state.handle_char_insert(char_key('一'));
+    state.handle_char_insert('一');
     assert_eq!(state.cursor, at(0, 4), "a wide character is two columns");
     assert_eq!(saved_text(&state), "aX一b\n");
-}
-
-#[test]
-fn a_control_key_inserts_nothing() {
-    let mut state = state_of("ab\n");
-    state.cursor = at(0, 1);
-
-    state.handle_char_insert(tuinix::KeyInput {
-        ctrl: true,
-        alt: false,
-        code: tuinix::KeyCode::Char('x'),
-    });
-
-    assert_eq!(saved_text(&state), "ab\n");
-    assert_eq!(state.cursor, at(0, 1));
 }
 
 #[test]
@@ -222,7 +197,7 @@ fn pasting_an_empty_clipboard_changes_nothing() {
 fn saving_and_reloading_round_trip_through_the_edge() {
     let mut state = state_of("one\n");
     state.cursor = at(0, 1);
-    state.handle_char_insert(char_key('X'));
+    state.handle_char_insert('X');
     assert!(state.buffer.dirty);
 
     // Saving is a handshake: the core renders the text, the edge writes it,

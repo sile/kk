@@ -10,16 +10,18 @@ use crate::state::State;
 /// `*` marks a buffer with unsaved edits and the row, column, and totals are
 /// 1-based. The whole row is padded so the reverse-video style reaches the
 /// right edge.
+///
+/// `path` is passed in rather than read off [`State`]: the core holds no file
+/// path, so the edge that owns one hands its display form over for painting.
 #[derive(Debug)]
 pub struct StatusLineRenderer;
 
 impl StatusLineRenderer {
-    /// Paints the status line into `frame`.
-    pub fn render(&self, state: &State, frame: &mut tuinix::Frame) {
+    /// Paints the status line into `frame`, labelling the buffer `path`.
+    pub fn render(&self, state: &State, path: &str, frame: &mut tuinix::Frame) {
         let style = tuinix::Style::new().reverse().bold();
 
         let dirty = if state.buffer.dirty { '*' } else { ' ' };
-        let path = state.path.display();
         let cursor = state.cursor_position();
         let row = cursor.row + 1; // Convert to 1-based index
         let col = cursor.col + 1; // Convert to 1-based index

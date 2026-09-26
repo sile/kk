@@ -48,13 +48,8 @@ impl GrepMode {
         pos
     }
 
-    /// Inserts the character of `key` at the query cursor.
-    ///
-    /// A key that is not a character leaves the query unchanged.
-    pub fn handle_char_insert(&mut self, key: tuinix::KeyInput) {
-        let tuinix::KeyCode::Char(ch) = key.code else {
-            return;
-        };
+    /// Inserts `ch` at the query cursor.
+    pub fn insert_char(&mut self, ch: char) {
         self.query.insert(self.cursor, ch);
         self.cursor += 1;
     }

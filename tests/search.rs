@@ -1,24 +1,19 @@
 //! Properties and examples of the in-buffer search.
 
 use std::cell::Cell;
-use std::path::PathBuf;
 
 use kk::{GrepMode, Highlight};
 
 /// A state over `text`, with no search open yet.
 fn state_of(text: &str) -> kk::State {
-    kk::State::new(PathBuf::from("test.txt"), kk::TextBuffer::from_text(text))
+    kk::State::new(kk::TextBuffer::from_text(text))
 }
 
 /// Runs `query` over `state` and returns the matches.
 fn run(query: &str, state: &kk::State) -> Highlight {
     let mut grep = GrepMode::new(kk::GrepAction { forward: true });
     for ch in query.chars() {
-        grep.handle_char_insert(tuinix::KeyInput {
-            ctrl: false,
-            alt: false,
-            code: tuinix::KeyCode::Char(ch),
-        });
+        grep.insert_char(ch);
     }
     grep.grep(&state.buffer)
 }
@@ -161,11 +156,7 @@ fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
     let buffer_cursor = state.cursor;
 
     for ch in "xy".chars() {
-        state.handle_char_insert(tuinix::KeyInput {
-            ctrl: false,
-            alt: false,
-            code: tuinix::KeyCode::Char(ch),
-        });
+        state.handle_char_insert(ch);
     }
     assert_eq!(
         state.grep_mode.as_ref().expect("grep mode").query,
@@ -201,11 +192,7 @@ fn typing_a_query_fills_in_the_highlight() {
     state.grep_mode = Some(GrepMode::new(kk::GrepAction { forward: true }));
 
     for ch in "abc".chars() {
-        state.handle_char_insert(tuinix::KeyInput {
-            ctrl: false,
-            alt: false,
-            code: tuinix::KeyCode::Char(ch),
-        });
+        state.handle_char_insert(ch);
     }
 
     assert_eq!(state.highlight.items.len(), 2);
@@ -217,11 +204,7 @@ fn the_next_hit_advances_and_wraps_around() {
     let mut state = state_of("one two one\n");
     state.grep_mode = Some(GrepMode::new(kk::GrepAction { forward: true }));
     for ch in "one".chars() {
-        state.handle_char_insert(tuinix::KeyInput {
-            ctrl: false,
-            alt: false,
-            code: tuinix::KeyCode::Char(ch),
-        });
+        state.handle_char_insert(ch);
     }
 
     state.handle_grep_next_hit();
@@ -237,11 +220,7 @@ fn the_previous_hit_goes_back_and_wraps_around() {
     let mut state = state_of("one two one\n");
     state.grep_mode = Some(GrepMode::new(kk::GrepAction { forward: true }));
     for ch in "one".chars() {
-        state.handle_char_insert(tuinix::KeyInput {
-            ctrl: false,
-            alt: false,
-            code: tuinix::KeyCode::Char(ch),
-        });
+        state.handle_char_insert(ch);
     }
     state.cursor = kk::TextPosition { row: 0, col: 10 };
 
