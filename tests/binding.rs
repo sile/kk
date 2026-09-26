@@ -76,7 +76,6 @@ fn built_in_keys() -> Vec<tuinix::KeyInput> {
         ctrl_key('e'),
         ctrl_key('d'),
         ctrl_key('h'),
-        ctrl_key('j'),
         ctrl_key('p'),
         ctrl_key('n'),
         ctrl_key('b'),

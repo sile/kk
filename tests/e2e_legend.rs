@@ -18,13 +18,13 @@ fn escape_toggles_the_legend() {
 
     // The legend is visible on startup; a row unique to it is the marker.
     kk.wait_until("legend visible at startup", |h| {
-        h.screen_contains("C-j newline")
+        h.screen_contains("C-l recenter")
     });
 
     // Escape hides it.
     kk.send_escape();
     kk.wait_until("legend hidden after Escape", |h| {
-        !h.screen_contains("C-j newline")
+        !h.screen_contains("C-l recenter")
     });
 
     // The buffer is still there with the legend gone.
@@ -37,7 +37,7 @@ fn escape_toggles_the_legend() {
     // Escape shows it again.
     kk.send_escape();
     kk.wait_until("legend visible after a second Escape", |h| {
-        h.screen_contains("C-j newline")
+        h.screen_contains("C-l recenter")
     });
 
     let status = kk.quit();
