@@ -188,14 +188,14 @@ impl App {
             }
             kk::Action::Cancel => {
                 self.state.mark = None;
-                self.state.grep_mode = None;
+                self.state.search_mode = None;
                 self.state.highlight = kk::Highlight::default();
                 self.state.set_message("Canceled");
             }
             kk::Action::BufferSave => {
                 self.handle_buffer_save()?;
                 self.state.mark = None;
-                self.state.grep_mode = None;
+                self.state.search_mode = None;
                 self.state.highlight = kk::Highlight::default();
             }
             kk::Action::BufferReload => self.handle_buffer_reload()?,
@@ -226,24 +226,24 @@ impl App {
             kk::Action::MarkSet => self.state.handle_mark_set(),
             kk::Action::MarkCut => self.state.handle_mark_cut(),
             kk::Action::ClipboardPaste => self.state.handle_clipboard_paste(),
-            kk::Action::Grep(action) => {
+            kk::Action::Search { forward } => {
                 self.state.finish_editing();
-                self.state.grep_mode = Some(kk::GrepMode::new(action));
+                self.state.search_mode = Some(kk::SearchMode::new(forward));
                 self.state.mark = None;
-                self.state.set_message("Entered grep mode");
+                self.state.set_message("Entered search mode");
             }
-            kk::Action::GrepNextHit => {
+            kk::Action::SearchNextHit => {
                 if !self.state.highlight.items.is_empty() {
-                    self.state.handle_grep_next_hit();
+                    self.state.handle_search_next_hit();
                 } else {
-                    self.state.set_message("No grep hits available");
+                    self.state.set_message("No search hits available");
                 }
             }
-            kk::Action::GrepPrevHit => {
+            kk::Action::SearchPrevHit => {
                 if !self.state.highlight.items.is_empty() {
-                    self.state.handle_grep_prev_hit();
+                    self.state.handle_search_prev_hit();
                 } else {
-                    self.state.set_message("No grep hits available");
+                    self.state.set_message("No search hits available");
                 }
             }
         }
@@ -270,7 +270,11 @@ impl App {
     }
 
     fn text_area_region(&self) -> tuinix::Region {
-        let footer_rows = if self.state.grep_mode.is_some() { 3 } else { 2 };
+        let footer_rows = if self.state.search_mode.is_some() {
+            3
+        } else {
+            2
+        };
         self.driver.size().to_region().drop_bottom(footer_rows)
     }
 
@@ -284,11 +288,11 @@ impl App {
         });
 
         let mut frame_region = frame.size().to_region();
-        let mut grep_region = frame_region;
-        if self.state.grep_mode.is_some() {
-            grep_region = frame_region.take_bottom(1);
-            self.render_region(&mut frame, grep_region, |frame| {
-                kk::GrepQueryRenderer.render(&self.state, frame)
+        let mut search_region = frame_region;
+        if self.state.search_mode.is_some() {
+            search_region = frame_region.take_bottom(1);
+            self.render_region(&mut frame, search_region, |frame| {
+                kk::SearchQueryRenderer.render(&self.state, frame)
             });
             frame_region = frame_region.drop_bottom(1);
         }
@@ -308,8 +312,8 @@ impl App {
             self.legend.render(self.context, &mut frame);
         }
 
-        let cursor = if let Some(grep) = &self.state.grep_mode {
-            Some(grep.cursor_position(grep_region))
+        let cursor = if let Some(search) = &self.state.search_mode {
+            Some(search.cursor_position(search_region))
         } else {
             Some(self.state.terminal_cursor_position())
         };

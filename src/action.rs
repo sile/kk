@@ -10,7 +10,7 @@ pub enum Action {
     /// Leaves the editor.
     Quit,
 
-    /// Drops the mark, the grep mode, and the search highlight, and reports
+    /// Drops the mark, the search mode, and the search highlight, and reports
     /// `Canceled`.
     Cancel,
 
@@ -79,19 +79,16 @@ pub enum Action {
     /// Inserts the clipboard's contents at the cursor.
     ClipboardPaste,
 
-    /// Enters grep mode with the given direction.
-    Grep(GrepAction),
+    /// Enters search mode, with `forward` giving the direction the first run
+    /// reads in.
+    Search {
+        /// Whether the search reads forward from the cursor.
+        forward: bool,
+    },
 
     /// Moves the cursor to the next search hit.
-    GrepNextHit,
+    SearchNextHit,
 
     /// Moves the cursor to the previous search hit.
-    GrepPrevHit,
-}
-
-/// The direction a [`Action::Grep`] search starts in.
-#[derive(Debug, Clone)]
-pub struct GrepAction {
-    /// Whether the search reads forward from the cursor.
-    pub forward: bool,
+    SearchPrevHit,
 }

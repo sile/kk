@@ -3,7 +3,6 @@
 use crate::terminal::{char_cols, put_str};
 
 use crate::{
-    action::GrepAction,
     buffer::{TextBuffer, TextPosition},
     state::State,
 };
@@ -13,23 +12,23 @@ use crate::{
 /// The query is edited as a list of characters with an insertion cursor, so a
 /// query can be built up one keypress at a time before it is run.
 #[derive(Debug)]
-pub struct GrepMode {
+pub struct SearchMode {
     /// The direction a run of the query searches in.
-    pub action: GrepAction,
+    pub forward: bool,
 
     /// The query as entered so far.
     pub query: Vec<char>,
 
-    /// The index in [`query`](GrepMode::query) where the next character is
+    /// The index in [`query`](SearchMode::query) where the next character is
     /// inserted.
     pub cursor: usize,
 }
 
-impl GrepMode {
-    /// Starts an empty query in the direction given by `action`.
-    pub fn new(action: GrepAction) -> Self {
+impl SearchMode {
+    /// Starts an empty query that reads in the direction given by `forward`.
+    pub fn new(forward: bool) -> Self {
         Self {
-            action,
+            forward,
             query: Vec::new(),
             cursor: 0,
         }
@@ -57,7 +56,7 @@ impl GrepMode {
     /// Runs the query against `buffer` and returns every match.
     ///
     /// An empty query matches nothing.
-    pub fn grep(&mut self, buffer: &TextBuffer) -> Highlight {
+    pub fn search(&mut self, buffer: &TextBuffer) -> Highlight {
         if self.query.is_empty() {
             return Highlight::default();
         }
@@ -142,26 +141,26 @@ impl Highlight {
     }
 }
 
-/// Prompt shown in the grep/query input line.
+/// Prompt shown in the search/query input line.
 const PROMPT: &str = "Search: ";
 
 /// Paints the search prompt and the query typed so far.
 #[derive(Debug)]
-pub struct GrepQueryRenderer;
+pub struct SearchQueryRenderer;
 
-impl GrepQueryRenderer {
+impl SearchQueryRenderer {
     /// Paints the prompt into `frame`.
     ///
     /// # Panics
     ///
-    /// Panics if [`State::grep_mode`] is `None`, since there is then no query
+    /// Panics if [`State::search_mode`] is `None`, since there is then no query
     /// to paint.
     pub fn render(&self, state: &State, frame: &mut tuinix::Frame) {
-        let Some(grep) = &state.grep_mode else {
+        let Some(search) = &state.search_mode else {
             unreachable!();
         };
 
-        let query: String = grep.query.iter().collect();
+        let query: String = search.query.iter().collect();
         let text = format!("{PROMPT}{query}");
         put_str(frame, tuinix::Position::ORIGIN, &text, tuinix::Style::new());
     }

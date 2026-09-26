@@ -172,13 +172,13 @@ fn the_message_line_leaves_a_frame_without_a_message_untouched() {
 #[test]
 fn the_query_line_prompts_and_shows_the_query() {
     let mut state = state_of("one\n");
-    state.grep_mode = Some(kk::GrepMode::new(kk::GrepAction { forward: true }));
+    state.search_mode = Some(kk::SearchMode::new(true));
     for ch in "ab".chars() {
         state.handle_char_insert(ch);
     }
     let mut frame = frame_of(1, 20);
 
-    kk::GrepQueryRenderer.render(&state, &mut frame);
+    kk::SearchQueryRenderer.render(&state, &mut frame);
 
     assert_eq!(row_text(&frame, 0, 20), "Search: ab          ");
 }
@@ -186,16 +186,16 @@ fn the_query_line_prompts_and_shows_the_query() {
 #[test]
 fn the_query_cursor_follows_the_prompt_and_the_typed_query() {
     let mut state = state_of("one\n");
-    state.grep_mode = Some(kk::GrepMode::new(kk::GrepAction { forward: true }));
+    state.search_mode = Some(kk::SearchMode::new(true));
     let region = tuinix::Region {
         position: tuinix::Position { row: 3, col: 0 },
         size: tuinix::Size { rows: 1, cols: 20 },
     };
 
-    let grep = state.grep_mode.as_ref().expect("grep mode");
-    assert_eq!(grep.cursor_position(region).row, 3);
+    let search = state.search_mode.as_ref().expect("search mode");
+    assert_eq!(search.cursor_position(region).row, 3);
     assert_eq!(
-        grep.cursor_position(region).col,
+        search.cursor_position(region).col,
         kk::str_cols("Search: "),
         "an empty query leaves the cursor after the prompt"
     );
@@ -203,6 +203,9 @@ fn the_query_cursor_follows_the_prompt_and_the_typed_query() {
     for ch in "ab".chars() {
         state.handle_char_insert(ch);
     }
-    let grep = state.grep_mode.as_ref().expect("grep mode");
-    assert_eq!(grep.cursor_position(region).col, kk::str_cols("Search: ab"));
+    let search = state.search_mode.as_ref().expect("search mode");
+    assert_eq!(
+        search.cursor_position(region).col,
+        kk::str_cols("Search: ab")
+    );
 }

@@ -10,7 +10,7 @@ use std::collections::VecDeque;
 use crate::{
     buffer::{TextBuffer, TextPosition},
     clipboard::Clipboard,
-    grep_mode::{GrepMode, Highlight},
+    search_mode::{Highlight, SearchMode},
 };
 
 /// The number of undo snapshots kept before the oldest is discarded.
@@ -56,7 +56,7 @@ pub struct State {
     pub undo_index: usize,
 
     /// The active search prompt, if one is open. // TODO: non-optional
-    pub grep_mode: Option<GrepMode>,
+    pub search_mode: Option<SearchMode>,
 
     /// The current search matches, used for highlighting.
     pub highlight: Highlight,
@@ -76,7 +76,7 @@ impl State {
             editing: false,
             history: VecDeque::new(),
             undo_index: 0,
-            grep_mode: None,
+            search_mode: None,
             highlight: Highlight::default(),
         }
     }
@@ -181,8 +181,8 @@ impl State {
     /// While a search prompt is open, this moves the query's insertion cursor
     /// instead.
     pub fn handle_cursor_left(&mut self) {
-        if let Some(grep) = &mut self.grep_mode {
-            grep.cursor = grep.cursor.saturating_sub(1);
+        if let Some(search) = &mut self.search_mode {
+            search.cursor = search.cursor.saturating_sub(1);
             return;
         }
 
@@ -202,8 +202,8 @@ impl State {
     /// While a search prompt is open, this moves the query's insertion cursor
     /// instead.
     pub fn handle_cursor_right(&mut self) {
-        if let Some(grep) = &mut self.grep_mode {
-            grep.cursor = (grep.cursor + 1).min(grep.query.len());
+        if let Some(search) = &mut self.search_mode {
+            search.cursor = (search.cursor + 1).min(search.query.len());
             return;
         }
 
@@ -221,8 +221,8 @@ impl State {
 
     /// Moves the cursor to its line's first column.
     pub fn handle_cursor_line_start(&mut self) {
-        if let Some(grep) = &mut self.grep_mode {
-            grep.cursor = 0;
+        if let Some(search) = &mut self.search_mode {
+            search.cursor = 0;
             return;
         }
 
@@ -232,8 +232,8 @@ impl State {
 
     /// Moves the cursor to its line's end.
     pub fn handle_cursor_line_end(&mut self) {
-        if let Some(grep) = &mut self.grep_mode {
-            grep.cursor = grep.query.len();
+        if let Some(search) = &mut self.search_mode {
+            search.cursor = search.query.len();
             return;
         }
 
@@ -259,11 +259,11 @@ impl State {
     /// While a search prompt is open, this deletes from the query instead and
     /// re-runs it.
     pub fn handle_char_delete_backward(&mut self) {
-        if let Some(grep) = &mut self.grep_mode {
-            if grep.cursor > 0 {
-                grep.query.remove(grep.cursor - 1);
-                grep.cursor -= 1;
-                self.regrep();
+        if let Some(search) = &mut self.search_mode {
+            if search.cursor > 0 {
+                search.query.remove(search.cursor - 1);
+                search.cursor -= 1;
+                self.rerun_query();
             }
             return;
         }
@@ -279,10 +279,10 @@ impl State {
     /// While a search prompt is open, this deletes from the query instead and
     /// re-runs it.
     pub fn handle_char_delete_forward(&mut self) {
-        if let Some(grep) = &mut self.grep_mode {
-            if grep.cursor < grep.query.len() {
-                grep.query.remove(grep.cursor);
-                self.regrep();
+        if let Some(search) = &mut self.search_mode {
+            if search.cursor < search.query.len() {
+                search.query.remove(search.cursor);
+                self.rerun_query();
             }
             return;
         }
@@ -291,17 +291,17 @@ impl State {
         self.buffer.delete_char_at(self.cursor);
     }
 
-    fn regrep(&mut self) {
-        let Some(grep) = &mut self.grep_mode else {
+    fn rerun_query(&mut self) {
+        let Some(search) = &mut self.search_mode else {
             return;
         };
-        let highlight = grep.grep(&self.buffer);
+        let highlight = search.search(&self.buffer);
         self.highlight = highlight;
         if !self.highlight.contains(self.cursor) {
-            if grep.action.forward {
-                self.handle_grep_next_hit();
+            if search.forward {
+                self.handle_search_next_hit();
             } else {
-                self.handle_grep_prev_hit();
+                self.handle_search_prev_hit();
             }
         }
         self.set_message(format!("Hit: {}", self.highlight.items.len()));
@@ -353,9 +353,9 @@ impl State {
     /// While a search prompt is open, the character enters the query instead
     /// and re-runs it.
     pub fn handle_char_insert(&mut self, ch: char) {
-        if let Some(grep) = &mut self.grep_mode {
-            grep.insert_char(ch);
-            self.regrep();
+        if let Some(search) = &mut self.search_mode {
+            search.insert_char(ch);
+            self.rerun_query();
             return;
         }
 
@@ -558,7 +558,7 @@ impl State {
     /// Newlines in the contents become line breaks. While a search prompt is
     /// open, the contents enter the query instead and re-run it.
     pub fn handle_clipboard_paste(&mut self) {
-        if let Some(grep) = &mut self.grep_mode {
+        if let Some(search) = &mut self.search_mode {
             let text = self.clipboard.read();
 
             if text.is_empty() {
@@ -566,17 +566,17 @@ impl State {
                 return;
             }
 
-            // Insert clipboard text at current cursor position in grep query
+            // Insert clipboard text at current cursor position in search query
             for ch in text.chars() {
-                // Skip control characters and newlines in grep query
+                // Skip control characters and newlines in search query
                 if !ch.is_control() {
-                    grep.query.insert(grep.cursor, ch);
-                    grep.cursor += 1;
+                    search.query.insert(search.cursor, ch);
+                    search.cursor += 1;
                 }
             }
 
-            // Re-run the grep with updated query
-            self.regrep();
+            // Re-run the search with updated query
+            self.rerun_query();
             return;
         };
 
@@ -697,11 +697,11 @@ impl State {
     ///
     /// Also sets the search direction forward. Does nothing when no search
     /// prompt is open.
-    pub fn handle_grep_next_hit(&mut self) {
-        let Some(grep) = &mut self.grep_mode else {
+    pub fn handle_search_next_hit(&mut self) {
+        let Some(search) = &mut self.search_mode else {
             return;
         };
-        grep.action.forward = true;
+        search.forward = true;
 
         self.finish_editing();
 
@@ -716,12 +716,12 @@ impl State {
         {
             self.cursor = next_item.start_position;
             self.recenter_viewport = true;
-            self.set_message("Moved to next grep hit");
+            self.set_message("Moved to next search hit");
         } else if let Some(first_item) = self.highlight.items.first() {
             // Wrap around to the first item
             self.cursor = first_item.start_position;
             self.recenter_viewport = true;
-            self.set_message("Wrapped to first grep hit");
+            self.set_message("Wrapped to first search hit");
         }
     }
 
@@ -729,11 +729,11 @@ impl State {
     ///
     /// Also sets the search direction backward. Does nothing when no search
     /// prompt is open.
-    pub fn handle_grep_prev_hit(&mut self) {
-        let Some(grep) = &mut self.grep_mode else {
+    pub fn handle_search_prev_hit(&mut self) {
+        let Some(search) = &mut self.search_mode else {
             return;
         };
-        grep.action.forward = false;
+        search.forward = false;
 
         self.finish_editing();
 
@@ -749,12 +749,12 @@ impl State {
         {
             self.cursor = prev_item.start_position;
             self.recenter_viewport = true;
-            self.set_message("Moved to previous grep hit");
+            self.set_message("Moved to previous search hit");
         } else if let Some(last_item) = self.highlight.items.last() {
             // Wrap around to the last item
             self.cursor = last_item.start_position;
             self.recenter_viewport = true;
-            self.set_message("Wrapped to last grep hit");
+            self.set_message("Wrapped to last search hit");
         }
     }
 }

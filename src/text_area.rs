@@ -71,7 +71,7 @@ impl TextAreaRenderer {
                     style = style.bg_color(tuinix::Color::Rgb(220, 220, 220));
                 }
                 if pos == state.cursor {
-                    if state.grep_mode.is_some() {
+                    if state.search_mode.is_some() {
                         style = style.underline().bold();
                     } else {
                         style = style.underline();

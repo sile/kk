@@ -1,6 +1,6 @@
 //! Input contexts and the `match`-based resolvers that map input to actions.
 
-use crate::action::{Action, GrepAction};
+use crate::action::Action;
 
 /// The legend rows for the edit context, in legend order, the bottom border
 /// last.
@@ -14,8 +14,8 @@ use crate::action::{Action, GrepAction};
 pub const EDIT_LEGEND: &[&str] = &[
     "\u{2502} C-c quit",
     "\u{2502} C-g cancel",
-    "\u{2502} C-r rgrep",
-    "\u{2502} C-s grep",
+    "\u{2502} C-r rsearch",
+    "\u{2502} C-s search",
     "\u{2502} C-x ext",
     "\u{2502} C-y paste",
     "\u{2502} C-w cut",
@@ -190,10 +190,10 @@ fn resolve_edit(key: &tuinix::KeyInput) -> Option<Resolved> {
         (true, tuinix::KeyCode::Char('c')) => act(Action::Quit),
         (true, tuinix::KeyCode::Char('g')) => cancel(),
         (true, tuinix::KeyCode::Char('r')) => {
-            then(Action::Grep(GrepAction { forward: false }), Context::Search)
+            then(Action::Search { forward: false }, Context::Search)
         }
         (true, tuinix::KeyCode::Char('s')) => {
-            then(Action::Grep(GrepAction { forward: true }), Context::Search)
+            then(Action::Search { forward: true }, Context::Search)
         }
         (true, tuinix::KeyCode::Char('x')) => only(Context::Ext),
         (true, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
@@ -236,10 +236,10 @@ fn resolve_search(key: &tuinix::KeyInput) -> Option<Resolved> {
         (true, tuinix::KeyCode::Char('g')) => cancel(),
         (false, tuinix::KeyCode::Enter) => cancel(),
         (true, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
-        (true, tuinix::KeyCode::Char('s')) => act(Action::GrepNextHit),
-        (true, tuinix::KeyCode::Char('r')) => act(Action::GrepPrevHit),
-        (false, tuinix::KeyCode::Tab) => act(Action::GrepNextHit),
-        (false, tuinix::KeyCode::BackTab) => act(Action::GrepPrevHit),
+        (true, tuinix::KeyCode::Char('s')) => act(Action::SearchNextHit),
+        (true, tuinix::KeyCode::Char('r')) => act(Action::SearchPrevHit),
+        (false, tuinix::KeyCode::Tab) => act(Action::SearchNextHit),
+        (false, tuinix::KeyCode::BackTab) => act(Action::SearchPrevHit),
         (true, tuinix::KeyCode::Char('a')) => act(Action::CursorLineStart),
         (true, tuinix::KeyCode::Char('e')) => act(Action::CursorLineEnd),
         (true, tuinix::KeyCode::Char('d')) => act(Action::CharDeleteForward),

@@ -2,7 +2,7 @@
 
 use std::cell::Cell;
 
-use kk::{GrepMode, Highlight};
+use kk::{Highlight, SearchMode};
 
 /// A state over `text`, with no search open yet.
 fn state_of(text: &str) -> kk::State {
@@ -11,11 +11,11 @@ fn state_of(text: &str) -> kk::State {
 
 /// Runs `query` over `state` and returns the matches.
 fn run(query: &str, state: &kk::State) -> Highlight {
-    let mut grep = GrepMode::new(kk::GrepAction { forward: true });
+    let mut search = SearchMode::new(true);
     for ch in query.chars() {
-        grep.insert_char(ch);
+        search.insert_char(ch);
     }
-    grep.grep(&state.buffer)
+    search.search(&state.buffer)
 }
 
 /// The columns of the match starts in row 0.
@@ -152,14 +152,14 @@ fn a_query_longer_than_the_line_matches_nothing() {
 #[test]
 fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
     let mut state = state_of("abc\n");
-    state.grep_mode = Some(GrepMode::new(kk::GrepAction { forward: true }));
+    state.search_mode = Some(SearchMode::new(true));
     let buffer_cursor = state.cursor;
 
     for ch in "xy".chars() {
         state.handle_char_insert(ch);
     }
     assert_eq!(
-        state.grep_mode.as_ref().expect("grep mode").query,
+        state.search_mode.as_ref().expect("search mode").query,
         vec!['x', 'y']
     );
     assert_eq!(
@@ -169,17 +169,17 @@ fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
 
     // The movement handlers drive the query cursor while a search is open.
     state.handle_cursor_left();
-    assert_eq!(state.grep_mode.as_ref().expect("grep mode").cursor, 1);
+    assert_eq!(state.search_mode.as_ref().expect("search mode").cursor, 1);
     state.handle_char_delete_backward();
     assert_eq!(
-        state.grep_mode.as_ref().expect("grep mode").query,
+        state.search_mode.as_ref().expect("search mode").query,
         vec!['y']
     );
-    assert_eq!(state.grep_mode.as_ref().expect("grep mode").cursor, 0);
+    assert_eq!(state.search_mode.as_ref().expect("search mode").cursor, 0);
     state.handle_cursor_line_end();
-    assert_eq!(state.grep_mode.as_ref().expect("grep mode").cursor, 1);
+    assert_eq!(state.search_mode.as_ref().expect("search mode").cursor, 1);
     state.handle_cursor_line_start();
-    assert_eq!(state.grep_mode.as_ref().expect("grep mode").cursor, 0);
+    assert_eq!(state.search_mode.as_ref().expect("search mode").cursor, 0);
 
     // The query re-runs as it is edited, so the highlight tracks it.
     assert_eq!(state.highlight.items.len(), 0, "'y' is not in the buffer");
@@ -189,7 +189,7 @@ fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
 #[test]
 fn typing_a_query_fills_in_the_highlight() {
     let mut state = state_of("abc abc\n");
-    state.grep_mode = Some(GrepMode::new(kk::GrepAction { forward: true }));
+    state.search_mode = Some(SearchMode::new(true));
 
     for ch in "abc".chars() {
         state.handle_char_insert(ch);
@@ -202,38 +202,38 @@ fn typing_a_query_fills_in_the_highlight() {
 #[test]
 fn the_next_hit_advances_and_wraps_around() {
     let mut state = state_of("one two one\n");
-    state.grep_mode = Some(GrepMode::new(kk::GrepAction { forward: true }));
+    state.search_mode = Some(SearchMode::new(true));
     for ch in "one".chars() {
         state.handle_char_insert(ch);
     }
 
-    state.handle_grep_next_hit();
+    state.handle_search_next_hit();
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 8 });
     assert!(state.recenter_viewport, "a hit recenters the view");
 
-    state.handle_grep_next_hit();
+    state.handle_search_next_hit();
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 0 }, "wraps");
 }
 
 #[test]
 fn the_previous_hit_goes_back_and_wraps_around() {
     let mut state = state_of("one two one\n");
-    state.grep_mode = Some(GrepMode::new(kk::GrepAction { forward: true }));
+    state.search_mode = Some(SearchMode::new(true));
     for ch in "one".chars() {
         state.handle_char_insert(ch);
     }
     state.cursor = kk::TextPosition { row: 0, col: 10 };
 
-    state.handle_grep_prev_hit();
+    state.handle_search_prev_hit();
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 8 });
     assert!(
-        !state.grep_mode.as_ref().expect("grep mode").action.forward,
+        !state.search_mode.as_ref().expect("search mode").forward,
         "the direction flips"
     );
 
-    state.handle_grep_prev_hit();
+    state.handle_search_prev_hit();
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 0 });
-    state.handle_grep_prev_hit();
+    state.handle_search_prev_hit();
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 8 }, "wraps");
 }
 
@@ -242,8 +242,8 @@ fn the_hit_handlers_do_nothing_without_a_search() {
     let mut state = state_of("one two one\n");
     state.cursor = kk::TextPosition { row: 0, col: 4 };
 
-    state.handle_grep_next_hit();
-    state.handle_grep_prev_hit();
+    state.handle_search_next_hit();
+    state.handle_search_prev_hit();
 
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 4 });
 }
