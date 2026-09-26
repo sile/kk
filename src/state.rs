@@ -66,6 +66,14 @@ pub struct State {
     /// The active search prompt, if one is open. // TODO: non-optional
     pub search_mode: Option<SearchMode>,
 
+    /// Where the cursor and viewport were when the search prompt opened.
+    ///
+    /// A search moves the cursor to a hit and the viewport to follow it;
+    /// leaving the prompt with `C-g` puts both back, so an abandoned search
+    /// leaves no trace. The prompt is always opened through
+    /// [`handle_search_enter`](State::handle_search_enter), which fills this in.
+    search_return: Option<(TextPosition, TextPosition)>,
+
     /// The current search matches, used for highlighting.
     pub highlight: Highlight,
 }
@@ -86,6 +94,7 @@ impl State {
             history: VecDeque::new(),
             undo_index: 0,
             search_mode: None,
+            search_return: None,
             highlight: Highlight::default(),
         }
     }
@@ -777,6 +786,73 @@ impl State {
         // no-op kill too: what chains is the command, not its effect.
         self.finish_editing();
         self.kill_chained = true;
+    }
+
+    /// Drops the mark and the search state, and reports `Canceled`.
+    ///
+    /// This is the `C-g` of the contexts that hold no prompt; a prompt is left
+    /// through [`handle_search_cancel`](State::handle_search_cancel).
+    pub fn handle_cancel(&mut self) {
+        self.clear_transient_state();
+        self.set_message("Canceled");
+    }
+
+    /// Drops the mark and every trace of a search, prompt included.
+    ///
+    /// Commands that leave the editing mode behind -- cancelling, saving --
+    /// call this, so a search cannot outlive the context that opened it. What
+    /// the cursor does is the caller's business: cancelling puts it back and
+    /// saving leaves it where it is.
+    pub fn clear_transient_state(&mut self) {
+        self.search_return = None;
+        self.finish_editing();
+        self.mark = None;
+        self.search_mode = None;
+        self.highlight = Highlight::default();
+    }
+
+    /// Opens the search prompt with an empty query.
+    ///
+    /// The cursor and viewport are remembered first, so
+    /// [`handle_search_cancel`](State::handle_search_cancel) can put the buffer
+    /// back where the search found it. The mark and the previous highlight are
+    /// dropped: they belong to the editing that the prompt interrupts.
+    pub fn handle_search_enter(&mut self) {
+        self.clear_transient_state();
+        self.search_return = Some((self.cursor, self.viewport));
+        self.search_mode = Some(SearchMode::new());
+        self.set_message("Entered search mode");
+    }
+
+    /// Abandons the search prompt and returns to where it was opened.
+    ///
+    /// The cursor and viewport go back to their remembered positions, so a
+    /// search that was merely looked at leaves the buffer untouched. Does
+    /// nothing when no prompt is open.
+    pub fn handle_search_cancel(&mut self) {
+        if self.search_mode.is_none() {
+            return;
+        }
+
+        if let Some((cursor, viewport)) = self.search_return.take() {
+            self.cursor = cursor;
+            self.viewport = viewport;
+        }
+
+        self.clear_transient_state();
+        self.set_message("Canceled");
+    }
+
+    /// Accepts the search prompt and stays on the hit the cursor sits on.
+    ///
+    /// Only the prompt and the highlight go away: the cursor keeps the position
+    /// the hit commands gave it. Does nothing when no prompt is open.
+    pub fn handle_search_accept(&mut self) {
+        if self.search_mode.is_none() {
+            return;
+        }
+
+        self.clear_transient_state();
     }
 
     /// Moves the cursor to the next match after it, wrapping to the first.

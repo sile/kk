@@ -228,8 +228,8 @@ fn resolve_search(key: &tuinix::KeyInput) -> Option<Resolved> {
     let tuinix::KeyInput { ctrl, code, .. } = *key;
 
     Some(match (ctrl, code) {
-        (true, tuinix::KeyCode::Char('g')) => cancel(),
-        (false, tuinix::KeyCode::Enter) => cancel(),
+        (true, tuinix::KeyCode::Char('g')) => then(Action::SearchCancel, Context::Edit),
+        (false, tuinix::KeyCode::Enter) => then(Action::SearchAccept, Context::Edit),
         (true, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
         (true, tuinix::KeyCode::Char('s')) => act(Action::SearchNextHit),
         (true, tuinix::KeyCode::Char('r')) => act(Action::SearchPrevHit),

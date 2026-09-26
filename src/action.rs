@@ -10,8 +10,10 @@ pub enum Action {
     /// Leaves the editor.
     Quit,
 
-    /// Drops the mark, the search mode, and the search highlight, and reports
-    /// `Canceled`.
+    /// Drops the mark and the search state, and reports `Canceled`.
+    ///
+    /// It is the `C-g` of the edit and extension contexts, where no prompt is
+    /// open; leaving a prompt is [`SearchCancel`](Action::SearchCancel).
     Cancel,
 
     /// Persists the buffer to its file, leaves the extension context, and
@@ -91,6 +93,13 @@ pub enum Action {
     /// The direction is not chosen here: it belongs to the hit commands, so the
     /// same entry serves both.
     SearchEnter,
+
+    /// Leaves search mode, returning the cursor and viewport to where the prompt
+    /// was opened.
+    SearchCancel,
+
+    /// Leaves search mode on the hit the cursor sits on.
+    SearchAccept,
 
     /// Moves the cursor to the next search hit.
     SearchNextHit,

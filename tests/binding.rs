@@ -250,14 +250,17 @@ fn ctrl_c_quits_the_edit_context() {
 
 #[test]
 fn every_other_context_has_a_way_back_to_edit() {
-    // Search and Ext are entered from Edit, so a chord that cancels back to
-    // Edit is what keeps them from trapping the editor.
+    // Search and Ext are entered from Edit, so a chord that leaves for Edit is
+    // what keeps them from trapping the editor. Search names the two ways out
+    // after where the cursor ends up, so both count.
     for &context in &[kk::Context::Search, kk::Context::Ext] {
         let returns = built_in_keys().into_iter().any(|key| {
             matches!(
                 kk::resolve(context, &tuinix::Input::Key(key)),
                 Some(kk::Resolved {
-                    action: Some(kk::Action::Cancel),
+                    action: Some(
+                        kk::Action::Cancel | kk::Action::SearchCancel | kk::Action::SearchAccept
+                    ),
                     context: Some(kk::Context::Edit),
                 })
             )

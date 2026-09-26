@@ -60,6 +60,62 @@ fn search_can_be_cancelled_with_ctrl_g() {
 }
 
 #[test]
+fn cancelling_a_search_returns_the_cursor_to_where_it_started() {
+    let path = scratch_file("search_cancel_cursor.txt");
+    std::fs::write(&path, "alpha\nbeta\ngamma\ndelta\n").expect("write scratch file");
+
+    // A wide terminal keeps the whole status line, and so the `:ROW:COL`
+    // reading of the cursor, on screen whatever the scratch path is.
+    let mut kk = KkHarness::open(&path);
+    kk.resize(24, 200);
+    kk.wait_for_text("Opened");
+    kk.wait_until("cursor at the start", |h| h.screen_contains(":1:1]"));
+
+    // Search for a word on a later row and jump to it, which moves the cursor
+    // off row 1.
+    kk.send_ctrl('s');
+    kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
+    kk.send_text("gamma");
+    kk.send_ctrl('s');
+    kk.wait_until("cursor on the hit", |h| h.screen_contains(":3:1]"));
+
+    // `C-g` abandons the search, so the cursor goes back to where the prompt
+    // was opened rather than staying on the hit.
+    kk.send_ctrl('g');
+    kk.wait_until("cursor back at the start", |h| {
+        !h.screen_contains("Search:") && h.screen_contains(":1:1]")
+    });
+
+    let status = kk.quit();
+    assert!(status.success(), "kk exited with {status:?}");
+}
+
+#[test]
+fn accepting_a_search_leaves_the_cursor_on_the_hit() {
+    let path = scratch_file("search_accept_cursor.txt");
+    std::fs::write(&path, "alpha\nbeta\ngamma\ndelta\n").expect("write scratch file");
+
+    let mut kk = KkHarness::open(&path);
+    kk.resize(24, 200);
+    kk.wait_for_text("Opened");
+
+    kk.send_ctrl('s');
+    kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
+    kk.send_text("gamma");
+    kk.send_ctrl('s');
+    kk.wait_until("cursor on the hit", |h| h.screen_contains(":3:1]"));
+
+    // `Enter` keeps the hit: editing resumes where the search landed.
+    kk.send_key(termnix::KeyCode::Enter, termnix::Modifiers::new());
+    kk.wait_until("editing on the hit", |h| {
+        !h.screen_contains("Search:") && h.screen_contains(":3:1]")
+    });
+
+    let status = kk.quit();
+    assert!(status.success(), "kk exited with {status:?}");
+}
+
+#[test]
 fn resizing_repaints_at_the_new_size() {
     let path = scratch_file("resize.txt");
     std::fs::write(&path, "hello\n").expect("write scratch file");

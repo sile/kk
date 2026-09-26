@@ -254,23 +254,14 @@ impl App {
             kk::Action::Quit => {
                 self.exit = true;
             }
-            kk::Action::Cancel => {
-                self.state.mark = None;
-                self.state.search_mode = None;
-                self.state.highlight = kk::Highlight::default();
-                self.state.set_message("Canceled");
-            }
+            kk::Action::Cancel => self.state.handle_cancel(),
             kk::Action::BufferSave => {
                 self.handle_buffer_save(SaveMode::CheckDisk)?;
-                self.state.mark = None;
-                self.state.search_mode = None;
-                self.state.highlight = kk::Highlight::default();
+                self.state.clear_transient_state();
             }
             kk::Action::BufferForceSave => {
                 self.handle_buffer_save(SaveMode::Force)?;
-                self.state.mark = None;
-                self.state.search_mode = None;
-                self.state.highlight = kk::Highlight::default();
+                self.state.clear_transient_state();
             }
             kk::Action::BufferReload => self.handle_buffer_reload()?,
             kk::Action::BufferUndo => self.state.handle_buffer_undo(),
@@ -300,12 +291,9 @@ impl App {
             kk::Action::MarkSet => self.state.handle_mark_set(),
             kk::Action::MarkCut => self.state.handle_mark_cut(),
             kk::Action::ClipboardPaste => self.state.handle_clipboard_paste(),
-            kk::Action::SearchEnter => {
-                self.state.finish_editing();
-                self.state.search_mode = Some(kk::SearchMode::new());
-                self.state.mark = None;
-                self.state.set_message("Entered search mode");
-            }
+            kk::Action::SearchEnter => self.state.handle_search_enter(),
+            kk::Action::SearchCancel => self.state.handle_search_cancel(),
+            kk::Action::SearchAccept => self.state.handle_search_accept(),
             kk::Action::SearchNextHit => {
                 if !self.state.highlight.items.is_empty() {
                     self.state.handle_search_next_hit();

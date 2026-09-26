@@ -305,3 +305,77 @@ fn the_hit_handlers_do_nothing_without_a_search() {
 
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 4 });
 }
+
+#[test]
+fn cancelling_a_search_puts_the_cursor_and_viewport_back() {
+    let mut state = state_of("one two one\n");
+    state.cursor = kk::TextPosition { row: 0, col: 4 };
+    state.viewport = kk::TextPosition { row: 0, col: 2 };
+
+    state.handle_search_enter();
+    for ch in "one".chars() {
+        state.handle_char_insert(ch);
+    }
+    state.handle_search_next_hit();
+    state.viewport = kk::TextPosition { row: 0, col: 8 };
+    assert_ne!(state.cursor, kk::TextPosition { row: 0, col: 4 });
+
+    state.handle_search_cancel();
+
+    assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 4 });
+    assert_eq!(state.viewport, kk::TextPosition { row: 0, col: 2 });
+    assert!(state.search_mode.is_none(), "the prompt is gone");
+    assert!(state.highlight.items.is_empty(), "the highlight is gone");
+}
+
+#[test]
+fn accepting_a_search_keeps_the_cursor_on_the_hit() {
+    let mut state = state_of("one two one\n");
+    state.cursor = kk::TextPosition { row: 0, col: 4 };
+
+    state.handle_search_enter();
+    for ch in "one".chars() {
+        state.handle_char_insert(ch);
+    }
+    state.handle_search_next_hit();
+
+    state.handle_search_accept();
+
+    assert_eq!(
+        state.cursor,
+        kk::TextPosition { row: 0, col: 8 },
+        "the hit is where editing resumes"
+    );
+    assert!(state.search_mode.is_none(), "the prompt is gone");
+    assert!(state.highlight.items.is_empty(), "the highlight is gone");
+}
+
+#[test]
+fn a_second_search_starts_from_where_the_last_one_left_the_cursor() {
+    let mut state = state_of("one two one\n");
+    state.handle_search_enter();
+    for ch in "one".chars() {
+        state.handle_char_insert(ch);
+    }
+    state.handle_search_next_hit();
+    state.handle_search_accept();
+    assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 8 });
+
+    // The next prompt remembers the accepted position, not the first one, so
+    // cancelling it returns to where the previous search ended.
+    state.handle_search_enter();
+    state.handle_search_cancel();
+    assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 8 });
+}
+
+#[test]
+fn leaving_a_search_that_was_never_opened_does_nothing() {
+    let mut state = state_of("one two one\n");
+    state.cursor = kk::TextPosition { row: 0, col: 4 };
+
+    state.handle_search_cancel();
+    state.handle_search_accept();
+
+    assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 4 });
+    assert!(state.search_mode.is_none());
+}
