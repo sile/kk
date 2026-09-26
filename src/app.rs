@@ -48,7 +48,15 @@ impl App {
     /// [`std::fs::File::create_new`] would; if the file already exists that is an
     /// error, exactly as with `create_new(true)`. Other read failures are still
     /// errors too. The first message says whether the file was opened or created.
-    pub fn new<P: AsRef<Path>>(path: P, create_new: bool) -> std::io::Result<Self> {
+    ///
+    /// `position` is the 1-based `:LINE[:COLUMN]` from the command line, as the user
+    /// spelled it. It is turned into the core's 0-based cursor here, and an
+    /// out-of-range position is clamped by the core rather than rejected.
+    pub fn new<P: AsRef<Path>>(
+        path: P,
+        create_new: bool,
+        position: Option<(usize, usize)>,
+    ) -> std::io::Result<Self> {
         let path = path.as_ref().to_path_buf();
         // `create_new` leaves the buffer empty without a read: the call only
         // succeeds when it has just brought an empty file into existence.
@@ -62,6 +70,10 @@ impl App {
         let buffer = kk::TextBuffer::from_text(&text);
 
         let mut state = kk::State::new(buffer);
+        if let Some((row, col)) = position {
+            // The command line is 1-based; the core is 0-based.
+            state.handle_cursor_to_position(row.saturating_sub(1), col.saturating_sub(1));
+        }
         state.set_message(if create_new { "Created" } else { "Opened" });
         let mut driver = tuinix::TerminalDriver::new()?;
         // Mouse reporting is a convenience, not a requirement: a terminal that

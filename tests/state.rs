@@ -319,6 +319,66 @@ fn a_click_snaps_back_onto_a_character_boundary() {
 }
 
 #[test]
+fn the_start_position_moves_the_cursor_absolutely() {
+    let mut state = state_of("one\ntwo\nthree\n");
+
+    // The handler takes 0-based positions, so row 1 is the second line.
+    state.handle_cursor_to_position(1, 2);
+
+    assert_eq!(state.cursor, at(1, 2));
+}
+
+#[test]
+fn the_start_position_is_clamped_to_the_buffer() {
+    let mut state = state_of("one\ntwo\n");
+
+    state.handle_cursor_to_position(99, 99);
+
+    assert_eq!(
+        state.cursor,
+        at(2, 0),
+        "row 2 is the row after the last line, and it has no columns"
+    );
+}
+
+#[test]
+fn the_start_position_is_clamped_to_the_line_end() {
+    let mut state = state_of("one\ntwo\nthree\n");
+
+    state.handle_cursor_to_position(1, 40);
+
+    assert_eq!(state.cursor, at(1, 3), "'two' is 3 columns wide");
+}
+
+#[test]
+fn the_start_position_snaps_back_onto_a_character_boundary() {
+    let mut state = state_of("aあ\n");
+
+    // 'あ' is two columns wide and starts at column 1, so column 2 is inside it.
+    state.handle_cursor_to_position(0, 2);
+
+    assert_eq!(
+        state.cursor,
+        at(0, 1),
+        "the cursor sits on 'あ', not inside it"
+    );
+}
+
+#[test]
+fn the_start_position_is_not_a_relative_move() {
+    let mut state = state_of("one\ntwo\nthree\nfour\n");
+    state.viewport = at(2, 1);
+
+    state.handle_cursor_to_position(0, 0);
+
+    assert_eq!(
+        state.cursor,
+        at(0, 0),
+        "the viewport is only added by the screen-relative handler"
+    );
+}
+
+#[test]
 fn scrolling_down_moves_the_cursor_and_the_viewport_together() {
     let mut state = state_of("a\nb\nc\nd\ne\nf\ng\n");
 

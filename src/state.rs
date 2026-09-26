@@ -170,13 +170,25 @@ impl State {
         self.finish_editing();
     }
 
+    /// Moves the cursor to `row`/`col` of the buffer.
+    ///
+    /// Both are absolute and 0-based. Out-of-range positions are clamped rather
+    /// than refused: the row is clamped to the buffer and the column to the
+    /// target line, and the column is then snapped back onto a character
+    /// boundary. The viewport follows on the next
+    /// [`adjust_viewport`](Self::adjust_viewport).
+    pub fn handle_cursor_to_position(&mut self, row: usize, col: usize) {
+        self.cursor.row = row.min(self.buffer.rows());
+        self.cursor.col = self.buffer.cols(self.cursor.row).min(col);
+        self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
+        self.finish_editing();
+    }
+
     /// Moves the cursor to the character a click at `row`/`col` of the visible
     /// text area landed on.
     ///
     /// Both are relative to the text area, not the terminal, so the viewport is
-    /// added here rather than by the caller. The row is clamped to the buffer,
-    /// and the column is clamped to the target line and snapped back onto a
-    /// character boundary, exactly as a cursor move to a column would be.
+    /// added here rather than by the caller.
     pub fn handle_cursor_to_screen_position(&mut self, row: usize, col: usize) {
         self.cursor.row = (self.viewport.row + row).min(self.buffer.rows());
         self.cursor.col = self

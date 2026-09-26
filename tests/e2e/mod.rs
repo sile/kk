@@ -57,23 +57,32 @@ impl KkHarness {
     /// is responsible for the file existing; use [`KkHarness::create_new`] to
     /// exercise `--create-new` instead.
     pub fn open(path: &Path) -> Self {
-        Self::spawn(path, false)
+        Self::open_arg(&path.to_string_lossy())
     }
 
     /// Launches `kk --create-new` over `path` at an 80x24 terminal.
     ///
     /// The file must not already exist; that is the contract `kk` enforces.
     pub fn create_new(path: &Path) -> Self {
-        Self::spawn(path, true)
+        Self::spawn(&path.to_string_lossy(), true)
     }
 
-    /// Launches `kk` over `path`, optionally with `--create-new`.
-    fn spawn(path: &Path, create_new: bool) -> Self {
+    /// Launches `kk` with `file_arg` as the whole FILE argument.
+    ///
+    /// `file_arg` is spelled exactly as a shell would pass it, so a test can
+    /// write `path:ROW:COL` without going through a path type that would strip
+    /// or normalise the part after the last `:`.
+    pub fn open_arg(file_arg: &str) -> Self {
+        Self::spawn(file_arg, false)
+    }
+
+    /// Launches `kk`, optionally with `--create-new`, over a FILE argument.
+    fn spawn(file_arg: &str, create_new: bool) -> Self {
         let mut command = Command::new(kk_binary());
         if create_new {
             command.arg("--create-new");
         }
-        command.arg(path);
+        command.arg(file_arg);
 
         let rows = 24;
         let cols = 80;
