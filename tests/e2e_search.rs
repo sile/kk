@@ -12,7 +12,7 @@ fn search_enters_grep_mode_and_finds_a_later_match() {
     let mut kk = KkHarness::open(&path);
     kk.wait_for_text("Opened");
 
-    // `C-s` in Main starts a forward search and opens the query prompt.
+    // `C-s` in Edit starts a forward search and opens the query prompt.
     kk.send_ctrl('s');
     kk.wait_for_text("Entered grep mode");
 

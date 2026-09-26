@@ -68,7 +68,7 @@ impl App {
             prev_frame: None,
             path,
             state,
-            context: kk::Context::Main,
+            context: kk::Context::Edit,
             text_area: kk::TextAreaRenderer,
             message_line: kk::MessageLineRenderer,
             status_line: kk::StatusLineRenderer,

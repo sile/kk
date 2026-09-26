@@ -57,7 +57,7 @@ fn left_press() -> tuinix::MouseInput {
 }
 
 /// Every context the resolver knows about.
-const CONTEXTS: [kk::Context; 3] = [kk::Context::Main, kk::Context::Grep, kk::Context::Ext];
+const CONTEXTS: [kk::Context; 3] = [kk::Context::Edit, kk::Context::Search, kk::Context::Ext];
 
 /// The key chords the built-in tables are expected to bind, gathered from the
 /// same vocabulary the tests below spell out.
@@ -138,11 +138,11 @@ fn a_resolved_binding_does_something_or_switches_context() {
 }
 
 #[test]
-fn printable_characters_are_text_in_main() {
+fn printable_characters_are_text_in_edit() {
     for ch in ['a', 'Z', '0', ' ', '~', '\u{3042}', '\u{1f600}'] {
         assert!(
             matches!(
-                action_of(kk::Context::Main, char_key(ch)),
+                action_of(kk::Context::Edit, char_key(ch)),
                 Some(kk::Action::CharInsert)
             ),
             "{ch:?} is printable and should insert text"
@@ -151,12 +151,12 @@ fn printable_characters_are_text_in_main() {
 }
 
 #[test]
-fn main_rejects_control_characters() {
+fn edit_rejects_control_characters() {
     // A control character is not text; it is either a binding or nothing.
     for ch in ['\n', '\t', '\r', '\u{7f}', '\u{0}'] {
         assert!(
             !matches!(
-                action_of(kk::Context::Main, char_key(ch)),
+                action_of(kk::Context::Edit, char_key(ch)),
                 Some(kk::Action::CharInsert)
             ),
             "{ch:?} is a control character and must not insert text"
@@ -165,13 +165,13 @@ fn main_rejects_control_characters() {
 
     // A ctrl chord is a binding, not text.
     assert!(!matches!(
-        action_of(kk::Context::Main, ctrl_key('z')),
+        action_of(kk::Context::Edit, ctrl_key('z')),
         Some(kk::Action::CharInsert)
     ));
 
     // A special key is never text either.
     assert!(!matches!(
-        action_of(kk::Context::Main, code_key(tuinix::KeyCode::Enter)),
+        action_of(kk::Context::Edit, code_key(tuinix::KeyCode::Enter)),
         Some(kk::Action::CharInsert)
     ));
 }
@@ -212,21 +212,21 @@ fn no_ctrl_chord_toggles_the_legend() {
 fn undo_is_bound_to_ctrl_u_alone() {
     assert!(
         matches!(
-            action_of(kk::Context::Main, ctrl_key('u')),
+            action_of(kk::Context::Edit, ctrl_key('u')),
             Some(kk::Action::BufferUndo)
         ),
         "C-u no longer undoes"
     );
     assert!(
         !matches!(
-            action_of(kk::Context::Main, ctrl_key('/')),
+            action_of(kk::Context::Edit, ctrl_key('/')),
             Some(kk::Action::BufferUndo)
         ),
         "C-/ must not undo any more"
     );
     assert!(
         !matches!(
-            action_of(kk::Context::Main, code_key(tuinix::KeyCode::Escape)),
+            action_of(kk::Context::Edit, code_key(tuinix::KeyCode::Escape)),
             Some(kk::Action::BufferUndo)
         ),
         "Escape must not undo; it toggles the legend"
@@ -234,43 +234,43 @@ fn undo_is_bound_to_ctrl_u_alone() {
 }
 
 #[test]
-fn ctrl_c_quits_the_main_context() {
+fn ctrl_c_quits_the_edit_context() {
     assert!(matches!(
-        action_of(kk::Context::Main, ctrl_key('c')),
+        action_of(kk::Context::Edit, ctrl_key('c')),
         Some(kk::Action::Quit)
     ));
 }
 
 #[test]
-fn every_non_main_context_has_a_way_back_to_main() {
-    // Grep and Ext are entered from Main, so a chord that cancels back to
-    // Main is what keeps them from trapping the editor.
-    for &context in &[kk::Context::Grep, kk::Context::Ext] {
+fn every_other_context_has_a_way_back_to_edit() {
+    // Search and Ext are entered from Edit, so a chord that cancels back to
+    // Edit is what keeps them from trapping the editor.
+    for &context in &[kk::Context::Search, kk::Context::Ext] {
         let returns = built_in_keys().into_iter().any(|key| {
             matches!(
                 kk::resolve(context, &tuinix::Input::Key(key)),
                 Some(kk::Resolved {
                     action: Some(kk::Action::Cancel),
-                    context: Some(kk::Context::Main),
+                    context: Some(kk::Context::Edit),
                 })
             )
         });
-        assert!(returns, "{context:?} cannot return to the main context");
+        assert!(returns, "{context:?} cannot return to the edit context");
     }
 }
 
 #[test]
 fn the_ext_context_binds_its_chords_after_ctrl_x() {
     // The three buffer-level commands live behind `C-x`, which is the way
-    // into the Ext context. Each runs and returns to Main, so the chord is
+    // into the Ext context. Each runs and returns to Edit, so the chord is
     // `C-x` then the letter.
     for (ch, expected) in [('r', 0), ('a', 1), ('e', 2)] {
         let resolved = kk::resolve(kk::Context::Ext, &tuinix::Input::Key(ctrl_key(ch)))
             .unwrap_or_else(|| panic!("C-{ch} is not bound in Ext"));
         assert_eq!(
             resolved.context,
-            Some(kk::Context::Main),
-            "C-{ch} does not return to Main"
+            Some(kk::Context::Edit),
+            "C-{ch} does not return to Edit"
         );
         assert!(
             matches!(
@@ -306,23 +306,23 @@ fn alt_is_ignored_in_every_context() {
 }
 
 #[test]
-fn main_accepts_an_alt_chord_as_text() {
+fn edit_accepts_an_alt_chord_as_text() {
     // The flip side of ignoring alt: `M-z` is `z`, which inserts.
     assert!(matches!(
-        action_of(kk::Context::Main, alt_key('z')),
+        action_of(kk::Context::Edit, alt_key('z')),
         Some(kk::Action::CharInsert)
     ));
 }
 
 #[test]
 fn each_context_resolves_its_own_chords() {
-    // Main has the kill-line chord; Grep does not.
-    assert!(action_of(kk::Context::Main, ctrl_key('k')).is_some());
-    assert!(action_of(kk::Context::Grep, ctrl_key('k')).is_none());
+    // Edit has the kill-line chord; Search does not.
+    assert!(action_of(kk::Context::Edit, ctrl_key('k')).is_some());
+    assert!(action_of(kk::Context::Search, ctrl_key('k')).is_none());
 
-    // Grep has its own keys, which Main does not.
-    assert!(action_of(kk::Context::Grep, code_key(tuinix::KeyCode::Tab)).is_some());
-    assert!(action_of(kk::Context::Main, code_key(tuinix::KeyCode::Tab)).is_none());
+    // Search has its own keys, which Edit does not.
+    assert!(action_of(kk::Context::Search, code_key(tuinix::KeyCode::Tab)).is_some());
+    assert!(action_of(kk::Context::Edit, code_key(tuinix::KeyCode::Tab)).is_none());
 }
 
 #[test]

@@ -2,7 +2,7 @@
 
 use crate::action::{Action, GrepAction};
 
-/// The legend rows for the main context, in legend order, the bottom border
+/// The legend rows for the edit context, in legend order, the bottom border
 /// last.
 ///
 /// Each row is a whole row of the legend, written out as the user reads it: the
@@ -11,7 +11,7 @@ use crate::action::{Action, GrepAction};
 /// the last row is the bottom border with the context title centered in it. The
 /// bindings are hard-coded, so this table is too, and the two are kept in step
 /// by hand.
-pub const MAIN_LEGEND: &[&str] = &[
+pub const EDIT_LEGEND: &[&str] = &[
     "\u{2502} C-c quit",
     "\u{2502} C-g cancel",
     "\u{2502} C-r rgrep",
@@ -35,9 +35,9 @@ pub const MAIN_LEGEND: &[&str] = &[
     "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
-/// The legend rows for the grep context, in legend order, the bottom border
+/// The legend rows for the search context, in legend order, the bottom border
 /// last.
-pub const GREP_LEGEND: &[&str] = &[
+pub const SEARCH_LEGEND: &[&str] = &[
     "\u{2502} C-g cancel",
     "\u{2502} C-s next-hit",
     "\u{2502} C-r prev-hit",
@@ -65,8 +65,8 @@ pub const EXT_LEGEND: &[&str] = &[
 /// Returns the legend rows of `context`, in legend order.
 pub fn legend(context: Context) -> &'static [&'static str] {
     match context {
-        Context::Main => MAIN_LEGEND,
-        Context::Grep => GREP_LEGEND,
+        Context::Edit => EDIT_LEGEND,
+        Context::Search => SEARCH_LEGEND,
         Context::Ext => EXT_LEGEND,
     }
 }
@@ -115,10 +115,10 @@ pub fn legend_size(context: Context, limit: tuinix::Size) -> LegendSize {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Context {
     /// The default editing context.
-    Main,
+    Edit,
 
-    /// The context active while grep mode is collecting a query.
-    Grep,
+    /// The context active while search mode is collecting a query.
+    Search,
 
     /// A context reserved for extensions.
     Ext,
@@ -148,8 +148,8 @@ pub fn resolve(context: Context, input: &tuinix::Input) -> Option<Resolved> {
     };
 
     match context {
-        Context::Main => resolve_main(key),
-        Context::Grep => resolve_grep(key),
+        Context::Edit => resolve_edit(key),
+        Context::Search => resolve_search(key),
         Context::Ext => resolve_ext(key),
     }
 }
@@ -178,22 +178,22 @@ fn only(context: Context) -> Resolved {
     }
 }
 
-/// Ends the prompt and restores the main context.
+/// Ends the prompt and restores the edit context.
 fn cancel() -> Resolved {
-    then(Action::Cancel, Context::Main)
+    then(Action::Cancel, Context::Edit)
 }
 
-fn resolve_main(key: &tuinix::KeyInput) -> Option<Resolved> {
+fn resolve_edit(key: &tuinix::KeyInput) -> Option<Resolved> {
     let tuinix::KeyInput { ctrl, code, .. } = *key;
 
     Some(match (ctrl, code) {
         (true, tuinix::KeyCode::Char('c')) => act(Action::Quit),
         (true, tuinix::KeyCode::Char('g')) => cancel(),
         (true, tuinix::KeyCode::Char('r')) => {
-            then(Action::Grep(GrepAction { forward: false }), Context::Grep)
+            then(Action::Grep(GrepAction { forward: false }), Context::Search)
         }
         (true, tuinix::KeyCode::Char('s')) => {
-            then(Action::Grep(GrepAction { forward: true }), Context::Grep)
+            then(Action::Grep(GrepAction { forward: true }), Context::Search)
         }
         (true, tuinix::KeyCode::Char('x')) => only(Context::Ext),
         (true, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
@@ -229,7 +229,7 @@ fn resolve_main(key: &tuinix::KeyInput) -> Option<Resolved> {
     })
 }
 
-fn resolve_grep(key: &tuinix::KeyInput) -> Option<Resolved> {
+fn resolve_search(key: &tuinix::KeyInput) -> Option<Resolved> {
     let tuinix::KeyInput { ctrl, code, .. } = *key;
 
     Some(match (ctrl, code) {
@@ -262,10 +262,10 @@ fn resolve_ext(key: &tuinix::KeyInput) -> Option<Resolved> {
 
     Some(match (ctrl, code) {
         (true, tuinix::KeyCode::Char('g')) => cancel(),
-        (true, tuinix::KeyCode::Char('s')) => then(Action::BufferSave, Context::Main),
-        (true, tuinix::KeyCode::Char('r')) => then(Action::BufferReload, Context::Main),
-        (true, tuinix::KeyCode::Char('a')) => then(Action::CursorBufferStart, Context::Main),
-        (true, tuinix::KeyCode::Char('e')) => then(Action::CursorBufferEnd, Context::Main),
+        (true, tuinix::KeyCode::Char('s')) => then(Action::BufferSave, Context::Edit),
+        (true, tuinix::KeyCode::Char('r')) => then(Action::BufferReload, Context::Edit),
+        (true, tuinix::KeyCode::Char('a')) => then(Action::CursorBufferStart, Context::Edit),
+        (true, tuinix::KeyCode::Char('e')) => then(Action::CursorBufferEnd, Context::Edit),
         (false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),
         _ => return None,
     })

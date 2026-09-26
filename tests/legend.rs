@@ -34,7 +34,7 @@ fn exact_frame(context: kk::Context) -> tuinix::Frame {
 #[test]
 fn a_frame_too_small_for_the_legend_shows_nothing() {
     let mut frame = tuinix::Frame::new(tuinix::Size { rows: 1, cols: 1 });
-    kk::LegendRenderer.render(kk::Context::Main, &mut frame);
+    kk::LegendRenderer.render(kk::Context::Edit, &mut frame);
     assert_eq!(row_text(&frame, 0, 1), " ");
 }
 
@@ -81,10 +81,10 @@ fn the_ext_legend_fills_a_frame_exactly_its_size() {
 }
 
 #[test]
-fn the_main_legend_is_exactly_this_text() {
-    let mut frame = exact_frame(kk::Context::Main);
+fn the_edit_legend_is_exactly_this_text() {
+    let mut frame = exact_frame(kk::Context::Edit);
     let cols = frame.size().cols;
-    kk::LegendRenderer.render(kk::Context::Main, &mut frame);
+    kk::LegendRenderer.render(kk::Context::Edit, &mut frame);
 
     // The very same strings `kk::legend` lists, with the box painted around
     // them; a row that disagrees with the table is a rendering bug.
@@ -112,17 +112,17 @@ fn the_main_legend_is_exactly_this_text() {
         "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 
-    assert_eq!(expected.len(), kk::legend(kk::Context::Main).len());
+    assert_eq!(expected.len(), kk::legend(kk::Context::Edit).len());
     for (row, line) in expected.iter().enumerate() {
         assert_eq!(row_text(&frame, row, cols), *line, "row {row}");
     }
 }
 
 #[test]
-fn the_grep_legend_is_exactly_this_text() {
-    let mut frame = exact_frame(kk::Context::Grep);
+fn the_search_legend_is_exactly_this_text() {
+    let mut frame = exact_frame(kk::Context::Search);
     let cols = frame.size().cols;
-    kk::LegendRenderer.render(kk::Context::Grep, &mut frame);
+    kk::LegendRenderer.render(kk::Context::Search, &mut frame);
 
     let expected = [
         "\u{2502} C-g cancel     ",
@@ -138,7 +138,7 @@ fn the_grep_legend_is_exactly_this_text() {
         "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 
-    assert_eq!(expected.len(), kk::legend(kk::Context::Grep).len());
+    assert_eq!(expected.len(), kk::legend(kk::Context::Search).len());
     for (row, line) in expected.iter().enumerate() {
         assert_eq!(row_text(&frame, row, cols), *line, "row {row}");
     }
@@ -146,7 +146,7 @@ fn the_grep_legend_is_exactly_this_text() {
 
 #[test]
 fn every_row_of_the_legend_holds_exactly_one_chord_and_one_label() {
-    for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+    for context in [kk::Context::Edit, kk::Context::Search, kk::Context::Ext] {
         let rows = kk::legend(context);
         assert!(!rows.is_empty(), "{context:?} has an empty legend");
         for row in rows {
@@ -162,7 +162,7 @@ fn every_row_of_the_legend_holds_exactly_one_chord_and_one_label() {
 
 #[test]
 fn the_legend_height_counts_every_row_including_the_bottom_border() {
-    for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+    for context in [kk::Context::Edit, kk::Context::Search, kk::Context::Ext] {
         assert_eq!(
             full_size(context).rows,
             kk::legend(context).len(),
@@ -173,7 +173,7 @@ fn the_legend_height_counts_every_row_including_the_bottom_border() {
 
 #[test]
 fn the_legend_width_is_the_widest_row() {
-    for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+    for context in [kk::Context::Edit, kk::Context::Search, kk::Context::Ext] {
         let widest = kk::legend(context)
             .iter()
             .map(|row| kk::str_cols(row))
@@ -185,7 +185,7 @@ fn the_legend_width_is_the_widest_row() {
 
 #[test]
 fn every_row_of_the_box_is_the_same_width() {
-    for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+    for context in [kk::Context::Edit, kk::Context::Search, kk::Context::Ext] {
         let size = full_size(context);
         let mut frame = exact_frame(context);
         kk::LegendRenderer.render(context, &mut frame);
@@ -203,7 +203,7 @@ fn every_row_of_the_box_is_the_same_width() {
 
 #[test]
 fn every_row_paints_its_table_row_and_never_closes_with_a_border() {
-    for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+    for context in [kk::Context::Edit, kk::Context::Search, kk::Context::Ext] {
         let size = full_size(context);
         let mut frame = exact_frame(context);
         kk::LegendRenderer.render(context, &mut frame);
@@ -224,7 +224,7 @@ fn every_row_paints_its_table_row_and_never_closes_with_a_border() {
 
 #[test]
 fn the_binding_rows_open_with_the_left_border() {
-    for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+    for context in [kk::Context::Edit, kk::Context::Search, kk::Context::Ext] {
         let rows = kk::legend(context);
         // The last row is the bottom border, which opens with its own corner.
         for (row, binding) in rows[..rows.len() - 1].iter().enumerate() {
@@ -242,7 +242,7 @@ fn the_binding_rows_open_with_the_left_border() {
 
 #[test]
 fn the_bottom_border_opens_with_its_own_corner() {
-    for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+    for context in [kk::Context::Edit, kk::Context::Search, kk::Context::Ext] {
         let rows = kk::legend(context);
         let bottom = rows.last().expect("a legend has a bottom border");
         assert!(
@@ -281,7 +281,7 @@ fn the_legend_is_painted_against_the_right_edge() {
 
 #[test]
 fn the_legend_covers_what_was_painted_under_it() {
-    for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+    for context in [kk::Context::Edit, kk::Context::Search, kk::Context::Ext] {
         let size = full_size(context);
         let mut frame = tuinix::Frame::new(tuinix::Size {
             rows: size.rows + 4,
@@ -316,7 +316,7 @@ fn the_legend_covers_what_was_painted_under_it() {
 
 #[test]
 fn a_wider_frame_does_not_change_the_legend() {
-    for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+    for context in [kk::Context::Edit, kk::Context::Search, kk::Context::Ext] {
         let size = full_size(context);
         let mut narrow = exact_frame(context);
         let mut wide = tuinix::Frame::new(tuinix::Size {
@@ -338,7 +338,7 @@ fn a_wider_frame_does_not_change_the_legend() {
 
 #[test]
 fn a_legend_clipped_by_its_limit_reports_the_clipped_size() {
-    for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+    for context in [kk::Context::Edit, kk::Context::Search, kk::Context::Ext] {
         let full = full_size(context);
         for cols in [full.cols, full.cols - 1, 1, 0] {
             let size = kk::legend_size(context, tuinix::Size { rows: 60, cols });
@@ -361,7 +361,7 @@ fn the_legend_never_paints_outside_its_frame() -> noprop::TestResult {
         let cols = noprop::sample_usize_in(ctx, 0..=80);
         let mut frame = tuinix::Frame::new(tuinix::Size { rows, cols });
 
-        for context in [kk::Context::Main, kk::Context::Grep, kk::Context::Ext] {
+        for context in [kk::Context::Edit, kk::Context::Search, kk::Context::Ext] {
             kk::LegendRenderer.render(context, &mut frame);
         }
 
