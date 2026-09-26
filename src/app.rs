@@ -300,9 +300,9 @@ impl App {
             kk::Action::MarkSet => self.state.handle_mark_set(),
             kk::Action::MarkCut => self.state.handle_mark_cut(),
             kk::Action::ClipboardPaste => self.state.handle_clipboard_paste(),
-            kk::Action::Search { forward } => {
+            kk::Action::SearchEnter => {
                 self.state.finish_editing();
-                self.state.search_mode = Some(kk::SearchMode::new(forward));
+                self.state.search_mode = Some(kk::SearchMode::new());
                 self.state.mark = None;
                 self.state.set_message("Entered search mode");
             }

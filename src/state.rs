@@ -781,13 +781,11 @@ impl State {
 
     /// Moves the cursor to the next match after it, wrapping to the first.
     ///
-    /// Also sets the search direction forward. Does nothing when no search
-    /// prompt is open.
+    /// Does nothing when no search prompt is open.
     pub fn handle_search_next_hit(&mut self) {
-        let Some(search) = &mut self.search_mode else {
+        if self.search_mode.is_none() {
             return;
-        };
-        search.forward = true;
+        }
 
         self.finish_editing();
 
@@ -813,13 +811,11 @@ impl State {
 
     /// Moves the cursor to the previous match before it, wrapping to the last.
     ///
-    /// Also sets the search direction backward. Does nothing when no search
-    /// prompt is open.
+    /// Does nothing when no search prompt is open.
     pub fn handle_search_prev_hit(&mut self) {
-        let Some(search) = &mut self.search_mode else {
+        if self.search_mode.is_none() {
             return;
-        };
-        search.forward = false;
+        }
 
         self.finish_editing();
 

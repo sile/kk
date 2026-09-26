@@ -92,7 +92,6 @@ fn the_edit_legend_is_exactly_this_text() {
     let expected = [
         "\u{2502} C-c quit        ",
         "\u{2502} C-g cancel      ",
-        "\u{2502} C-r rsearch     ",
         "\u{2502} C-s search      ",
         "\u{2502} C-x ext         ",
         "\u{2502} C-y paste       ",

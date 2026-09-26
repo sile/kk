@@ -86,12 +86,11 @@ pub enum Action {
     /// Inserts the clipboard's contents at the cursor.
     ClipboardPaste,
 
-    /// Enters search mode, with `forward` giving the direction the first run
-    /// reads in.
-    Search {
-        /// Whether the search reads forward from the cursor.
-        forward: bool,
-    },
+    /// Enters search mode with an empty query.
+    ///
+    /// The direction is not chosen here: it belongs to the hit commands, so the
+    /// same entry serves both.
+    SearchEnter,
 
     /// Moves the cursor to the next search hit.
     SearchNextHit,

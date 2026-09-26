@@ -12,8 +12,9 @@ fn search_enters_search_mode_and_finds_a_later_match() {
     let mut kk = KkHarness::open(&path);
     kk.wait_for_text("Opened");
 
-    // `C-s` in Edit starts a forward search and opens the query prompt, which
-    // shares the message line rather than taking a row of its own.
+    // `C-s` in Edit opens the query prompt, which shares the message line
+    // rather than taking a row of its own. The direction is picked here, in the
+    // prompt, by `C-s` and `C-r`, so the entry itself is directionless.
     kk.send_ctrl('s');
     kk.wait_until("query prompt", |h| h.screen_text().contains("Search:"));
 

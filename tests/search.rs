@@ -11,7 +11,7 @@ fn state_of(text: &str) -> kk::State {
 
 /// Runs `query` over `state` and returns the matches.
 fn run(query: &str, state: &kk::State) -> Highlight {
-    let mut search = SearchMode::new(true);
+    let mut search = SearchMode::new();
     for ch in query.chars() {
         search.insert_char(ch);
     }
@@ -190,7 +190,7 @@ fn a_query_longer_than_the_line_matches_nothing() {
 #[test]
 fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
     let mut state = state_of("abc\n");
-    state.search_mode = Some(SearchMode::new(true));
+    state.search_mode = Some(SearchMode::new());
     let buffer_cursor = state.cursor;
 
     for ch in "xy".chars() {
@@ -227,7 +227,7 @@ fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
 #[test]
 fn typing_a_query_fills_in_the_highlight() {
     let mut state = state_of("abc abc\n");
-    state.search_mode = Some(SearchMode::new(true));
+    state.search_mode = Some(SearchMode::new());
 
     for ch in "abc".chars() {
         state.handle_char_insert(ch);
@@ -240,7 +240,7 @@ fn typing_a_query_fills_in_the_highlight() {
 #[test]
 fn typing_a_query_leaves_the_cursor_alone_even_when_it_matches() {
     let mut state = state_of("one two one\n");
-    state.search_mode = Some(SearchMode::new(true));
+    state.search_mode = Some(SearchMode::new());
     state.cursor = kk::TextPosition { row: 0, col: 4 };
 
     // Every character matches, so the old behaviour would have jumped to the
@@ -264,7 +264,7 @@ fn typing_a_query_leaves_the_cursor_alone_even_when_it_matches() {
 #[test]
 fn the_next_hit_advances_and_wraps_around() {
     let mut state = state_of("one two one\n");
-    state.search_mode = Some(SearchMode::new(true));
+    state.search_mode = Some(SearchMode::new());
     for ch in "one".chars() {
         state.handle_char_insert(ch);
     }
@@ -280,7 +280,7 @@ fn the_next_hit_advances_and_wraps_around() {
 #[test]
 fn the_previous_hit_goes_back_and_wraps_around() {
     let mut state = state_of("one two one\n");
-    state.search_mode = Some(SearchMode::new(true));
+    state.search_mode = Some(SearchMode::new());
     for ch in "one".chars() {
         state.handle_char_insert(ch);
     }
@@ -288,10 +288,6 @@ fn the_previous_hit_goes_back_and_wraps_around() {
 
     state.handle_search_prev_hit();
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 8 });
-    assert!(
-        !state.search_mode.as_ref().expect("search mode").forward,
-        "the direction flips"
-    );
 
     state.handle_search_prev_hit();
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 0 });

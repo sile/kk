@@ -14,7 +14,6 @@ use crate::action::Action;
 pub const EDIT_LEGEND: &[&str] = &[
     "\u{2502} C-c quit",
     "\u{2502} C-g cancel",
-    "\u{2502} C-r rsearch",
     "\u{2502} C-s search",
     "\u{2502} C-x ext",
     "\u{2502} C-y paste",
@@ -190,12 +189,7 @@ fn resolve_edit(key: &tuinix::KeyInput) -> Option<Resolved> {
     Some(match (ctrl, code) {
         (true, tuinix::KeyCode::Char('c')) => act(Action::Quit),
         (true, tuinix::KeyCode::Char('g')) => cancel(),
-        (true, tuinix::KeyCode::Char('r')) => {
-            then(Action::Search { forward: false }, Context::Search)
-        }
-        (true, tuinix::KeyCode::Char('s')) => {
-            then(Action::Search { forward: true }, Context::Search)
-        }
+        (true, tuinix::KeyCode::Char('s')) => then(Action::SearchEnter, Context::Search),
         (true, tuinix::KeyCode::Char('x')) => only(Context::Ext),
         (true, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
         (true, tuinix::KeyCode::Char('w')) => act(Action::MarkCut),

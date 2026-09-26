@@ -88,7 +88,7 @@ fn the_text_area_paints_the_visible_slice_from_the_viewport() {
 #[test]
 fn a_search_bolds_and_underlines_the_matches() {
     let mut state = state_of("one two\n");
-    state.search_mode = Some(kk::SearchMode::new(true));
+    state.search_mode = Some(kk::SearchMode::new());
     state.handle_char_insert('t');
     state.handle_char_insert('w');
     state.handle_char_insert('o');
@@ -114,7 +114,7 @@ fn a_search_bolds_and_underlines_the_matches() {
 #[test]
 fn a_match_is_not_reversed() {
     let mut state = state_of("one\n");
-    state.search_mode = Some(kk::SearchMode::new(true));
+    state.search_mode = Some(kk::SearchMode::new());
     state.handle_char_insert('o');
     state.handle_char_insert('n');
     state.handle_char_insert('e');
@@ -133,7 +133,7 @@ fn a_match_is_not_reversed() {
 #[test]
 fn an_empty_query_leaves_the_text_area_plain_apart_from_the_cursor() {
     let mut state = state_of("one\n");
-    state.search_mode = Some(kk::SearchMode::new(true));
+    state.search_mode = Some(kk::SearchMode::new());
     state.cursor = kk::TextPosition { row: 0, col: 1 };
     let mut frame = frame_of(2, 3);
 
@@ -153,7 +153,7 @@ fn an_empty_query_leaves_the_text_area_plain_apart_from_the_cursor() {
 #[test]
 fn a_search_reverses_the_character_under_the_cursor() {
     let mut state = state_of("one\n");
-    state.search_mode = Some(kk::SearchMode::new(true));
+    state.search_mode = Some(kk::SearchMode::new());
     state.cursor = kk::TextPosition { row: 0, col: 1 };
     let mut frame = frame_of(1, 3);
 
@@ -232,7 +232,7 @@ fn the_status_line_reports_path_and_position() {
 #[test]
 fn the_status_line_counts_the_matches_up_to_the_cursor() {
     let mut state = state_of("alpha\nbeta\ngamma\nbeta\n");
-    state.search_mode = Some(kk::SearchMode::new(true));
+    state.search_mode = Some(kk::SearchMode::new());
     // Typing into the query re-runs it and fills in the highlight.
     for ch in "beta".chars() {
         state.handle_char_insert(ch);
@@ -271,7 +271,7 @@ fn the_status_line_counts_the_matches_up_to_the_cursor() {
 #[test]
 fn the_status_line_shows_zero_matches_while_the_query_is_empty() {
     let mut state = state_of("alpha\n");
-    state.search_mode = Some(kk::SearchMode::new(true));
+    state.search_mode = Some(kk::SearchMode::new());
     let mut frame = frame_of(1, 40);
 
     kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
@@ -352,7 +352,7 @@ fn the_message_line_leaves_a_frame_without_a_message_untouched() {
 #[test]
 fn the_message_line_prompts_and_shows_the_query_while_a_search_is_open() {
     let mut state = state_of("one\n");
-    state.search_mode = Some(kk::SearchMode::new(true));
+    state.search_mode = Some(kk::SearchMode::new());
     for ch in "ab".chars() {
         state.handle_char_insert(ch);
     }
@@ -367,7 +367,7 @@ fn the_message_line_prompts_and_shows_the_query_while_a_search_is_open() {
 fn the_query_hides_the_pending_message() {
     let mut state = state_of("one\n");
     state.set_message("Entered search mode");
-    state.search_mode = Some(kk::SearchMode::new(true));
+    state.search_mode = Some(kk::SearchMode::new());
     let mut frame = frame_of(1, 20);
 
     kk::MessageLineRenderer.render(&state, &mut frame);
@@ -382,7 +382,7 @@ fn the_query_hides_the_pending_message() {
 #[test]
 fn the_query_cursor_follows_the_prompt_and_the_typed_query() {
     let mut state = state_of("one\n");
-    state.search_mode = Some(kk::SearchMode::new(true));
+    state.search_mode = Some(kk::SearchMode::new());
     let region = tuinix::Region {
         position: tuinix::Position { row: 3, col: 0 },
         size: tuinix::Size { rows: 1, cols: 20 },

@@ -8,12 +8,12 @@ use crate::{
 /// A search in progress.
 ///
 /// The query is edited as a list of characters with an insertion cursor, so a
-/// query can be built up one keypress at a time before it is run.
-#[derive(Debug)]
+/// query can be built up one keypress at a time before it is run. The matches
+/// are collected by [`search`](SearchMode::search) in buffer order; which one
+/// the cursor visits is the hit commands' business, not the prompt's, so the
+/// prompt holds no direction.
+#[derive(Debug, Default)]
 pub struct SearchMode {
-    /// The direction a run of the query searches in.
-    pub forward: bool,
-
     /// The query as entered so far.
     pub query: Vec<char>,
 
@@ -23,13 +23,9 @@ pub struct SearchMode {
 }
 
 impl SearchMode {
-    /// Starts an empty query that reads in the direction given by `forward`.
-    pub fn new(forward: bool) -> Self {
-        Self {
-            forward,
-            query: Vec::new(),
-            cursor: 0,
-        }
+    /// Starts an empty query.
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Returns where the query's insertion cursor belongs inside `region`.
