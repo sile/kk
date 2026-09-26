@@ -39,17 +39,19 @@ impl StatusLineRenderer {
         };
 
         // The hits are shown only while a prompt is open, and the icon goes with
-        // them; the clipboard icon is always there, its summary or not.
+        // them; the clipboard icon is always there, its summary or not. The
+        // separator goes in with the hits so an empty `hits` leaves one space
+        // rather than two.
         let hits = if state.search_mode.is_none() {
             String::new()
         } else {
             format!(
-                "🔍{}/{}",
+                " 🔍{}/{}",
                 state.highlight.count_up_to(cursor),
                 state.highlight.items.len()
             )
         };
-        let text = format!(" [{path}:{row}:{col}] {hits} 📋{summary}");
+        let text = format!(" [{path}:{row}:{col}]{hits} 📋{summary}");
         // Pad the whole row so the reverse style covers it. The padding is
         // measured in columns, not `char`s: the icons are wide, so a row padded
         // by character count would stop short of the right edge.

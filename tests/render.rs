@@ -292,7 +292,7 @@ fn the_status_line_omits_the_match_count_outside_a_search() {
 
     let text = row_text(&frame, 0, 40);
     assert!(
-        text.starts_with(" [test.txt:1:1]  "),
+        text.starts_with(" [test.txt:1:1] 📋"),
         "no count without a search: {text:?}"
     );
 }
