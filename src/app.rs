@@ -295,20 +295,8 @@ impl App {
             kk::Action::SearchCancel => self.state.handle_search_cancel(),
             kk::Action::SearchAccept => self.state.handle_search_accept(),
             kk::Action::SearchKillQuery => self.state.handle_search_kill_query(),
-            kk::Action::SearchNextHit => {
-                if !self.state.highlight.items.is_empty() {
-                    self.state.handle_search_next_hit();
-                } else {
-                    self.state.set_message("No search hits available");
-                }
-            }
-            kk::Action::SearchPrevHit => {
-                if !self.state.highlight.items.is_empty() {
-                    self.state.handle_search_prev_hit();
-                } else {
-                    self.state.set_message("No search hits available");
-                }
-            }
+            kk::Action::SearchNextHit => self.state.handle_search_next_hit(),
+            kk::Action::SearchPrevHit => self.state.handle_search_prev_hit(),
         }
 
         Ok(())

@@ -515,7 +515,7 @@ impl State {
                 self.mark = None;
 
                 self.clipboard.write(&text);
-                self.set_message(format!("Cut {} characters", text.len()));
+                self.set_message(format!("Cut {} characters", text.chars().count()));
             } else {
                 self.set_message("Nothing to cut");
             }
@@ -688,7 +688,7 @@ impl State {
             for ch in line.chars() {
                 self.cursor = self.buffer.insert_char_at(self.cursor, ch);
             }
-            self.set_message(format!("Pasted {} characters", line.len()));
+            self.set_message(format!("Pasted {} characters", line.chars().count()));
         } else {
             // Multi-line paste
             let mut total_chars = 0;
@@ -783,10 +783,11 @@ impl State {
                     // Delete the text
                     line.0.truncate(char_index);
 
+                    let chars = killed_text.chars().count();
                     if append {
-                        self.set_message(format!("Appended {} characters", killed_text.len()));
+                        self.set_message(format!("Appended {chars} characters"));
                     } else {
-                        self.set_message(format!("Killed {} characters", killed_text.len()));
+                        self.set_message(format!("Killed {chars} characters"));
                     }
                 } else {
                     self.set_message("Nothing to kill");
@@ -938,12 +939,10 @@ impl State {
         {
             self.cursor = next_item.start_position;
             self.recenter_viewport = true;
-            self.set_message("Moved to next search hit");
         } else if let Some(first_item) = self.highlight.items.first() {
             // Wrap around to the first item
             self.cursor = first_item.start_position;
             self.recenter_viewport = true;
-            self.set_message("Wrapped to first search hit");
         }
     }
 
@@ -969,12 +968,10 @@ impl State {
         {
             self.cursor = prev_item.start_position;
             self.recenter_viewport = true;
-            self.set_message("Moved to previous search hit");
         } else if let Some(last_item) = self.highlight.items.last() {
             // Wrap around to the last item
             self.cursor = last_item.start_position;
             self.recenter_viewport = true;
-            self.set_message("Wrapped to last search hit");
         }
     }
 }
