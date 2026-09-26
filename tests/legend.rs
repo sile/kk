@@ -69,15 +69,15 @@ fn the_ext_legend_fills_a_frame_exactly_its_size() {
     let mut frame = exact_frame(kk::Context::Ext);
     let cols = frame.size().cols;
     kk::LegendRenderer.render(kk::Context::Ext, &mut frame);
-    assert_eq!(row_text(&frame, 0, cols), "\u{2502} C-g cancel        ");
-    assert_eq!(row_text(&frame, 1, cols), "\u{2502} s   save          ");
-    assert_eq!(row_text(&frame, 2, cols), "\u{2502} S   force-save    ");
-    assert_eq!(row_text(&frame, 3, cols), "\u{2502} r   reload        ");
-    assert_eq!(row_text(&frame, 4, cols), "\u{2502} a   buffer-start  ");
-    assert_eq!(row_text(&frame, 5, cols), "\u{2502} e   buffer-end    ");
+    assert_eq!(row_text(&frame, 0, cols), "\u{2502}C-g cancel        ");
+    assert_eq!(row_text(&frame, 1, cols), "\u{2502}s   save          ");
+    assert_eq!(row_text(&frame, 2, cols), "\u{2502}S   force-save    ");
+    assert_eq!(row_text(&frame, 3, cols), "\u{2502}r   reload        ");
+    assert_eq!(row_text(&frame, 4, cols), "\u{2502}a   buffer-start  ");
+    assert_eq!(row_text(&frame, 5, cols), "\u{2502}e   buffer-end    ");
     assert_eq!(
         row_text(&frame, 6, cols),
-        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}"
+        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}"
     );
 }
 
@@ -90,24 +90,24 @@ fn the_edit_legend_is_exactly_this_text() {
     // The very same strings `kk::legend` lists, with the box painted around
     // them; a row that disagrees with the table is a rendering bug.
     let expected = [
-        "\u{2502} C-c quit        ",
-        "\u{2502} C-g cancel      ",
-        "\u{2502} C-x ext         ",
-        "\u{2502} C-s search      ",
-        "\u{2502} C-  mark        ",
-        "\u{2502} C-w cut         ",
-        "\u{2502} C-y paste       ",
-        "\u{2502} C-k kill-line   ",
-        "\u{2502} C-u undo        ",
-        "\u{2502} C-a line-start  ",
-        "\u{2502} C-e line-end    ",
-        "\u{2502} C-b left        ",
-        "\u{2502} C-f right       ",
-        "\u{2502} C-p up          ",
-        "\u{2502} C-n down        ",
-        "\u{2502} C-h backspace   ",
-        "\u{2502} C-d delete      ",
-        "\u{2502} C-l recenter    ",
+        "\u{2502}C-c quit         ",
+        "\u{2502}C-g cancel       ",
+        "\u{2502}C-x ext          ",
+        "\u{2502}C-s search       ",
+        "\u{2502}C-  mark         ",
+        "\u{2502}C-w cut          ",
+        "\u{2502}C-y paste        ",
+        "\u{2502}C-k kill-line    ",
+        "\u{2502}C-u undo         ",
+        "\u{2502}C-a line-start   ",
+        "\u{2502}C-e line-end     ",
+        "\u{2502}C-p \u{2191} up         ",
+        "\u{2502}C-n \u{2193} down       ",
+        "\u{2502}C-b \u{2190} left       ",
+        "\u{2502}C-f \u{2192} right      ",
+        "\u{2502}C-h \u{232b} backspace  ",
+        "\u{2502}C-d \u{2326} delete     ",
+        "\u{2502}C-l recenter     ",
         "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 
@@ -124,17 +124,17 @@ fn the_search_legend_is_exactly_this_text() {
     kk::LegendRenderer.render(kk::Context::Search, &mut frame);
 
     let expected = [
-        "\u{2502} C-g cancel     ",
-        "\u{2502} C-s next-hit   ",
-        "\u{2502} C-r prev-hit   ",
-        "\u{2502} C-y paste      ",
-        "\u{2502} C-k kill-line  ",
-        "\u{2502} C-a line-start ",
-        "\u{2502} C-e line-end   ",
-        "\u{2502} C-b left       ",
-        "\u{2502} C-f right      ",
-        "\u{2502} C-h backspace  ",
-        "\u{2502} C-d delete     ",
+        "\u{2502}C-g cancel      ",
+        "\u{2502}C-r \u{21e4} prev-hit  ",
+        "\u{2502}C-s \u{21e5} next-hit  ",
+        "\u{2502}C-y paste       ",
+        "\u{2502}C-k kill-line   ",
+        "\u{2502}C-a line-start  ",
+        "\u{2502}C-e line-end    ",
+        "\u{2502}C-b \u{2190} left      ",
+        "\u{2502}C-f \u{2192} right     ",
+        "\u{2502}C-h \u{232b} backspace ",
+        "\u{2502}C-d \u{2326} delete    ",
         "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 

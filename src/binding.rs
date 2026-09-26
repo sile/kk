@@ -12,54 +12,54 @@ use crate::action::Action;
 /// bindings are hard-coded, so this table is too, and the two are kept in step
 /// by hand.
 pub const EDIT_LEGEND: &[&str] = &[
-    "\u{2502} C-c quit",
-    "\u{2502} C-g cancel",
-    "\u{2502} C-x ext",
-    "\u{2502} C-s search",
-    "\u{2502} C-  mark",
-    "\u{2502} C-w cut",
-    "\u{2502} C-y paste",
-    "\u{2502} C-k kill-line",
-    "\u{2502} C-u undo",
-    "\u{2502} C-a line-start",
-    "\u{2502} C-e line-end",
-    "\u{2502} C-b left",
-    "\u{2502} C-f right",
-    "\u{2502} C-p up",
-    "\u{2502} C-n down",
-    "\u{2502} C-h backspace",
-    "\u{2502} C-d delete",
-    "\u{2502} C-l recenter",
+    "\u{2502}C-c quit",
+    "\u{2502}C-g cancel",
+    "\u{2502}C-x ext",
+    "\u{2502}C-s search",
+    "\u{2502}C-  mark",
+    "\u{2502}C-w cut",
+    "\u{2502}C-y paste",
+    "\u{2502}C-k kill-line",
+    "\u{2502}C-u undo",
+    "\u{2502}C-a line-start",
+    "\u{2502}C-e line-end",
+    "\u{2502}C-p \u{2191} up",
+    "\u{2502}C-n \u{2193} down",
+    "\u{2502}C-b \u{2190} left",
+    "\u{2502}C-f \u{2192} right",
+    "\u{2502}C-h \u{232b} backspace",
+    "\u{2502}C-d \u{2326} delete",
+    "\u{2502}C-l recenter",
     "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
 /// The legend rows for the search context, in legend order, the bottom border
 /// last.
 pub const SEARCH_LEGEND: &[&str] = &[
-    "\u{2502} C-g cancel",
-    "\u{2502} C-s next-hit",
-    "\u{2502} C-r prev-hit",
-    "\u{2502} C-y paste",
-    "\u{2502} C-k kill-line",
-    "\u{2502} C-a line-start",
-    "\u{2502} C-e line-end",
-    "\u{2502} C-b left",
-    "\u{2502} C-f right",
-    "\u{2502} C-h backspace",
-    "\u{2502} C-d delete",
+    "\u{2502}C-g cancel",
+    "\u{2502}C-r \u{21e4} prev-hit",
+    "\u{2502}C-s \u{21e5} next-hit",
+    "\u{2502}C-y paste",
+    "\u{2502}C-k kill-line",
+    "\u{2502}C-a line-start",
+    "\u{2502}C-e line-end",
+    "\u{2502}C-b \u{2190} left",
+    "\u{2502}C-f \u{2192} right",
+    "\u{2502}C-h \u{232b} backspace",
+    "\u{2502}C-d \u{2326} delete",
     "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
 /// The legend rows for the extension context, in legend order, the bottom
 /// border last.
 pub const EXT_LEGEND: &[&str] = &[
-    "\u{2502} C-g cancel",
-    "\u{2502} s   save",
-    "\u{2502} S   force-save",
-    "\u{2502} r   reload",
-    "\u{2502} a   buffer-start",
-    "\u{2502} e   buffer-end",
-    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+    "\u{2502}C-g cancel",
+    "\u{2502}s   save",
+    "\u{2502}S   force-save",
+    "\u{2502}r   reload",
+    "\u{2502}a   buffer-start",
+    "\u{2502}e   buffer-end",
+    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
 /// Returns the legend rows of `context`, in legend order.
@@ -96,7 +96,7 @@ pub struct LegendSize {
 /// let room = tuinix::Size { rows: 40, cols: 100 };
 /// let ext = kk::legend_size(kk::Context::Ext, room);
 /// assert_eq!(ext.rows, 7);
-/// assert_eq!(ext.cols, 20);
+/// assert_eq!(ext.cols, 19);
 /// ```
 pub fn legend_size(context: Context, limit: tuinix::Size) -> LegendSize {
     let rows = legend(context).len();
