@@ -343,9 +343,16 @@ fn edit_accepts_an_alt_chord_as_text() {
 
 #[test]
 fn each_context_resolves_its_own_chords() {
-    // Edit has the kill-line chord; Search does not.
-    assert!(action_of(kk::Context::Edit, ctrl_key('k')).is_some());
-    assert!(action_of(kk::Context::Search, ctrl_key('k')).is_none());
+    // Both contexts bind `C-k`, but each keeps its own clipboard: the two
+    // actions differ, so the kill never lands in the other's clipboard.
+    assert!(matches!(
+        action_of(kk::Context::Edit, ctrl_key('k')),
+        Some(kk::Action::LineDelete)
+    ));
+    assert!(matches!(
+        action_of(kk::Context::Search, ctrl_key('k')),
+        Some(kk::Action::SearchKillQuery)
+    ));
 
     // Search has its own keys, which Edit does not.
     assert!(action_of(kk::Context::Search, code_key(tuinix::KeyCode::Tab)).is_some());

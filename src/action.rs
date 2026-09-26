@@ -96,10 +96,20 @@ pub enum Action {
 
     /// Leaves search mode, returning the cursor and viewport to where the prompt
     /// was opened.
+    ///
+    /// The query is kept for a later `C-y`, as it is on
+    /// [`SearchAccept`](Action::SearchAccept).
     SearchCancel,
 
     /// Leaves search mode on the hit the cursor sits on.
+    ///
+    /// The query is kept for a later `C-y`.
     SearchAccept,
+
+    /// Kills from the search query's cursor to the end of the query.
+    ///
+    /// The removed text goes to the prompt's own clipboard, not the buffer's.
+    SearchKillQuery,
 
     /// Moves the cursor to the next search hit.
     SearchNextHit,

@@ -294,6 +294,7 @@ impl App {
             kk::Action::SearchEnter => self.state.handle_search_enter(),
             kk::Action::SearchCancel => self.state.handle_search_cancel(),
             kk::Action::SearchAccept => self.state.handle_search_accept(),
+            kk::Action::SearchKillQuery => self.state.handle_search_kill_query(),
             kk::Action::SearchNextHit => {
                 if !self.state.highlight.items.is_empty() {
                     self.state.handle_search_next_hit();

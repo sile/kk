@@ -304,9 +304,13 @@ fn the_status_line_pads_the_whole_row() {
 
     kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
 
+    // A painted cell at the last column means the bar reaches the right edge.
+    // The count of painted cells is not the measure here: the clipboard icon is
+    // wide, so `chars()` skips its continuation column and the count is short
+    // by one even when the row is filled.
     assert_eq!(
-        painted_cells(&frame),
-        60,
+        style_at(&frame, 0, 59),
+        tuinix::Style::new().reverse().bold(),
         "the reverse-video bar reaches the right edge"
     );
 }
@@ -322,6 +326,69 @@ fn the_status_line_shows_only_the_clipboards_first_line() {
     let text = row_text(&frame, 0, 60);
     assert!(text.contains("copied"), "the first line shows: {text:?}");
     assert!(!text.contains("second"), "the rest does not: {text:?}");
+}
+
+#[test]
+fn the_status_line_always_shows_the_clipboard_icon() {
+    let state = state_of("one\n");
+    let mut frame = frame_of(1, 40);
+
+    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+
+    let text = row_text(&frame, 0, 40);
+    assert!(
+        text.contains('📋'),
+        "an empty clipboard still shows the icon: {text:?}"
+    );
+}
+
+#[test]
+fn the_status_line_puts_the_magnifier_before_the_match_count() {
+    let mut state = state_of("alpha\n");
+    state.search_mode = Some(kk::SearchMode::new());
+    let mut frame = frame_of(1, 40);
+
+    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+
+    let text = row_text(&frame, 0, 40);
+    assert!(
+        text.contains("🔍 0/0"),
+        "the icon introduces the count: {text:?}"
+    );
+}
+
+#[test]
+fn the_status_line_shows_the_icon_of_the_context_on_screen() {
+    // The prompt has its own clipboard, so the summary shown is the prompt's
+    // while it is open and the buffer's otherwise.
+    let mut state = state_of("one\n");
+    state.clipboard.write("from the buffer");
+    state.search_clipboard.write("from the prompt");
+
+    let mut frame = frame_of(1, 60);
+    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    let text = row_text(&frame, 0, 60);
+    assert!(
+        text.contains("from the buffer"),
+        "edit shows its own: {text:?}"
+    );
+    assert!(
+        !text.contains("from the prompt"),
+        "and not the other: {text:?}"
+    );
+
+    state.search_mode = Some(kk::SearchMode::new());
+    let mut frame = frame_of(1, 60);
+    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    let text = row_text(&frame, 0, 60);
+    assert!(
+        text.contains("from the prompt"),
+        "search shows its own: {text:?}"
+    );
+    assert!(
+        !text.contains("from the buffer"),
+        "and not the other: {text:?}"
+    );
 }
 
 #[test]

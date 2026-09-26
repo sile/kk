@@ -116,6 +116,50 @@ fn accepting_a_search_leaves_the_cursor_on_the_hit() {
 }
 
 #[test]
+fn killing_from_the_query_shortens_it_without_touching_the_buffer() {
+    let path = scratch_file("search_kill.txt");
+    std::fs::write(&path, "alpha\nbeta\ngamma\n").expect("write scratch file");
+
+    let mut kk = KkHarness::open(&path);
+    kk.resize(24, 200);
+    kk.wait_for_text("Opened");
+
+    kk.send_ctrl('s');
+    kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
+    kk.send_text("gamma");
+    kk.wait_until("the query is typed", |h| h.screen_contains("Search: gamma"));
+
+    // `C-k` in the prompt kills from the query's cursor to its end. The cursor
+    // is at the end, so the first one has nothing to take.
+    kk.send_ctrl('k');
+    kk.wait_until("the query is unchanged", |h| {
+        h.screen_contains("Search: gamma")
+    });
+
+    // Move the query cursor back two characters, then kill the tail.
+    kk.send_key(termnix::KeyCode::Left, termnix::Modifiers::new());
+    kk.send_key(termnix::KeyCode::Left, termnix::Modifiers::new());
+    kk.send_ctrl('k');
+    kk.wait_until("the tail is gone", |h| {
+        h.screen_contains("Search: gam") && !h.screen_contains("Search: gamma")
+    });
+
+    // The buffer is untouched: the first line still starts where it did.
+    assert!(
+        kk.screen_text().contains("alpha"),
+        "the query edit never reached the buffer:\n{}",
+        kk.screen_text()
+    );
+
+    // `C-c` is not bound in the prompt, so leave it before asking kk to quit.
+    kk.send_ctrl('g');
+    kk.wait_until("the prompt is left", |h| !h.screen_contains("Search:"));
+
+    let status = kk.quit();
+    assert!(status.success(), "kk exited with {status:?}");
+}
+
+#[test]
 fn resizing_repaints_at_the_new_size() {
     let path = scratch_file("resize.txt");
     std::fs::write(&path, "hello\n").expect("write scratch file");

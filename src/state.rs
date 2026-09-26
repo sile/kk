@@ -45,6 +45,15 @@ pub struct State {
     /// The clipboard text cut from or copied out of the buffer.
     pub clipboard: Clipboard,
 
+    /// The clipboard the search prompt keeps its own edits in.
+    ///
+    /// The prompt's `C-k` kills from the query, and the text it removed is not
+    /// buffer text, so it goes here rather than into
+    /// [`clipboard`](State::clipboard). The two are kept apart so a kill made
+    /// while typing a query cannot replace what was copied out of the buffer:
+    /// the prompt's `C-y` reads this one and the buffer's `C-y` reads the other.
+    pub search_clipboard: Clipboard,
+
     /// Whether an edit has already been recorded in [`history`](State::history).
     pub editing: bool,
 
@@ -89,6 +98,7 @@ impl State {
             message: None,
             mark: None,
             clipboard: Clipboard::default(),
+            search_clipboard: Clipboard::default(),
             editing: false,
             kill_chained: false,
             history: VecDeque::new(),
@@ -627,10 +637,12 @@ impl State {
     /// Inserts the clipboard's contents at the cursor.
     ///
     /// Newlines in the contents become line breaks. While a search prompt is
-    /// open, the contents enter the query instead and re-run it.
+    /// open, the contents enter the query instead and re-run it; the prompt
+    /// reads [`search_clipboard`](State::search_clipboard), so what it pastes is
+    /// what its own `C-k` killed and never the buffer's.
     pub fn handle_clipboard_paste(&mut self) {
         if let Some(search) = &mut self.search_mode {
-            let text = self.clipboard.read();
+            let text = self.search_clipboard.read();
 
             if text.is_empty() {
                 self.set_message("Clipboard is empty");
@@ -811,6 +823,31 @@ impl State {
         self.highlight = Highlight::default();
     }
 
+    /// Kills from the query cursor to the end of the query.
+    ///
+    /// The removed text goes to [`search_clipboard`](State::search_clipboard)
+    /// rather than to the buffer's clipboard, so the prompt's kills stay its
+    /// own. Nothing is written when there is nothing after the cursor, so a
+    /// prompt killed empty does not wipe what an earlier kill left behind.
+    ///
+    /// Does nothing when no search prompt is open.
+    pub fn handle_search_kill_query(&mut self) {
+        let Some(search) = &mut self.search_mode else {
+            return;
+        };
+
+        let killed: String = search.query.drain(search.cursor..).collect();
+
+        if killed.is_empty() {
+            self.set_message("Nothing to kill");
+            return;
+        }
+
+        self.search_clipboard.write(&killed);
+        self.rerun_query();
+        self.set_message(format!("Killed {} characters", killed.chars().count()));
+    }
+
     /// Opens the search prompt with an empty query.
     ///
     /// The cursor and viewport are remembered first, so
@@ -827,12 +864,17 @@ impl State {
     /// Abandons the search prompt and returns to where it was opened.
     ///
     /// The cursor and viewport go back to their remembered positions, so a
-    /// search that was merely looked at leaves the buffer untouched. Does
-    /// nothing when no prompt is open.
+    /// search that was merely looked at leaves the buffer untouched. The query
+    /// itself is kept in [`search_clipboard`](State::search_clipboard), exactly
+    /// as [`handle_search_accept`](State::handle_search_accept) keeps it: what
+    /// an abandoned search leaves behind is the word it looked for, never a
+    /// change to the buffer. Does nothing when no prompt is open.
     pub fn handle_search_cancel(&mut self) {
         if self.search_mode.is_none() {
             return;
         }
+
+        self.save_query_to_search_clipboard();
 
         if let Some((cursor, viewport)) = self.search_return.take() {
             self.cursor = cursor;
@@ -846,13 +888,33 @@ impl State {
     /// Accepts the search prompt and stays on the hit the cursor sits on.
     ///
     /// Only the prompt and the highlight go away: the cursor keeps the position
-    /// the hit commands gave it. Does nothing when no prompt is open.
+    /// the hit commands gave it. The query is put in
+    /// [`search_clipboard`](State::search_clipboard), so the word that was
+    /// searched for is there for a later `C-y`. Does nothing when no prompt is
+    /// open.
     pub fn handle_search_accept(&mut self) {
         if self.search_mode.is_none() {
             return;
         }
 
+        self.save_query_to_search_clipboard();
         self.clear_transient_state();
+    }
+
+    /// Copies the open prompt's query to
+    /// [`search_clipboard`](State::search_clipboard).
+    ///
+    /// An empty query is not written, so leaving a prompt that was never typed
+    /// into does not wipe the word an earlier search left.
+    fn save_query_to_search_clipboard(&mut self) {
+        let Some(search) = &self.search_mode else {
+            return;
+        };
+
+        let query: String = search.query.iter().collect();
+        if !query.is_empty() {
+            self.search_clipboard.write(&query);
+        }
     }
 
     /// Moves the cursor to the next match after it, wrapping to the first.

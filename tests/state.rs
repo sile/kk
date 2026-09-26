@@ -275,6 +275,139 @@ fn pasting_an_empty_clipboard_changes_nothing() {
 }
 
 #[test]
+fn killing_from_the_query_does_not_touch_the_buffers_clipboard() {
+    let mut state = state_of("one two\n");
+    state.clipboard.write("from the buffer");
+
+    state.handle_search_enter();
+    for ch in "query".chars() {
+        state.handle_char_insert(ch);
+    }
+    // The prompt's cursor sits at the end, so move it back to have a tail.
+    if let Some(search) = &mut state.search_mode {
+        search.cursor = 0;
+    }
+
+    state.handle_search_kill_query();
+
+    assert_eq!(state.search_clipboard.read(), "query");
+    assert_eq!(
+        state.clipboard.read(),
+        "from the buffer",
+        "the buffer's clipboard is left alone"
+    );
+}
+
+#[test]
+fn killing_from_the_query_leaves_the_text_before_the_cursor() {
+    let mut state = state_of("one two\n");
+
+    state.handle_search_enter();
+    for ch in "query".chars() {
+        state.handle_char_insert(ch);
+    }
+    // The prompt's cursor sits at the end, so move it back into the middle.
+    if let Some(search) = &mut state.search_mode {
+        search.cursor = 2;
+    }
+
+    state.handle_search_kill_query();
+
+    let search = state.search_mode.as_ref().expect("the prompt is open");
+    let remaining: String = search.query.iter().collect();
+    assert_eq!(remaining, "qu", "what was before the cursor stays");
+    assert_eq!(state.search_clipboard.read(), "ery");
+}
+
+#[test]
+fn killing_an_empty_tail_writes_nothing() {
+    let mut state = state_of("one two\n");
+    state.search_clipboard.write("an earlier kill");
+
+    state.handle_search_enter();
+
+    state.handle_search_kill_query();
+
+    assert_eq!(
+        state.search_clipboard.read(),
+        "an earlier kill",
+        "an empty query does not wipe the entry"
+    );
+    assert_eq!(state.message.as_deref(), Some("Nothing to kill"));
+}
+
+#[test]
+fn the_prompt_pastes_its_own_clipboard_into_the_query() {
+    let mut state = state_of("one two\n");
+    state.clipboard.write("from the buffer");
+    state.search_clipboard.write("two");
+
+    state.handle_search_enter();
+    state.handle_clipboard_paste();
+
+    let search = state.search_mode.as_ref().expect("the prompt is open");
+    let query: String = search.query.iter().collect();
+    assert_eq!(query, "two", "the prompt's own contents are what lands");
+    assert_eq!(saved_text(&state), "one two\n", "the buffer is untouched");
+}
+
+#[test]
+fn accepting_a_search_keeps_the_query_for_a_later_prompt_paste() {
+    let mut state = state_of("one two one\n");
+
+    state.handle_search_enter();
+    for ch in "two".chars() {
+        state.handle_char_insert(ch);
+    }
+    state.handle_search_accept();
+
+    assert_eq!(state.search_clipboard.read(), "two");
+
+    // The entry is for the prompt's own `C-y`: a later search can paste it into
+    // its query. The buffer's clipboard is a separate one and stays empty.
+    state.handle_search_enter();
+    state.handle_clipboard_paste();
+    let search = state.search_mode.as_ref().expect("the prompt is open");
+    let query: String = search.query.iter().collect();
+    assert_eq!(query, "two");
+    assert_eq!(
+        state.clipboard.read(),
+        "",
+        "the buffer's clipboard never saw the query"
+    );
+}
+
+#[test]
+fn cancelling_a_search_also_keeps_the_query() {
+    let mut state = state_of("one two one\n");
+    state.cursor = at(0, 4);
+
+    state.handle_search_enter();
+    for ch in "two".chars() {
+        state.handle_char_insert(ch);
+    }
+    state.handle_search_cancel();
+
+    assert_eq!(state.search_clipboard.read(), "two");
+    assert_eq!(state.cursor, at(0, 4), "the cursor still goes back");
+}
+
+#[test]
+fn leaving_an_untouched_prompt_keeps_the_previous_query() {
+    let mut state = state_of("one two one\n");
+    state.search_clipboard.write("an earlier query");
+
+    state.handle_search_enter();
+    state.handle_search_cancel();
+
+    assert_eq!(
+        state.search_clipboard.read(),
+        "an earlier query",
+        "typing nothing does not wipe the entry"
+    );
+}
+
+#[test]
 fn saving_and_reloading_round_trip_through_the_edge() {
     let mut state = state_of("one\n");
     state.cursor = at(0, 1);

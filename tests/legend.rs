@@ -129,6 +129,7 @@ fn the_search_legend_is_exactly_this_text() {
         "\u{2502} C-s next-hit   ",
         "\u{2502} C-r prev-hit   ",
         "\u{2502} C-y paste      ",
+        "\u{2502} C-k kill-line  ",
         "\u{2502} C-a line-start ",
         "\u{2502} C-e line-end   ",
         "\u{2502} C-b left       ",
