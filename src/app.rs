@@ -17,6 +17,9 @@ use std::path::{Path, PathBuf};
 /// is treated as the Escape key.
 const ESCAPE_TIMEOUT_MS: libc::c_int = 50;
 
+/// How many lines one wheel notch scrolls.
+const SCROLL_ROWS: isize = 3;
+
 /// Owns the terminal edge and drives the core until the user quits.
 #[derive(Debug)]
 pub struct App {
@@ -60,7 +63,13 @@ impl App {
 
         let mut state = kk::State::new(buffer);
         state.set_message(if create_new { "Created" } else { "Opened" });
-        let driver = tuinix::TerminalDriver::new()?;
+        let mut driver = tuinix::TerminalDriver::new()?;
+        // Mouse reporting is a convenience, not a requirement: a terminal that
+        // refuses it (or a redirect that never asks for it) still edits fine, so
+        // the failure is reported and swallowed rather than fatal.
+        if let Err(e) = driver.enable_mouse_reporting() {
+            state.set_message(format!("Mouse reporting unavailable: {e}"));
+        }
 
         Ok(Self {
             driver,
@@ -159,6 +168,11 @@ impl App {
     }
 
     fn handle_input(&mut self, input: tuinix::Input) -> std::io::Result<()> {
+        if let tuinix::Input::Mouse(mouse) = input {
+            self.handle_mouse(mouse);
+            return Ok(());
+        }
+
         let Some(resolved) = kk::resolve(self.context, &input) else {
             self.state
                 .set_message(format!("No action found: '{}'", kk::input(&input)));
@@ -174,6 +188,32 @@ impl App {
         }
 
         Ok(())
+    }
+
+    /// Carries out a mouse event.
+    ///
+    /// Mouse input never goes through [`kk::resolve`]: the binding table maps a
+    /// key to one action while a mouse event means different things at different
+    /// positions, so the position is resolved here, against the text area's
+    /// region, before any action is chosen. Anything else -- other buttons,
+    /// presses on the status line or the legend, motion -- is ignored without a
+    /// message, so a stray click cannot bury the message line.
+    fn handle_mouse(&mut self, mouse: tuinix::MouseInput) {
+        let region = self.text_area_region();
+        let inside = region.contains(mouse.position);
+        let text_area_rel = tuinix::Position {
+            row: mouse.position.row.saturating_sub(region.position.row),
+            col: mouse.position.col.saturating_sub(region.position.col),
+        };
+
+        match mouse.kind {
+            tuinix::MouseInputKind::LeftPress if inside => self
+                .state
+                .handle_cursor_to_screen_position(text_area_rel.row, text_area_rel.col),
+            tuinix::MouseInputKind::ScrollUp => self.state.handle_scroll(-SCROLL_ROWS),
+            tuinix::MouseInputKind::ScrollDown => self.state.handle_scroll(SCROLL_ROWS),
+            _ => {}
+        }
     }
 
     /// Carries out a core [`Action`](kk::Action) at the edge.

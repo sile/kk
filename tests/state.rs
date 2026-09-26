@@ -270,3 +270,85 @@ fn a_recenter_request_centres_the_cursor_and_is_consumed() {
     );
     assert!(!state.recenter_viewport, "the request is used once");
 }
+
+#[test]
+fn a_click_moves_the_cursor_through_the_viewport() {
+    let mut state = state_of("one\ntwo\nthree\nfour\n");
+    state.viewport = at(2, 1);
+
+    // Row 1 of the visible area is buffer row 3; column 1 is buffer column 2.
+    state.handle_cursor_to_screen_position(1, 1);
+
+    assert_eq!(state.cursor, at(3, 2));
+}
+
+#[test]
+fn a_click_below_the_buffer_lands_on_the_last_line() {
+    let mut state = state_of("one\ntwo\n");
+
+    state.handle_cursor_to_screen_position(20, 0);
+
+    assert_eq!(
+        state.cursor,
+        at(2, 0),
+        "row 2 is the row after the last line"
+    );
+}
+
+#[test]
+fn a_click_past_the_line_end_lands_on_the_line_end() {
+    let mut state = state_of("one\ntwo\nthree\n");
+
+    state.handle_cursor_to_screen_position(1, 40);
+
+    assert_eq!(state.cursor, at(1, 3), "'two' is 3 columns wide");
+}
+
+#[test]
+fn a_click_snaps_back_onto_a_character_boundary() {
+    let mut state = state_of("aあ\n");
+
+    // 'あ' is two columns wide and starts at column 1, so column 2 is inside it.
+    state.handle_cursor_to_screen_position(0, 2);
+
+    assert_eq!(
+        state.cursor,
+        at(0, 1),
+        "the cursor sits on 'あ', not inside it"
+    );
+}
+
+#[test]
+fn scrolling_down_moves_the_cursor_and_the_viewport_together() {
+    let mut state = state_of("a\nb\nc\nd\ne\nf\ng\n");
+
+    state.handle_scroll(3);
+
+    assert_eq!(state.cursor.row, 3, "three rows down from row 0");
+    state.adjust_viewport(area(3, 10));
+    assert_eq!(
+        state.viewport.row, 1,
+        "the viewport follows so the cursor stays visible"
+    );
+}
+
+#[test]
+fn scrolling_up_stops_at_the_first_line() {
+    let mut state = state_of("a\nb\n");
+
+    state.handle_scroll(-5);
+
+    assert_eq!(state.cursor.row, 0);
+}
+
+#[test]
+fn scrolling_down_stops_at_the_row_after_the_last_line() {
+    let mut state = state_of("a\nb\n");
+
+    state.handle_scroll(50);
+
+    assert_eq!(
+        state.cursor.row, 2,
+        "the clamp is `rows()`, not the last index"
+    );
+}

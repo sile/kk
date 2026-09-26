@@ -123,6 +123,51 @@ impl KkHarness {
         self.send_key(termnix::KeyCode::Escape, termnix::Modifiers::new());
     }
 
+    /// Sends a mouse event at grid position `row`/`col`.
+    ///
+    /// The session encodes the event using the modes `kk` has put it in, so a
+    /// left click only becomes bytes once `kk` has enabled mouse reporting;
+    /// callers should `wait_until` on the effect rather than assume the event
+    /// survives. `kk` enables reporting at startup, so a test that waits for
+    /// the initial paint first will have the mode on.
+    pub fn send_mouse(&mut self, kind: termnix::MouseEventKind, row: u16, col: u16) {
+        let event = termnix::MouseEvent {
+            kind,
+            position: termnix::Position { row, col },
+            modifiers: termnix::Modifiers::new(),
+        };
+        self.session
+            .enqueue_input(termnix::Input::Mouse(event))
+            .expect("failed to enqueue a mouse event");
+    }
+
+    /// Sends a left button press at grid position `row`/`col`.
+    pub fn click(&mut self, row: u16, col: u16) {
+        self.send_mouse(
+            termnix::MouseEventKind::Press(termnix::MouseButton::Left),
+            row,
+            col,
+        );
+    }
+
+    /// Sends one wheel notch up at grid position `row`/`col`.
+    pub fn scroll_up(&mut self, row: u16, col: u16) {
+        self.send_mouse(
+            termnix::MouseEventKind::Press(termnix::MouseButton::WheelUp),
+            row,
+            col,
+        );
+    }
+
+    /// Sends one wheel notch down at grid position `row`/`col`.
+    pub fn scroll_down(&mut self, row: u16, col: u16) {
+        self.send_mouse(
+            termnix::MouseEventKind::Press(termnix::MouseButton::WheelDown),
+            row,
+            col,
+        );
+    }
+
     /// Resizes the terminal, delivering SIGWINCH to `kk`.
     ///
     /// The emulator's size is updated alongside the kernel PTY size, so the

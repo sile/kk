@@ -170,6 +170,41 @@ impl State {
         self.finish_editing();
     }
 
+    /// Moves the cursor to the character a click at `row`/`col` of the visible
+    /// text area landed on.
+    ///
+    /// Both are relative to the text area, not the terminal, so the viewport is
+    /// added here rather than by the caller. The row is clamped to the buffer,
+    /// and the column is clamped to the target line and snapped back onto a
+    /// character boundary, exactly as a cursor move to a column would be.
+    pub fn handle_cursor_to_screen_position(&mut self, row: usize, col: usize) {
+        self.cursor.row = (self.viewport.row + row).min(self.buffer.rows());
+        self.cursor.col = self
+            .buffer
+            .cols(self.cursor.row)
+            .min(self.viewport.col + col);
+        self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
+        self.finish_editing();
+    }
+
+    /// Scrolls the viewport and the cursor `rows` lines down, or up when
+    /// `rows` is negative.
+    ///
+    /// The cursor moves with the viewport because [`adjust_viewport`](Self::adjust_viewport)
+    /// pulls the viewport back to the cursor on the next render, so a viewport
+    /// moved on its own would snap right back.
+    pub fn handle_scroll(&mut self, rows: isize) {
+        if rows < 0 {
+            for _ in rows..0 {
+                self.handle_cursor_up();
+            }
+        } else {
+            for _ in 0..rows {
+                self.handle_cursor_down();
+            }
+        }
+    }
+
     /// Moves the cursor down one row.
     pub fn handle_cursor_down(&mut self) {
         self.cursor.row = self.cursor.row.saturating_add(1).min(self.buffer.rows());
