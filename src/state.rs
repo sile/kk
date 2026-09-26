@@ -375,7 +375,6 @@ impl State {
                 self.handle_search_prev_hit();
             }
         }
-        self.set_message(format!("Hit: {}", self.highlight.items.len()));
     }
 
     /// Renders the buffer for saving and returns the text to persist.

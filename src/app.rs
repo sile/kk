@@ -365,13 +365,13 @@ impl App {
         Ok(())
     }
 
+    /// Returns the region the buffer text is painted into.
+    ///
+    /// The bottom two rows are the status line and the message line. A search
+    /// prompt shares the message line rather than taking a row of its own, so
+    /// the text area is the same height whether or not a search is open.
     fn text_area_region(&self) -> tuinix::Region {
-        let footer_rows = if self.state.search_mode.is_some() {
-            3
-        } else {
-            2
-        };
-        self.driver.size().to_region().drop_bottom(footer_rows)
+        self.driver.size().to_region().drop_bottom(2)
     }
 
     fn render(&mut self) -> std::io::Result<()> {
@@ -383,24 +383,16 @@ impl App {
             self.text_area.render(&self.state, frame)
         });
 
-        let mut frame_region = frame.size().to_region();
-        let mut search_region = frame_region;
-        if self.state.search_mode.is_some() {
-            search_region = frame_region.take_bottom(1);
-            self.render_region(&mut frame, search_region, |frame| {
-                kk::SearchQueryRenderer.render(&self.state, frame)
-            });
-            frame_region = frame_region.drop_bottom(1);
-        }
+        let frame_region = frame.size().to_region();
 
-        let region = frame_region.take_bottom(2).take_top(1);
+        let status_region = frame_region.take_bottom(2).take_top(1);
         let path = self.path.display().to_string();
-        self.render_region(&mut frame, region, |frame| {
+        self.render_region(&mut frame, status_region, |frame| {
             self.status_line.render(&self.state, &path, frame)
         });
 
-        let region = frame_region.take_bottom(1);
-        self.render_region(&mut frame, region, |frame| {
+        let message_region = frame_region.take_bottom(1);
+        self.render_region(&mut frame, message_region, |frame| {
             self.message_line.render(&self.state, frame)
         });
 
@@ -408,8 +400,11 @@ impl App {
             self.legend.render(self.context, &mut frame);
         }
 
+        // The cursor is in the query while one is open, and on the buffer's
+        // cursor otherwise; the query shares the message line, so that is the
+        // region its position is measured in.
         let cursor = if let Some(search) = &self.state.search_mode {
-            Some(search.cursor_position(search_region))
+            Some(search.cursor_position(message_region))
         } else {
             Some(self.state.terminal_cursor_position())
         };

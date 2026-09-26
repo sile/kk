@@ -34,7 +34,7 @@ pub use clipboard::Clipboard;
 pub use fmt::input;
 pub use legend::LegendRenderer;
 pub use message_line::MessageLineRenderer;
-pub use search_mode::{Highlight, SearchMode, SearchQueryRenderer};
+pub use search_mode::{Highlight, SearchMode};
 pub use state::State;
 pub use status_line::StatusLineRenderer;
 pub use terminal::{char_cols, put_str, str_cols};

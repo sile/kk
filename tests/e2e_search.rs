@@ -12,15 +12,19 @@ fn search_enters_search_mode_and_finds_a_later_match() {
     let mut kk = KkHarness::open(&path);
     kk.wait_for_text("Opened");
 
-    // `C-s` in Edit starts a forward search and opens the query prompt.
+    // `C-s` in Edit starts a forward search and opens the query prompt, which
+    // shares the message line rather than taking a row of its own.
     kk.send_ctrl('s');
-    kk.wait_for_text("Entered search mode");
+    kk.wait_until("query prompt", |h| h.screen_text().contains("Search:"));
 
     // Type the query, one character at a time.
     kk.send_text("gamma");
 
-    // While the query is being typed the status line shows the search matches.
-    kk.wait_until("query visible", |h| h.screen_contains("Search:"));
+    // The prompt holds the query, and the status line counts the matches: the
+    // one `gamma` in the buffer, with the cursor already on it.
+    kk.wait_until("query visible", |h| {
+        h.screen_text().contains("Search: gamma") && h.screen_text().contains("1/1")
+    });
 
     // `Enter` accepts the search and returns to editing at the match.
     kk.send_key(termnix::KeyCode::Enter, termnix::Modifiers::new());
@@ -38,7 +42,7 @@ fn search_can_be_cancelled_with_ctrl_g() {
     kk.wait_for_text("Opened");
 
     kk.send_ctrl('s');
-    kk.wait_for_text("Entered search mode");
+    kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
 
     kk.send_ctrl('g');
 

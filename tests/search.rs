@@ -124,6 +124,44 @@ fn a_search_counts_matches_across_lines() -> noprop::TestResult {
 }
 
 #[test]
+fn a_count_of_the_matches_up_to_a_position_is_the_matches_reached() {
+    let state = state_of("one two one\n");
+    let highlight = run("one", &state);
+    let at = |row, col| kk::TextPosition { row, col };
+
+    assert_eq!(
+        highlight.count_up_to(at(0, 0)),
+        1,
+        "the first match's start"
+    );
+    assert_eq!(highlight.count_up_to(at(0, 1)), 1, "inside the first match");
+    assert_eq!(highlight.count_up_to(at(0, 3)), 1, "just past the first");
+    assert_eq!(
+        highlight.count_up_to(at(0, 8)),
+        2,
+        "the second match's start"
+    );
+    assert_eq!(highlight.count_up_to(at(0, 11)), 2, "at the end");
+}
+
+#[test]
+fn a_count_of_the_matches_up_to_a_position_is_zero_before_the_first() {
+    let state = state_of("one two one\n");
+    let highlight = run("two", &state);
+
+    assert_eq!(
+        highlight.count_up_to(kk::TextPosition { row: 0, col: 3 }),
+        0,
+        "the cursor has not reached the match yet"
+    );
+    assert_eq!(
+        highlight.count_up_to(kk::TextPosition { row: 0, col: 4 }),
+        1,
+        "the match starts here"
+    );
+}
+
+#[test]
 fn a_search_is_case_insensitive() {
     let state = state_of("Alpha BETA\n");
 

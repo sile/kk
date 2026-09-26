@@ -118,6 +118,74 @@ fn the_status_line_reports_path_and_position() {
 }
 
 #[test]
+fn the_status_line_counts_the_matches_up_to_the_cursor() {
+    let mut state = state_of("alpha\nbeta\ngamma\nbeta\n");
+    state.search_mode = Some(kk::SearchMode::new(true));
+    // Typing into the query re-runs it and fills in the highlight.
+    for ch in "beta".chars() {
+        state.handle_char_insert(ch);
+    }
+    // The cursor is put where each case wants it; the highlight does not move
+    // with it.
+    state.cursor = kk::TextPosition { row: 0, col: 0 };
+
+    let mut frame = frame_of(1, 40);
+    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    assert!(
+        row_text(&frame, 0, 40).contains("0/2"),
+        "before the first match: {:?}",
+        row_text(&frame, 0, 40)
+    );
+
+    state.cursor = kk::TextPosition { row: 1, col: 2 };
+    let mut frame = frame_of(1, 40);
+    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    assert!(
+        row_text(&frame, 0, 40).contains("1/2"),
+        "inside the first match: {:?}",
+        row_text(&frame, 0, 40)
+    );
+
+    state.cursor = kk::TextPosition { row: 3, col: 0 };
+    let mut frame = frame_of(1, 40);
+    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    assert!(
+        row_text(&frame, 0, 40).contains("2/2"),
+        "at the second match: {:?}",
+        row_text(&frame, 0, 40)
+    );
+}
+
+#[test]
+fn the_status_line_shows_zero_matches_while_the_query_is_empty() {
+    let mut state = state_of("alpha\n");
+    state.search_mode = Some(kk::SearchMode::new(true));
+    let mut frame = frame_of(1, 40);
+
+    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+
+    assert!(
+        row_text(&frame, 0, 40).contains("0/0"),
+        "an empty query has no matches: {:?}",
+        row_text(&frame, 0, 40)
+    );
+}
+
+#[test]
+fn the_status_line_omits_the_match_count_outside_a_search() {
+    let state = state_of("alpha\n");
+    let mut frame = frame_of(1, 40);
+
+    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+
+    let text = row_text(&frame, 0, 40);
+    assert!(
+        text.starts_with(" [test.txt:1:1]  "),
+        "no count without a search: {text:?}"
+    );
+}
+
+#[test]
 fn the_status_line_pads_the_whole_row() {
     let state = state_of("x\n");
     let mut frame = frame_of(1, 60);
@@ -170,7 +238,7 @@ fn the_message_line_leaves_a_frame_without_a_message_untouched() {
 }
 
 #[test]
-fn the_query_line_prompts_and_shows_the_query() {
+fn the_message_line_prompts_and_shows_the_query_while_a_search_is_open() {
     let mut state = state_of("one\n");
     state.search_mode = Some(kk::SearchMode::new(true));
     for ch in "ab".chars() {
@@ -178,9 +246,25 @@ fn the_query_line_prompts_and_shows_the_query() {
     }
     let mut frame = frame_of(1, 20);
 
-    kk::SearchQueryRenderer.render(&state, &mut frame);
+    kk::MessageLineRenderer.render(&state, &mut frame);
 
     assert_eq!(row_text(&frame, 0, 20), "Search: ab          ");
+}
+
+#[test]
+fn the_query_hides_the_pending_message() {
+    let mut state = state_of("one\n");
+    state.set_message("Entered search mode");
+    state.search_mode = Some(kk::SearchMode::new(true));
+    let mut frame = frame_of(1, 20);
+
+    kk::MessageLineRenderer.render(&state, &mut frame);
+
+    assert_eq!(
+        row_text(&frame, 0, 20),
+        "Search:             ",
+        "the prompt wins over the message"
+    );
 }
 
 #[test]

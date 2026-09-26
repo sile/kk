@@ -1,10 +1,8 @@
 //! The in-buffer search prompt and its highlight.
 
-use crate::terminal::{char_cols, put_str};
-
 use crate::{
     buffer::{TextBuffer, TextPosition},
-    state::State,
+    terminal::char_cols,
 };
 
 /// A search in progress.
@@ -45,6 +43,13 @@ impl SearchMode {
             pos.col += char_cols(*ch);
         }
         pos
+    }
+
+    /// Returns the line to show while the query is being typed: the prompt
+    /// followed by the query so far.
+    pub fn line(&self) -> String {
+        let query: String = self.query.iter().collect();
+        format!("{PROMPT}{query}")
     }
 
     /// Inserts `ch` at the query cursor.
@@ -139,29 +144,19 @@ impl Highlight {
             .iter()
             .any(|item| item.start_position <= pos && pos < item.end_position)
     }
+
+    /// Returns how many matches begin at or before `pos`.
+    ///
+    /// It counts the match `pos` falls inside as reached, so it is the number
+    /// of the match the cursor is on once the cursor is on one, and `0` while
+    /// the cursor is still before the first match.
+    pub fn count_up_to(&self, pos: TextPosition) -> usize {
+        self.items
+            .iter()
+            .take_while(|item| item.start_position <= pos)
+            .count()
+    }
 }
 
 /// Prompt shown in the search/query input line.
 const PROMPT: &str = "Search: ";
-
-/// Paints the search prompt and the query typed so far.
-#[derive(Debug)]
-pub struct SearchQueryRenderer;
-
-impl SearchQueryRenderer {
-    /// Paints the prompt into `frame`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if [`State::search_mode`] is `None`, since there is then no query
-    /// to paint.
-    pub fn render(&self, state: &State, frame: &mut tuinix::Frame) {
-        let Some(search) = &state.search_mode else {
-            unreachable!();
-        };
-
-        let query: String = search.query.iter().collect();
-        let text = format!("{PROMPT}{query}");
-        put_str(frame, tuinix::Position::ORIGIN, &text, tuinix::Style::new());
-    }
-}
