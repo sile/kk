@@ -2,9 +2,9 @@
 
 /// The text being edited.
 ///
-/// A buffer is a list of [`TextLine`]s held in memory. Every edit marks it
-/// [`dirty`](TextBuffer::dirty), and [`mark_saved`](TextBuffer::mark_saved)
-/// clears that flag once the text has been persisted.
+/// A buffer is a list of [`TextLine`]s held in memory. The edits rewrite the
+/// lines in place; whether the result has been written out is the edge's
+/// business, not the buffer's.
 ///
 /// Rows and columns here are 0-based. A column counts display cells, not
 /// characters, so a column must be adjusted to a character boundary before it
@@ -13,23 +13,18 @@
 pub struct TextBuffer {
     /// The lines, in order.
     pub text: Vec<TextLine>,
-
-    /// Whether the buffer has edits that have not been saved.
-    pub dirty: bool,
 }
 
 impl TextBuffer {
     /// Builds a buffer from `text`, splitting it into lines.
     ///
-    /// The result starts out clean. A trailing newline does not produce a
-    /// final empty line.
+    /// A trailing newline does not produce a final empty line.
     pub fn from_text(text: &str) -> Self {
         Self {
             text: text
                 .lines()
                 .map(|l| TextLine(l.chars().collect()))
                 .collect(),
-            dirty: false,
         }
     }
 
@@ -39,7 +34,6 @@ impl TextBuffer {
             .lines()
             .map(|l| TextLine(l.chars().collect()))
             .collect();
-        self.dirty = false;
     }
 
     /// Renders the whole buffer, newline-terminated, for writing to a file.
@@ -52,11 +46,6 @@ impl TextBuffer {
             .join("\n");
         content.push('\n');
         content
-    }
-
-    /// Marks the buffer as saved.
-    pub fn mark_saved(&mut self) {
-        self.dirty = false;
     }
 
     /// Returns the number of lines.
@@ -94,7 +83,6 @@ impl TextBuffer {
             && let Some(_ch) = line.char_at_col(pos.col)
         {
             self.delete_char_at_internal(pos);
-            self.dirty = true;
             return true;
         }
 
@@ -105,7 +93,6 @@ impl TextBuffer {
                 let next_line = self.text.remove(pos.row + 1);
                 if let Some(current_line) = self.text.get_mut(pos.row) {
                     current_line.extend_from_line(next_line);
-                    self.dirty = true;
                     return true;
                 }
             }
@@ -138,7 +125,6 @@ impl TextBuffer {
                         col: char_pos,
                     })
                 {
-                    self.dirty = true;
                     return Some(TextPosition {
                         row: pos.row,
                         col: char_pos,
@@ -155,7 +141,6 @@ impl TextBuffer {
                 self.text.remove(pos.row);
                 if let Some(prev_line) = self.text.get_mut(prev_row) {
                     prev_line.extend_from_line(current_line);
-                    self.dirty = true;
                     return Some(TextPosition {
                         row: prev_row,
                         col: prev_col,
@@ -171,9 +156,7 @@ impl TextBuffer {
     /// Returns the position just after the inserted character, which is where
     /// the cursor should land.
     pub fn insert_char_at(&mut self, pos: TextPosition, ch: char) -> TextPosition {
-        let new_pos = self.insert_char_at_internal(pos, ch);
-        self.dirty = true;
-        new_pos
+        self.insert_char_at_internal(pos, ch)
     }
 
     fn insert_char_at_internal(&mut self, pos: TextPosition, ch: char) -> TextPosition {
@@ -225,9 +208,7 @@ impl TextBuffer {
     /// Returns the position of the start of the new line, which is where the
     /// cursor should land.
     pub fn insert_newline_at(&mut self, pos: TextPosition) -> TextPosition {
-        let new_pos = self.insert_newline_at_internal(pos);
-        self.dirty = true;
-        new_pos
+        self.insert_newline_at_internal(pos)
     }
 
     fn insert_newline_at_internal(&mut self, pos: TextPosition) -> TextPosition {

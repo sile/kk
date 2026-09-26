@@ -305,12 +305,12 @@ impl App {
 
     /// Renders the buffer and writes it to `path` on behalf of the core.
     ///
-    /// The core only produces the text; the write, and the dirty-flag update
-    /// that follows a successful one, happen here.
+    /// The core only produces the text; the write, and the report that follows
+    /// a successful one, happen here.
     fn handle_buffer_save(&mut self) -> std::io::Result<()> {
         let text = self.state.handle_buffer_save();
         std::fs::write(&self.path, &text)?;
-        self.state.mark_saved(text.chars().count());
+        self.state.report_saved(text.chars().count());
         Ok(())
     }
 

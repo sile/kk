@@ -121,7 +121,6 @@ fn a_char_insert_reports_and_advances_by_the_character_width() {
     state.handle_char_insert('X');
     assert_eq!(state.cursor, at(0, 2));
     assert_eq!(saved_text(&state), "aXb\n");
-    assert!(state.buffer.dirty);
 
     state.handle_char_insert('一');
     assert_eq!(state.cursor, at(0, 4), "a wide character is two columns");
@@ -164,7 +163,6 @@ fn mark_cut_deletes_the_region_and_leaves_the_cursor_at_its_start() {
     assert_eq!(state.clipboard.read(), "world");
     assert_eq!(saved_text(&state), "hello \n");
     assert_eq!(state.cursor, at(0, 6));
-    assert!(state.buffer.dirty);
 }
 
 #[test]
@@ -198,22 +196,20 @@ fn saving_and_reloading_round_trip_through_the_edge() {
     let mut state = state_of("one\n");
     state.cursor = at(0, 1);
     state.handle_char_insert('X');
-    assert!(state.buffer.dirty);
 
     // Saving is a handshake: the core renders the text, the edge writes it,
     // then the core is told how many characters went out.
     let text = state.handle_buffer_save();
     assert_eq!(text, "oXne\n");
-    assert!(state.buffer.dirty, "the core has not been told yet");
+    assert_eq!(state.message.as_deref(), Some("Saving"));
 
-    state.mark_saved(text.chars().count());
-    assert!(!state.buffer.dirty);
+    state.report_saved(text.chars().count());
+    assert_eq!(state.message.as_deref(), Some("Saved 5 chars"));
 
     // Reloading receives the text the edge read back. The cursor was on row 0,
     // which still exists, so only the column is clamped to the new line's width.
     state.handle_buffer_reload("fresh\n");
     assert_eq!(saved_text(&state), "fresh\n");
-    assert!(!state.buffer.dirty);
     assert_eq!(state.cursor, at(0, 2), "column 2 fits in a 5-column line");
 
     // A cursor on the row one past the last line is left there with column 0,

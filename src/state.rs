@@ -356,16 +356,15 @@ impl State {
 
     /// Renders the buffer for saving and returns the text to persist.
     ///
-    /// The caller (the I/O edge) writes it and then calls [`Self::mark_saved`]
+    /// The caller (the I/O edge) writes it and then calls [`Self::report_saved`]
     /// once the write succeeded; the core never touches the file system.
     pub fn handle_buffer_save(&mut self) -> String {
         self.set_message("Saving");
         self.buffer.to_text()
     }
 
-    /// Marks the buffer as written and reports how many characters were saved.
-    pub fn mark_saved(&mut self, chars: usize) {
-        self.buffer.mark_saved();
+    /// Reports that the edge wrote `chars` characters out.
+    pub fn report_saved(&mut self, chars: usize) {
         self.set_message(format!("Saved {chars} chars"));
     }
 
@@ -596,8 +595,6 @@ impl State {
                 self.buffer.text.remove(start.row + 1);
             }
         }
-
-        self.buffer.dirty = true;
     }
 
     /// Inserts the clipboard's contents at the cursor.
@@ -712,7 +709,6 @@ impl State {
                 self.buffer.text.remove(cursor_pos.row + 1);
                 if let Some(current_line) = self.buffer.text.get_mut(cursor_pos.row) {
                     current_line.extend_from_line(next_line);
-                    self.buffer.dirty = true;
                 }
                 self.set_message("Killed newline");
             }
@@ -730,7 +726,6 @@ impl State {
 
                     // Delete the text
                     line.0.truncate(char_index);
-                    self.buffer.dirty = true;
 
                     self.set_message(format!("Killed {} characters", killed_text.len()));
                 } else {

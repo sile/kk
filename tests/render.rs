@@ -95,7 +95,7 @@ fn the_text_area_stops_at_the_last_line() {
 }
 
 #[test]
-fn the_status_line_reports_path_position_and_flag() {
+fn the_status_line_reports_path_and_position() {
     let mut state = state_of("one\ntwo\n");
     let mut frame = frame_of(1, 40);
 
@@ -103,8 +103,8 @@ fn the_status_line_reports_path_position_and_flag() {
 
     let text = row_text(&frame, 0, 40);
     assert!(
-        text.starts_with("   [test.txt:1:1] "),
-        "clean buffer, row 1, column 1: {text:?}"
+        text.starts_with(" [test.txt:1:1] "),
+        "row 1, column 1: {text:?}"
     );
 
     state.handle_char_insert('!');
@@ -112,8 +112,8 @@ fn the_status_line_reports_path_position_and_flag() {
     kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
     let text = row_text(&frame, 0, 40);
     assert!(
-        text.starts_with(" * [test.txt:1:2] "),
-        "dirty buffer, one column to the right: {text:?}"
+        text.starts_with(" [test.txt:1:2] "),
+        "one column to the right: {text:?}"
     );
 }
 

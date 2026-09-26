@@ -123,7 +123,6 @@ fn inserting_then_deleting_before_restores_the_text() -> noprop::TestResult {
             format!("{text}\n"),
             "text after the round trip"
         );
-        assert!(buffer.dirty, "an edit marks the buffer dirty");
         Ok(())
     })?;
 

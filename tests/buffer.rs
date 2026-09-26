@@ -29,7 +29,6 @@ fn from_text_then_to_text_round_trips_newline_terminated_text() -> noprop::TestR
             text.matches('\n').count(),
             "row count for {text:?}"
         );
-        assert!(!buffer.dirty, "a fresh buffer starts clean");
         Ok(())
     })?;
 
