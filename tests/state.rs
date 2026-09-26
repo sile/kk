@@ -154,6 +154,87 @@ fn line_delete_at_the_end_of_a_line_kills_the_newline() {
 }
 
 #[test]
+fn a_run_of_kills_collects_into_one_clipboard_entry() {
+    let mut state = state_of("one\ntwo\nthree\n");
+    state.cursor = at(0, 0);
+
+    // Kill `one`, then the newline, then `two` -- one run with no break.
+    state.handle_line_delete();
+    assert_eq!(saved_text(&state), "\ntwo\nthree\n");
+    assert_eq!(state.clipboard.read(), "one");
+
+    state.handle_line_delete();
+    assert_eq!(saved_text(&state), "two\nthree\n");
+    assert_eq!(state.clipboard.read(), "one\n");
+
+    state.handle_line_delete();
+    assert_eq!(saved_text(&state), "\nthree\n");
+    assert_eq!(state.clipboard.read(), "one\ntwo");
+
+    assert_eq!(state.clipboard.summary_line, "one");
+}
+
+#[test]
+fn a_break_between_kills_starts_a_new_clipboard_entry() {
+    let mut state = state_of("one\ntwo\n");
+    state.cursor = at(0, 0);
+
+    state.handle_line_delete();
+    assert_eq!(state.clipboard.read(), "one");
+
+    // Moving the cursor is a break, so the next kill replaces the entry.
+    state.handle_cursor_down();
+    state.handle_line_delete();
+
+    assert_eq!(state.clipboard.read(), "two");
+    assert_eq!(state.clipboard.summary_line, "two");
+}
+
+#[test]
+fn an_edit_between_kills_starts_a_new_clipboard_entry() {
+    let mut state = state_of("one\ntwo\n");
+    state.cursor = at(0, 0);
+
+    state.handle_line_delete();
+    state.handle_char_insert('x');
+    state.handle_line_delete();
+
+    assert_eq!(state.clipboard.read(), "\n");
+}
+
+#[test]
+fn a_kill_that_removed_nothing_still_leaves_the_previous_entry_alone() {
+    let mut state = state_of("one\n");
+    state.cursor = at(0, 3);
+
+    // The only line has no newline to kill, so this kill is a no-op.
+    state.handle_line_delete();
+    assert_eq!(saved_text(&state), "one\n");
+    assert_eq!(state.clipboard.read(), "");
+
+    // A no-op kill chains like any other kill, but it has nothing of its own to
+    // add, so the entry stands.
+    state.handle_line_delete();
+    assert_eq!(state.clipboard.read(), "");
+}
+
+#[test]
+fn a_chained_kill_reports_that_it_appended() {
+    let mut state = state_of("one\ntwo\n");
+    state.cursor = at(0, 0);
+
+    state.handle_line_delete();
+    assert_eq!(state.message.as_deref(), Some("Killed 3 characters"));
+
+    // The next kill continues the run, so it says it appended.
+    state.handle_line_delete();
+    assert_eq!(state.message.as_deref(), Some("Appended newline"));
+
+    state.handle_line_delete();
+    assert_eq!(state.message.as_deref(), Some("Appended 3 characters"));
+}
+
+#[test]
 fn mark_cut_deletes_the_region_and_leaves_the_cursor_at_its_start() {
     let mut state = state_of("hello world\n");
     state.cursor = at(0, 6);

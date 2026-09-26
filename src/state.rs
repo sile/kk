@@ -48,6 +48,14 @@ pub struct State {
     /// Whether an edit has already been recorded in [`history`](State::history).
     pub editing: bool,
 
+    /// Whether the last command was a kill, which is what makes a run of kills
+    /// collect into one clipboard entry rather than replacing it.
+    ///
+    /// [`handle_line_delete`](State::handle_line_delete) sets it, and both
+    /// `start_editing` and `finish_editing` clear it, so any edit or cursor
+    /// move breaks the run.
+    kill_chained: bool,
+
     /// Undo snapshots, oldest first.
     pub history: VecDeque<(TextPosition, TextBuffer)>,
 
@@ -74,6 +82,7 @@ impl State {
             mark: None,
             clipboard: Clipboard::default(),
             editing: false,
+            kill_chained: false,
             history: VecDeque::new(),
             undo_index: 0,
             search_mode: None,
@@ -145,6 +154,12 @@ impl State {
     }
 
     fn start_editing(&mut self) {
+        // Any edit that starts here breaks a run of kills, including the ones
+        // that continue an undo run and so never call `finish_editing`.
+        // `handle_line_delete` reads the flag before this and re-arms it after,
+        // which is what lets one kill chain onto the next.
+        self.kill_chained = false;
+
         if self.editing {
             return;
         }
@@ -160,8 +175,17 @@ impl State {
     }
 
     /// Ends the current edit run, so the next edit records a new snapshot.
+    ///
+    /// Also ends a run of kills. Together with `start_editing`, which clears the
+    /// same flag, this covers every break: the edits that only start an edit
+    /// (inserting, deleting a character) and the moves and commands that only
+    /// end one (moving the cursor, undoing).
+    /// [`handle_line_delete`](State::handle_line_delete) reads the flag before
+    /// its own `start_editing` and re-arms it after its `finish_editing`, which
+    /// is what chains one kill onto the next.
     pub fn finish_editing(&mut self) {
         self.editing = false;
+        self.kill_chained = false;
     }
 
     /// Moves the cursor up one row.
@@ -689,8 +713,13 @@ impl State {
     /// Deletes from the cursor to the end of the line, or joins the next line
     /// when the cursor is already at the end.
     ///
-    /// The removed text goes to the clipboard.
+    /// The removed text goes to the clipboard. A kill that follows another one
+    /// without a break in between is chained onto the entry the previous kill
+    /// left rather than replacing it, so a run of `C-k` collects what it
+    /// removed into one entry (see [`finish_editing`](State::finish_editing) for
+    /// what counts as a break).
     pub fn handle_line_delete(&mut self) {
+        let append = self.kill_chained;
         self.start_editing();
 
         let cursor_pos = self.cursor_position();
@@ -702,13 +731,21 @@ impl State {
                 && let Some(next_line) = self.buffer.text.get(cursor_pos.row + 1).cloned()
             {
                 // Copy the newline to clipboard
-                self.clipboard.write("\n");
+                if append {
+                    self.clipboard.append("\n");
+                } else {
+                    self.clipboard.write("\n");
+                }
 
                 self.buffer.text.remove(cursor_pos.row + 1);
                 if let Some(current_line) = self.buffer.text.get_mut(cursor_pos.row) {
                     current_line.extend_from_line(next_line);
                 }
-                self.set_message("Killed newline");
+                if append {
+                    self.set_message("Appended newline");
+                } else {
+                    self.set_message("Killed newline");
+                }
             }
         } else {
             // Delete from cursor to end of line and copy to clipboard
@@ -720,17 +757,30 @@ impl State {
 
                 if !killed_text.is_empty() {
                     // Copy to clipboard
-                    self.clipboard.write(&killed_text);
+                    if append {
+                        self.clipboard.append(&killed_text);
+                    } else {
+                        self.clipboard.write(&killed_text);
+                    }
 
                     // Delete the text
                     line.0.truncate(char_index);
 
-                    self.set_message(format!("Killed {} characters", killed_text.len()));
+                    if append {
+                        self.set_message(format!("Appended {} characters", killed_text.len()));
+                    } else {
+                        self.set_message(format!("Killed {} characters", killed_text.len()));
+                    }
                 } else {
                     self.set_message("Nothing to kill");
                 }
             }
         }
+
+        // Re-arm the flag so the next kill chains onto this one. This runs for a
+        // no-op kill too: what chains is the command, not its effect.
+        self.finish_editing();
+        self.kill_chained = true;
     }
 
     /// Moves the cursor to the next match after it, wrapping to the first.
