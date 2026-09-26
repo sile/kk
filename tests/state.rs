@@ -40,6 +40,9 @@ enum Edit {
 
 impl Edit {
     fn apply(self, state: &mut kk::State) {
+        // Close any previous run first, so this edit gets its own snapshot and
+        // the undo below drops exactly it.
+        state.finish_editing();
         match self {
             Edit::Insert(ch) => {
                 state.handle_char_insert(ch);
@@ -48,7 +51,6 @@ impl Edit {
             Edit::Delete => state.handle_char_delete_forward(),
             Edit::KillLine => state.handle_line_delete(),
         }
-        state.finish_editing();
     }
 }
 
@@ -249,6 +251,36 @@ fn undo_reports_when_there_is_nothing_left() {
 
     state.handle_buffer_undo();
 
+    assert_eq!(state.message.as_deref(), Some("Nothing to undo"));
+}
+
+#[test]
+fn undo_works_without_a_break_between_the_edit_and_the_undo() {
+    // A real session does not close the edit run before the user presses
+    // `C-u`, so an undo that is the very next thing after an insert must drop
+    // that insert, not silently do nothing.
+    let mut state = state_of("one\n");
+
+    state.handle_char_insert('x');
+    state.handle_buffer_undo();
+
+    assert_eq!(saved_text(&state), "one\n", "the insert was not undone");
+}
+
+#[test]
+fn a_run_of_inserts_is_one_snapshot_then_there_is_nothing_left() {
+    let mut state = state_of("one\n");
+
+    // A run of inserts is one snapshot, so the first undo drops all of it and
+    // the second reports there is nothing older to restore.
+    state.handle_char_insert('a');
+    state.handle_char_insert('b');
+    state.finish_editing();
+
+    state.handle_buffer_undo();
+    assert_eq!(saved_text(&state), "one\n");
+
+    state.handle_buffer_undo();
     assert_eq!(state.message.as_deref(), Some("Nothing to undo"));
 }
 

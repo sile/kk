@@ -419,13 +419,11 @@ impl State {
 
     /// Restores the buffer and cursor from the previous history snapshot.
     ///
+    /// An edit still in progress is closed first: the snapshot it already
+    /// pushed is the state to come back to, so nothing new is recorded.
     /// Reports `Nothing to undo` when there is nothing left to restore.
     pub fn handle_buffer_undo(&mut self) {
-        if self.editing {
-            self.finish_editing();
-            self.start_editing();
-            self.editing = false;
-        }
+        self.finish_editing();
 
         let Some(i) = self.undo_index.checked_sub(1) else {
             self.set_message("Nothing to undo");
