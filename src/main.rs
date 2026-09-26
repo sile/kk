@@ -12,6 +12,42 @@ mod app;
 
 use std::path::PathBuf;
 
+fn main() -> noargs::Result<()> {
+    let mut args = noargs::raw_args();
+    args.metadata_mut().app_name = env!("CARGO_PKG_NAME");
+    args.metadata_mut().app_description = env!("CARGO_PKG_DESCRIPTION");
+
+    if noargs::VERSION_FLAG.take(&mut args).is_present() {
+        println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+    noargs::HELP_FLAG.take_help(&mut args);
+
+    // Before the positional: a trailing `-c` would otherwise be bound as FILE.
+    let create_new = noargs::flag("create-new")
+        .short('c')
+        .doc("Create the file, which must not already exist")
+        .take(&mut args)
+        .is_present();
+
+    let arg: String = noargs::arg("FILE")
+        .example("/path/to/file")
+        .doc("A file, optionally followed by :LINE to start at, or :LINE:COLUMN")
+        .take(&mut args)
+        .then(|a| a.value().parse())?;
+    if let Some(help) = args.finish()? {
+        print!("{help}");
+        return Ok(());
+    }
+
+    let (path, position) = split_position(&arg);
+
+    let app = app::App::new(path, create_new, position)?;
+    app.run()?;
+
+    Ok(())
+}
+
 /// Splits an optional `:LINE[:COLUMN]` off the end of the `FILE` argument.
 ///
 /// The suffixes are read off the end, one `:` at a time: the last number is the
@@ -46,47 +82,6 @@ fn split_number(arg: &str) -> (&str, Option<usize>) {
     // A number too large for `usize` is clamped to the buffer's end, which is
     // where the core puts any out-of-range position.
     (rest, Some(digits.parse().unwrap_or(usize::MAX)))
-}
-
-fn main() -> noargs::Result<()> {
-    let mut args = noargs::raw_args();
-    args.metadata_mut().app_name = env!("CARGO_PKG_NAME");
-    args.metadata_mut().app_description = env!("CARGO_PKG_DESCRIPTION");
-
-    if noargs::VERSION_FLAG.take(&mut args).is_present() {
-        println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-        return Ok(());
-    }
-    noargs::HELP_FLAG.take_help(&mut args);
-
-    // Before the positional: a trailing `-c` would otherwise be bound as FILE.
-    let create_new = noargs::flag("create-new")
-        .short('c')
-        .doc("Create the file, which must not already exist")
-        .take(&mut args)
-        .is_present();
-
-    let arg: String = noargs::arg("FILE")
-        .example("/path/to/file")
-        .doc("A file, optionally followed by :LINE to start at, or :LINE:COLUMN")
-        .take(&mut args)
-        .then(|a| a.value().parse())?;
-    if let Some(help) = args.finish()? {
-        print!("{help}");
-        return Ok(());
-    }
-
-    let (path, position) = split_position(&arg);
-
-    match app::App::new(path, create_new, position) {
-        Ok(app) => app.run()?,
-        Err(err) => {
-            eprintln!("kk: {err}");
-            std::process::exit(1);
-        }
-    }
-
-    Ok(())
 }
 
 #[cfg(test)]
