@@ -26,8 +26,8 @@ fn a_click_moves_the_cursor_to_the_clicked_line() {
     // Click on row 2, column 0: that is the line `three`.
     kk.click(2, 0);
 
-    // The status line reports the cursor position as `ROW(ROWS):COL(COLS)`.
-    kk.wait_for_text(":3(5):1(5)");
+    // The status line reports the cursor position as `ROW:COL`.
+    kk.wait_for_text(":3:1]");
 
     let status = kk.quit();
     assert!(status.success(), "kk exited with {status:?}");
@@ -42,13 +42,13 @@ fn a_click_past_the_line_end_lands_on_the_line_end() {
     kk.wait_for_text("Opened");
 
     // The status line echoes the path, which is long; widen the terminal so the
-    // whole `ROW(ROWS):COL(COLS)` tail fits on one row.
+    // whole `ROW:COL` tail fits on one row.
     kk.resize(24, 200);
 
     // Row 1 is `two`; clicking far to its right clamps to its end.
     kk.click(1, 60);
 
-    kk.wait_for_text(":2(5):4(3)");
+    kk.wait_for_text(":2:4]");
 
     let status = kk.quit();
     assert!(status.success(), "kk exited with {status:?}");
@@ -70,7 +70,7 @@ fn a_click_on_the_message_line_does_not_move_the_cursor() {
     kk.click(23, 5);
 
     // The cursor is still at the origin, which the status line shows.
-    kk.wait_for_text(":1(5):1(3)");
+    kk.wait_for_text(":1:1]");
     assert!(
         !kk.screen_contains("No action found"),
         "an ignored click should stay silent:\n{}",
@@ -96,11 +96,11 @@ fn the_wheel_scrolls_the_cursor_and_the_view() {
     // scroll to keep the cursor visible. It is kept wide so the status line's
     // tail, which is what these assertions read, stays on one row.
     kk.resize(8, 200);
-    kk.wait_for_text(":1(10):1(");
+    kk.wait_for_text(":1:1]");
 
     // One notch is three lines, so the cursor lands on line 4.
     kk.scroll_down(0, 0);
-    kk.wait_for_text(":4(10):1(");
+    kk.wait_for_text(":4:1]");
     assert!(
         kk.screen_contains("line4"),
         "the view should follow the cursor:\n{}",
@@ -109,7 +109,7 @@ fn the_wheel_scrolls_the_cursor_and_the_view() {
 
     // Scrolling back up returns the cursor and the view to the start.
     kk.scroll_up(0, 0);
-    kk.wait_for_text(":1(10):1(");
+    kk.wait_for_text(":1:1]");
     assert!(
         kk.screen_contains("line1"),
         "the view should follow the cursor back:\n{}",

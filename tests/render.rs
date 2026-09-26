@@ -103,8 +103,8 @@ fn the_status_line_reports_path_position_and_flag() {
 
     let text = row_text(&frame, 0, 40);
     assert!(
-        text.starts_with("   [test.txt:1(2):1(3)] "),
-        "clean buffer, row 1 of 2, column 1 of 3: {text:?}"
+        text.starts_with("   [test.txt:1:1] "),
+        "clean buffer, row 1, column 1: {text:?}"
     );
 
     state.handle_char_insert('!');
@@ -112,7 +112,7 @@ fn the_status_line_reports_path_position_and_flag() {
     kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
     let text = row_text(&frame, 0, 40);
     assert!(
-        text.starts_with(" * [test.txt:1(2):2(4)] "),
+        text.starts_with(" * [test.txt:1:2] "),
         "dirty buffer, one column to the right: {text:?}"
     );
 }
