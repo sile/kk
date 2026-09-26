@@ -84,6 +84,13 @@ fn built_in_keys() -> Vec<tuinix::KeyInput> {
         ctrl_key('u'),
         ctrl_key(' '),
         ctrl_key('`'),
+        // The Ext context drops the ctrl prefix, so its own chords are the bare
+        // letters; case is what separates save from force-save.
+        char_key('s'),
+        char_key('S'),
+        char_key('r'),
+        char_key('a'),
+        char_key('e'),
         code_key(tuinix::KeyCode::Up),
         code_key(tuinix::KeyCode::Down),
         code_key(tuinix::KeyCode::Left),
@@ -261,16 +268,16 @@ fn every_other_context_has_a_way_back_to_edit() {
 
 #[test]
 fn the_ext_context_binds_its_chords_after_ctrl_x() {
-    // The three buffer-level commands live behind `C-x`, which is the way
-    // into the Ext context. Each runs and returns to Edit, so the chord is
-    // `C-x` then the letter.
+    // The buffer-level commands live behind `C-x`, which is the way into the
+    // Ext context. Inside Ext the ctrl prefix is dropped, so each is a plain
+    // letter that runs and returns to Edit.
     for (ch, expected) in [('r', 0), ('a', 1), ('e', 2)] {
-        let resolved = kk::resolve(kk::Context::Ext, &tuinix::Input::Key(ctrl_key(ch)))
-            .unwrap_or_else(|| panic!("C-{ch} is not bound in Ext"));
+        let resolved = kk::resolve(kk::Context::Ext, &tuinix::Input::Key(char_key(ch)))
+            .unwrap_or_else(|| panic!("{ch} is not bound in Ext"));
         assert_eq!(
             resolved.context,
             Some(kk::Context::Edit),
-            "C-{ch} does not return to Edit"
+            "{ch} does not return to Edit"
         );
         assert!(
             matches!(
@@ -279,10 +286,27 @@ fn the_ext_context_binds_its_chords_after_ctrl_x() {
                     | (1, Some(kk::Action::CursorBufferStart))
                     | (2, Some(kk::Action::CursorBufferEnd))
             ),
-            "C-{ch} carries out the wrong action: {:?}",
+            "{ch} carries out the wrong action: {:?}",
             resolved.action
         );
     }
+}
+
+#[test]
+fn the_ext_context_binds_force_save_to_an_upper_case_s() {
+    let resolved = kk::resolve(kk::Context::Ext, &tuinix::Input::Key(char_key('S')))
+        .expect("S is bound in Ext");
+    assert_eq!(resolved.context, Some(kk::Context::Edit));
+    assert!(
+        matches!(resolved.action, Some(kk::Action::BufferForceSave)),
+        "S force-saves: {:?}",
+        resolved.action
+    );
+
+    // The lower-case letter must still be the checking save.
+    let plain = kk::resolve(kk::Context::Ext, &tuinix::Input::Key(char_key('s')))
+        .expect("s is bound in Ext");
+    assert!(matches!(plain.action, Some(kk::Action::BufferSave)));
 }
 
 #[test]

@@ -20,6 +20,16 @@ const ESCAPE_TIMEOUT_MS: libc::c_int = 50;
 /// How many lines one wheel notch scrolls.
 const SCROLL_ROWS: isize = 3;
 
+/// Whether a save checks the file on disk before overwriting it.
+#[derive(Debug, Clone, Copy)]
+enum SaveMode {
+    /// Refuse the write when the file no longer holds what this edge last saw.
+    CheckDisk,
+
+    /// Write regardless of what the file holds.
+    Force,
+}
+
 /// Owns the terminal edge and drives the core until the user quits.
 #[derive(Debug)]
 pub struct App {
@@ -27,6 +37,7 @@ pub struct App {
     input: tuinix::InputDecoder,
     prev_frame: Option<tuinix::Frame>,
     path: PathBuf,
+    saved_text: String,
     context: kk::Context,
     state: kk::State,
     text_area: kk::TextAreaRenderer,
@@ -48,6 +59,10 @@ impl App {
     /// [`std::fs::File::create_new`] would; if the file already exists that is an
     /// error, exactly as with `create_new(true)`. Other read failures are still
     /// errors too. The first message says whether the file was opened or created.
+    ///
+    /// The text read (empty under `--create-new`) is remembered as what this
+    /// edge has last seen, so a later save can tell whether the file changed
+    /// underneath it.
     ///
     /// `position` is the 1-based `:LINE[:COLUMN]` from the command line, as the user
     /// spelled it. It is turned into the core's 0-based cursor here, and an
@@ -88,6 +103,7 @@ impl App {
             input: tuinix::InputDecoder::new(),
             prev_frame: None,
             path,
+            saved_text: text,
             state,
             context: kk::Context::Edit,
             text_area: kk::TextAreaRenderer,
@@ -245,7 +261,13 @@ impl App {
                 self.state.set_message("Canceled");
             }
             kk::Action::BufferSave => {
-                self.handle_buffer_save()?;
+                self.handle_buffer_save(SaveMode::CheckDisk)?;
+                self.state.mark = None;
+                self.state.search_mode = None;
+                self.state.highlight = kk::Highlight::default();
+            }
+            kk::Action::BufferForceSave => {
+                self.handle_buffer_save(SaveMode::Force)?;
                 self.state.mark = None;
                 self.state.search_mode = None;
                 self.state.highlight = kk::Highlight::default();
@@ -306,17 +328,39 @@ impl App {
     /// Renders the buffer and writes it to `path` on behalf of the core.
     ///
     /// The core only produces the text; the write, and the report that follows
-    /// a successful one, happen here.
-    fn handle_buffer_save(&mut self) -> std::io::Result<()> {
+    /// a successful one, happen here. Under [`SaveMode::CheckDisk`] the file is
+    /// read back first and a write is refused when it no longer holds what this
+    /// edge last read or wrote, so another writer's version is never silently
+    /// lost; the refusal names the chord that saves anyway.
+    fn handle_buffer_save(&mut self, mode: SaveMode) -> std::io::Result<()> {
         let text = self.state.handle_buffer_save();
+        if let SaveMode::CheckDisk = mode {
+            match std::fs::read_to_string(&self.path) {
+                Ok(disk) if disk != self.saved_text => {
+                    self.state
+                        .set_message("Changed on disk; C-x S to overwrite");
+                    return Ok(());
+                }
+                // A file that has gone missing is not what this edge last saw,
+                // so it counts as a change too: writing would recreate it.
+                Ok(_) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    self.state.set_message("File is gone; C-x S to overwrite");
+                    return Ok(());
+                }
+                Err(e) => return Err(e),
+            }
+        }
         std::fs::write(&self.path, &text)?;
-        self.state.report_saved(text.chars().count());
+        self.saved_text = text;
+        self.state.report_saved(self.saved_text.chars().count());
         Ok(())
     }
 
     /// Reads `path` back and hands the text to the core to reload from.
     fn handle_buffer_reload(&mut self) -> std::io::Result<()> {
         let text = std::fs::read_to_string(&self.path)?;
+        self.saved_text = text.clone();
         self.state.handle_buffer_reload(&text);
         Ok(())
     }

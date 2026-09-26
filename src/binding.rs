@@ -55,10 +55,11 @@ pub const SEARCH_LEGEND: &[&str] = &[
 /// border last.
 pub const EXT_LEGEND: &[&str] = &[
     "\u{2502} C-g cancel",
-    "\u{2502} C-s save",
-    "\u{2502} C-r reload",
-    "\u{2502} C-a buffer-start",
-    "\u{2502} C-e buffer-end",
+    "\u{2502} s   save",
+    "\u{2502} S   force-save",
+    "\u{2502} r   reload",
+    "\u{2502} a   buffer-start",
+    "\u{2502} e   buffer-end",
     "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
@@ -95,7 +96,7 @@ pub struct LegendSize {
 /// ```
 /// let room = tuinix::Size { rows: 40, cols: 100 };
 /// let ext = kk::legend_size(kk::Context::Ext, room);
-/// assert_eq!(ext.rows, 6);
+/// assert_eq!(ext.rows, 7);
 /// assert_eq!(ext.cols, 20);
 /// ```
 pub fn legend_size(context: Context, limit: tuinix::Size) -> LegendSize {
@@ -260,12 +261,19 @@ fn resolve_search(key: &tuinix::KeyInput) -> Option<Resolved> {
 fn resolve_ext(key: &tuinix::KeyInput) -> Option<Resolved> {
     let tuinix::KeyInput { ctrl, code, .. } = *key;
 
+    // The extension context is entered with `C-x`, so its own chords drop the
+    // ctrl prefix: a bare `s` saves. That is not just a convention: a terminal
+    // reports a control chord on a letter as the letter itself, so `C-s` inside
+    // `C-x` would be the same bytes as a plain `s` anyway. Only `C-g` keeps its
+    // ctrl, matching every other context, and case is what separates save from
+    // force-save.
     Some(match (ctrl, code) {
         (true, tuinix::KeyCode::Char('g')) => cancel(),
-        (true, tuinix::KeyCode::Char('s')) => then(Action::BufferSave, Context::Edit),
-        (true, tuinix::KeyCode::Char('r')) => then(Action::BufferReload, Context::Edit),
-        (true, tuinix::KeyCode::Char('a')) => then(Action::CursorBufferStart, Context::Edit),
-        (true, tuinix::KeyCode::Char('e')) => then(Action::CursorBufferEnd, Context::Edit),
+        (false, tuinix::KeyCode::Char('S')) => then(Action::BufferForceSave, Context::Edit),
+        (false, tuinix::KeyCode::Char('s')) => then(Action::BufferSave, Context::Edit),
+        (false, tuinix::KeyCode::Char('r')) => then(Action::BufferReload, Context::Edit),
+        (false, tuinix::KeyCode::Char('a')) => then(Action::CursorBufferStart, Context::Edit),
+        (false, tuinix::KeyCode::Char('e')) => then(Action::CursorBufferEnd, Context::Edit),
         (false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),
         _ => return None,
     })

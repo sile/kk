@@ -16,7 +16,14 @@ pub enum Action {
 
     /// Persists the buffer to its file, leaves the extension context, and
     /// reports `Saved!`.
+    ///
+    /// The edge refuses the write when the file on disk no longer holds what
+    /// the edge last read or wrote; [`BufferForceSave`](Action::BufferForceSave)
+    /// is the way past that.
     BufferSave,
+
+    /// Writes the buffer over its file whatever the file on disk holds.
+    BufferForceSave,
 
     /// Re-reads the buffer's file from disk, discarding unsaved edits.
     BufferReload,
