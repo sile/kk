@@ -404,9 +404,9 @@ impl App {
             self.message_line.render(&self.state, frame)
         });
 
-        // The cursor is in the query while one is open, and on the buffer's
-        // cursor otherwise; the query shares the message line, so that is the
-        // region its position is measured in.
+        // The terminal cursor is in the query while one is open, and on the
+        // buffer's cursor otherwise; the query shares the message line, so that
+        // is the region its position is measured in.
         let cursor = if let Some(search) = &self.state.search_mode {
             Some(search.cursor_position(message_region))
         } else {
@@ -418,9 +418,14 @@ impl App {
         // it. It steps aside for as long as the cursor is inside it, and comes
         // back on its own: `legend_visible` is left alone, so the `Esc` toggle
         // still means what the user last asked for.
+        //
+        // The position judged is the buffer cursor's, not `cursor`: while a
+        // prompt is open the terminal cursor is in the query, but the buffer
+        // cursor is still painted in the text area, reversed, and that is the
+        // one a legend over it would cover.
         if let Some(legend_region) = self.legend_region(self.context) {
-            let cursor_shares_legend = cursor.is_some_and(|at| legend_region.contains(at));
-            if self.legend_visible && !cursor_shares_legend {
+            let buffer_cursor = self.state.terminal_cursor_position();
+            if self.legend_visible && !legend_region.contains(buffer_cursor) {
                 self.legend.render(self.context, &mut frame);
             }
         }
