@@ -19,23 +19,19 @@ mod binding;
 mod buffer;
 mod clipboard;
 mod fmt;
-mod legend;
-mod message_line;
+mod render;
 mod search_prompt;
 mod state;
-mod status_line;
 mod terminal;
-mod text_area;
 
 pub use action::Action;
 pub use binding::{Mode, Resolved};
 pub use buffer::{TextBuffer, TextLine, TextPosition};
 pub use clipboard::Clipboard;
 pub use fmt::display_input;
-pub use legend::{full_legend_size, render_legend};
-pub use message_line::render_message_line;
+pub use render::{
+    full_legend_size, render_legend, render_message_line, render_status_line, render_text_area,
+};
 pub use search_prompt::{Highlight, SearchPrompt};
 pub use state::State;
-pub use status_line::render_status_line;
 pub use terminal::{char_cols, put_str, str_cols};
-pub use text_area::render_text_area;
