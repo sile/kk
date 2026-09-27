@@ -253,11 +253,8 @@ fn resolve_ext(key: &tuinix::KeyInput) -> Option<Resolved> {
     let tuinix::KeyInput { ctrl, code, .. } = *key;
 
     // The extension mode is entered with `C-x`, so its own chords drop the
-    // ctrl prefix: a bare `s` saves. That is not just a convention: a terminal
-    // reports a control chord on a letter as the letter itself, so `C-s` inside
-    // `C-x` would be the same bytes as a plain `s` anyway. Only `C-g` keeps its
-    // ctrl, matching every other mode, and case is what separates save from
-    // force-save.
+    // ctrl prefix: a bare `s` saves. Only `C-g` keeps its ctrl, matching every
+    // other mode, and case is what separates save from force-save.
     Some(match (ctrl, code) {
         (true, tuinix::KeyCode::Char('g')) => cancel(),
         (false, tuinix::KeyCode::Char('S')) => then(Action::BufferForceSave, Mode::Edit),
