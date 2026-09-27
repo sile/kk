@@ -6,7 +6,7 @@ use kk::{Highlight, SearchPrompt};
 
 /// A state over `text`, with no search open yet.
 fn state_of(text: &str) -> kk::State {
-    kk::State::new(kk::TextBuffer::from_text(text))
+    kk::State::new(kk::TextBuffer::new(text))
 }
 
 /// Runs `query` over `state` and returns the matches.

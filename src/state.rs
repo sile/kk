@@ -413,7 +413,7 @@ impl State {
         self.finish_editing();
         self.start_editing();
 
-        self.buffer.replace_from_text(text);
+        self.buffer = TextBuffer::new(text);
 
         // Try to preserve cursor position, but adjust if the file has changed
         let max_row = self.buffer.rows();

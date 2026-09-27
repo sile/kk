@@ -6,7 +6,7 @@ use helpers_frame::row_text;
 
 /// A state over `text`, cursored at the start.
 fn state_of(text: &str) -> kk::State {
-    kk::State::new(kk::TextBuffer::from_text(text))
+    kk::State::new(kk::TextBuffer::new(text))
 }
 
 /// A fresh frame of the given size.

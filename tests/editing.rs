@@ -24,7 +24,7 @@ fn a_column_inside_a_wide_character_snaps_to_its_edges() -> noprop::TestResult {
 
     runner.run(256, |ctx| {
         let text = sample_line(ctx);
-        let buffer = kk::TextBuffer::from_text(&text);
+        let buffer = kk::TextBuffer::new(&text);
         let cols = buffer.cols(0);
         let col = noprop::sample_usize_in(ctx, 0..=cols + 2);
         let pos = kk::TextPosition { row: 0, col };
@@ -103,7 +103,7 @@ fn inserting_then_deleting_before_restores_the_text() -> noprop::TestResult {
     runner.run(256, |ctx| {
         let text = sample_line(ctx);
         let inserted = noprop::sample_choice(ctx, &['x', 'z', '\u{3042}']);
-        let mut buffer = kk::TextBuffer::from_text(&text);
+        let mut buffer = kk::TextBuffer::new(&text);
         let char_index = noprop::sample_usize_in(ctx, 0..=buffer.text[0].0.len());
         let col = buffer.col_at_char_index(0, char_index).expect("row 0");
         let at = kk::TextPosition { row: 0, col };
@@ -136,7 +136,7 @@ fn char_index_at_col_inverts_col_at_char_index() -> noprop::TestResult {
 
     runner.run(256, |ctx| {
         let text = sample_line(ctx);
-        let buffer = kk::TextBuffer::from_text(&text);
+        let buffer = kk::TextBuffer::new(&text);
         let line = &buffer.text[0];
 
         for index in 0..=line.0.len() {
@@ -155,7 +155,7 @@ fn char_index_at_col_inverts_col_at_char_index() -> noprop::TestResult {
 
 #[test]
 fn a_wide_character_occupies_two_columns() {
-    let mut buffer = kk::TextBuffer::from_text("\u{3042}x\n");
+    let mut buffer = kk::TextBuffer::new("\u{3042}x\n");
 
     assert_eq!(buffer.cols(0), 3, "one wide char and one narrow char");
     assert_eq!(buffer.char_index_at_col(0, 2), Some(1));
@@ -180,14 +180,14 @@ fn a_wide_character_occupies_two_columns() {
 
     // The same insertion at the wide character's own start column goes before
     // it, which shows the two columns 1 and 2 disagree about the split.
-    let mut at_start = kk::TextBuffer::from_text("\u{3042}x\n");
+    let mut at_start = kk::TextBuffer::new("\u{3042}x\n");
     at_start.insert_char_at(kk::TextPosition { row: 0, col: 2 }, 'a');
     assert_eq!(
         at_start.to_text(),
         "\u{3042}ax\n",
         "column 2 is past the wide char"
     );
-    let mut at_zero = kk::TextBuffer::from_text("\u{3042}x\n");
+    let mut at_zero = kk::TextBuffer::new("\u{3042}x\n");
     at_zero.insert_char_at(kk::TextPosition { row: 0, col: 0 }, 'a');
     assert_eq!(
         at_zero.to_text(),
@@ -208,7 +208,7 @@ fn a_wide_character_occupies_two_columns() {
 
 #[test]
 fn insert_newline_at_splits_the_line() {
-    let mut buffer = kk::TextBuffer::from_text("abcd\n");
+    let mut buffer = kk::TextBuffer::new("abcd\n");
 
     let at = buffer.insert_newline_at(kk::TextPosition { row: 0, col: 2 });
 
@@ -219,7 +219,7 @@ fn insert_newline_at_splits_the_line() {
 
 #[test]
 fn insert_char_past_the_end_pads_with_empty_lines() {
-    let mut buffer = kk::TextBuffer::from_text("a\n");
+    let mut buffer = kk::TextBuffer::new("a\n");
 
     let at = buffer.insert_char_at(kk::TextPosition { row: 3, col: 0 }, 'b');
 
@@ -230,7 +230,7 @@ fn insert_char_past_the_end_pads_with_empty_lines() {
 
 #[test]
 fn deleting_at_the_end_of_a_line_joins_the_next_one() {
-    let mut buffer = kk::TextBuffer::from_text("ab\ncd\n");
+    let mut buffer = kk::TextBuffer::new("ab\ncd\n");
 
     let deleted = buffer.delete_char_at(kk::TextPosition { row: 0, col: 2 });
 

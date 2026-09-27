@@ -15,13 +15,13 @@ fn sample_text(ctx: &mut noprop::TestCaseContext) -> String {
 }
 
 #[test]
-fn from_text_then_to_text_round_trips_newline_terminated_text() -> noprop::TestResult {
+fn new_then_to_text_round_trips_newline_terminated_text() -> noprop::TestResult {
     let seed = noprop::seed_from_env_or_time("KK_SEED")?;
     let mut runner = noprop::Runner::new(seed);
 
     runner.run(256, |ctx| {
         let text = sample_text(ctx);
-        let buffer = kk::TextBuffer::from_text(&text);
+        let buffer = kk::TextBuffer::new(&text);
 
         assert_eq!(buffer.to_text(), text, "round trip changed {text:?}");
         assert_eq!(
@@ -36,8 +36,8 @@ fn from_text_then_to_text_round_trips_newline_terminated_text() -> noprop::TestR
 }
 
 #[test]
-fn from_text_of_unterminated_text_gains_a_final_newline() {
-    let buffer = kk::TextBuffer::from_text("one\ntwo");
+fn new_of_unterminated_text_gains_a_final_newline() {
+    let buffer = kk::TextBuffer::new("one\ntwo");
 
     assert_eq!(buffer.to_text(), "one\ntwo\n");
     assert_eq!(buffer.rows(), 2);
@@ -45,9 +45,9 @@ fn from_text_of_unterminated_text_gains_a_final_newline() {
 
 #[test]
 fn an_empty_file_has_no_lines_and_saves_as_a_single_newline() {
-    // The one shape `from_text` and `to_text` do not round-trip: a file with
+    // The one shape `new` and `to_text` do not round-trip: a file with
     // no lines at all. Opening an empty file and saving it adds a newline.
-    let buffer = kk::TextBuffer::from_text("");
+    let buffer = kk::TextBuffer::new("");
 
     assert_eq!(buffer.rows(), 0);
     assert_eq!(buffer.to_text(), "\n");
@@ -55,7 +55,7 @@ fn an_empty_file_has_no_lines_and_saves_as_a_single_newline() {
 
 #[test]
 fn a_blank_line_in_the_middle_survives_the_round_trip() {
-    let buffer = kk::TextBuffer::from_text("a\n\nb\n");
+    let buffer = kk::TextBuffer::new("a\n\nb\n");
 
     assert_eq!(buffer.rows(), 3);
     assert_eq!(buffer.to_text(), "a\n\nb\n");

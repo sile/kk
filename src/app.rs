@@ -71,7 +71,7 @@ impl App {
             std::fs::read_to_string(&path)?
         };
 
-        let buffer = kk::TextBuffer::from_text(&text);
+        let buffer = kk::TextBuffer::new(&text);
 
         let mut state = kk::State::new(buffer);
         state.handle_cursor_to_position(position.row, position.col);

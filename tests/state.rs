@@ -4,7 +4,7 @@ use std::cell::Cell;
 
 /// A state over `text`. Nothing touches the file system.
 fn state_of(text: &str) -> kk::State {
-    kk::State::new(kk::TextBuffer::from_text(text))
+    kk::State::new(kk::TextBuffer::new(text))
 }
 
 /// The buffer's text as the edge would write it.

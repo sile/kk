@@ -9,7 +9,7 @@
 /// Rows and columns here are 0-based. A column counts display cells, not
 /// characters, so a column must be adjusted to a character boundary before it
 /// can address one of the line's characters.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct TextBuffer {
     /// The lines, in order.
     pub text: Vec<TextLine>,
@@ -19,21 +19,13 @@ impl TextBuffer {
     /// Builds a buffer from `text`, splitting it into lines.
     ///
     /// A trailing newline does not produce a final empty line.
-    pub fn from_text(text: &str) -> Self {
+    pub fn new(text: &str) -> Self {
         Self {
             text: text
                 .lines()
                 .map(|l| TextLine(l.chars().collect()))
                 .collect(),
         }
-    }
-
-    /// Replaces the contents with `text`, as if the file had been reloaded.
-    pub fn replace_from_text(&mut self, text: &str) {
-        self.text = text
-            .lines()
-            .map(|l| TextLine(l.chars().collect()))
-            .collect();
     }
 
     /// Renders the whole buffer, newline-terminated, for writing to a file.
