@@ -433,6 +433,14 @@ impl State {
         self.finish_editing();
     }
 
+    /// Reports that the extension mode has been entered.
+    ///
+    /// Its own chords drop the `C-x` prefix, so the message names the prefix
+    /// the user is under.
+    pub fn handle_ext_enter(&mut self) {
+        self.set_message("C-x");
+    }
+
     /// Inserts `ch` at the cursor.
     ///
     /// While a search prompt is open, the character enters the query instead

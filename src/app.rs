@@ -277,6 +277,7 @@ impl App {
             kk::Action::MarkSet => self.state.handle_mark_set(),
             kk::Action::MarkCut => self.state.handle_mark_cut(),
             kk::Action::ClipboardPaste => self.state.handle_clipboard_paste(),
+            kk::Action::ExtEnter => self.state.handle_ext_enter(),
             kk::Action::SearchEnter => self.state.handle_search_enter(),
             kk::Action::SearchCancel => self.state.handle_search_cancel(),
             kk::Action::SearchAccept => self.state.handle_search_accept(),

@@ -33,6 +33,9 @@ pub enum Action {
     /// Undoes the most recent edit.
     BufferUndo,
 
+    /// Enters the extension mode, reporting the `C-x` that opened it.
+    ExtEnter,
+
     /// Shows the key-binding legend if it is hidden, and hides it if it is
     /// shown.
     LegendToggle,

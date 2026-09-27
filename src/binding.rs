@@ -167,14 +167,6 @@ fn then(action: Action, mode: Mode) -> Resolved {
     }
 }
 
-/// Switches to `mode` without running anything.
-fn only(mode: Mode) -> Resolved {
-    Resolved {
-        action: None,
-        mode: Some(mode),
-    }
-}
-
 /// Ends the prompt and restores the edit mode.
 fn cancel() -> Resolved {
     then(Action::Cancel, Mode::Edit)
@@ -187,7 +179,7 @@ fn resolve_edit(key: &tuinix::KeyInput) -> Option<Resolved> {
         (true, tuinix::KeyCode::Char('c')) => act(Action::Quit),
         (true, tuinix::KeyCode::Char('g')) => cancel(),
         (true, tuinix::KeyCode::Char('s')) => then(Action::SearchEnter, Mode::Search),
-        (true, tuinix::KeyCode::Char('x')) => only(Mode::Ext),
+        (true, tuinix::KeyCode::Char('x')) => then(Action::ExtEnter, Mode::Ext),
         (true, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
         (true, tuinix::KeyCode::Char('w')) => act(Action::MarkCut),
         (true, tuinix::KeyCode::Char('u')) => act(Action::BufferUndo),
