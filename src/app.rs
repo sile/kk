@@ -30,10 +30,6 @@ pub struct App {
     saved_text: String,
     mode: kk::Mode,
     state: kk::State,
-    text_area: kk::TextAreaRenderer,
-    message_line: kk::MessageLineRenderer,
-    status_line: kk::StatusLineRenderer,
-    legend: kk::LegendRenderer,
     legend_visible: bool,
     exit: bool,
 }
@@ -92,10 +88,6 @@ impl App {
             saved_text: text,
             state,
             mode: kk::Mode::Edit,
-            text_area: kk::TextAreaRenderer,
-            message_line: kk::MessageLineRenderer,
-            status_line: kk::StatusLineRenderer,
-            legend: kk::LegendRenderer,
             legend_visible: true,
             exit: false,
         })
@@ -346,11 +338,7 @@ impl App {
     fn legend_region(&self, mode: kk::Mode) -> Option<tuinix::Region> {
         let size = self.driver.size();
         let legend = mode.legend_size(size);
-        let full = mode.legend_size(tuinix::Size {
-            rows: usize::MAX,
-            cols: usize::MAX,
-        });
-        if legend != full {
+        if legend != kk::full_legend_size(mode) {
             return None;
         }
 
@@ -369,7 +357,7 @@ impl App {
         let region = self.text_area_region();
         self.state.adjust_viewport(region.size);
         self.render_region(&mut frame, region, |frame| {
-            self.text_area.render(&self.state, frame)
+            kk::render_text_area(&self.state, frame)
         });
 
         let frame_region = frame.size().to_region();
@@ -377,12 +365,12 @@ impl App {
         let status_region = frame_region.take_bottom(2).take_top(1);
         let path = self.path.display().to_string();
         self.render_region(&mut frame, status_region, |frame| {
-            self.status_line.render(&self.state, &path, frame)
+            kk::render_status_line(&self.state, &path, frame)
         });
 
         let message_region = frame_region.take_bottom(1);
         self.render_region(&mut frame, message_region, |frame| {
-            self.message_line.render(&self.state, frame)
+            kk::render_message_line(&self.state, frame)
         });
 
         // The terminal cursor is in the query while one is open, and on the
@@ -407,7 +395,7 @@ impl App {
         if let Some(legend_region) = self.legend_region(self.mode) {
             let buffer_cursor = self.state.terminal_cursor_position();
             if self.legend_visible && !legend_region.contains(buffer_cursor) {
-                self.legend.render(self.mode, &mut frame);
+                kk::render_legend(self.mode, &mut frame);
             }
         }
 

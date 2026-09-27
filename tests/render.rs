@@ -59,7 +59,7 @@ fn the_text_area_never_paints_outside_the_frame() -> noprop::TestResult {
         let size = tuinix::Size { rows, cols };
         let mut frame = frame_of(rows, cols);
 
-        kk::TextAreaRenderer.render(&state, &mut frame);
+        kk::render_text_area(&state, &mut frame);
 
         for (position, _) in frame.chars() {
             assert!(
@@ -79,7 +79,7 @@ fn the_text_area_paints_the_visible_slice_from_the_viewport() {
     state.viewport = kk::TextPosition { row: 1, col: 1 };
     let mut frame = frame_of(2, 3);
 
-    kk::TextAreaRenderer.render(&state, &mut frame);
+    kk::render_text_area(&state, &mut frame);
 
     assert_eq!(row_text(&frame, 0, 3), "wo ");
     assert_eq!(row_text(&frame, 1, 3), "hre");
@@ -97,7 +97,7 @@ fn a_search_bolds_and_underlines_the_matches() {
     state.cursor = kk::TextPosition { row: 0, col: 0 };
     let mut frame = frame_of(1, 7);
 
-    kk::TextAreaRenderer.render(&state, &mut frame);
+    kk::render_text_area(&state, &mut frame);
 
     // `two` starts at column 4; its three columns are marked as a hit, `one` is
     // not. A hit is bold and underlined rather than reversed, since the reverse
@@ -120,7 +120,7 @@ fn a_match_is_not_reversed() {
     state.handle_char_insert('e');
     let mut frame = frame_of(1, 3);
 
-    kk::TextAreaRenderer.render(&state, &mut frame);
+    kk::render_text_area(&state, &mut frame);
 
     // The cursor sits on the first match, so that one column is reversed; the
     // rest of the match stays bold and underlined.
@@ -137,7 +137,7 @@ fn an_empty_query_leaves_the_text_area_plain_apart_from_the_cursor() {
     state.cursor = kk::TextPosition { row: 0, col: 1 };
     let mut frame = frame_of(2, 3);
 
-    kk::TextAreaRenderer.render(&state, &mut frame);
+    kk::render_text_area(&state, &mut frame);
 
     // The empty query matches nothing, so the text away from the cursor is
     // plainly styled: a search neither dims nor underlines it.
@@ -157,7 +157,7 @@ fn a_search_reverses_the_character_under_the_cursor() {
     state.cursor = kk::TextPosition { row: 0, col: 1 };
     let mut frame = frame_of(1, 3);
 
-    kk::TextAreaRenderer.render(&state, &mut frame);
+    kk::render_text_area(&state, &mut frame);
 
     assert!(
         style_at(&frame, 0, 1).reverse,
@@ -175,7 +175,7 @@ fn the_cursor_is_not_reversed_outside_a_search() {
     state.cursor = kk::TextPosition { row: 0, col: 1 };
     let mut frame = frame_of(1, 3);
 
-    kk::TextAreaRenderer.render(&state, &mut frame);
+    kk::render_text_area(&state, &mut frame);
 
     // The terminal's own cursor marks the position in the buffer, so the cell
     // under it is painted like any other.
@@ -190,7 +190,7 @@ fn an_empty_buffer_paints_nothing() {
     let state = state_of("");
     let mut frame = frame_of(3, 5);
 
-    kk::TextAreaRenderer.render(&state, &mut frame);
+    kk::render_text_area(&state, &mut frame);
 
     assert_eq!(painted_cells(&frame), 0, "an empty buffer paints nothing");
 }
@@ -200,7 +200,7 @@ fn the_text_area_stops_at_the_last_line() {
     let state = state_of("one\n");
     let mut frame = frame_of(5, 5);
 
-    kk::TextAreaRenderer.render(&state, &mut frame);
+    kk::render_text_area(&state, &mut frame);
 
     assert_eq!(row_text(&frame, 0, 5), "one  ");
     assert_eq!(painted_cells(&frame), 3, "the rows below stay unwritten");
@@ -211,7 +211,7 @@ fn the_status_line_reports_path_and_position() {
     let mut state = state_of("one\ntwo\n");
     let mut frame = frame_of(1, 40);
 
-    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    kk::render_status_line(&state, "test.txt", &mut frame);
 
     let text = row_text(&frame, 0, 40);
     assert!(
@@ -221,7 +221,7 @@ fn the_status_line_reports_path_and_position() {
 
     state.handle_char_insert('!');
     let mut frame = frame_of(1, 40);
-    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    kk::render_status_line(&state, "test.txt", &mut frame);
     let text = row_text(&frame, 0, 40);
     assert!(
         text.starts_with(" [test.txt:1:2] "),
@@ -242,7 +242,7 @@ fn the_status_line_counts_the_matches_up_to_the_cursor() {
     state.cursor = kk::TextPosition { row: 0, col: 0 };
 
     let mut frame = frame_of(1, 40);
-    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    kk::render_status_line(&state, "test.txt", &mut frame);
     assert!(
         row_text(&frame, 0, 40).contains("0/2"),
         "before the first match: {:?}",
@@ -251,7 +251,7 @@ fn the_status_line_counts_the_matches_up_to_the_cursor() {
 
     state.cursor = kk::TextPosition { row: 1, col: 2 };
     let mut frame = frame_of(1, 40);
-    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    kk::render_status_line(&state, "test.txt", &mut frame);
     assert!(
         row_text(&frame, 0, 40).contains("1/2"),
         "inside the first match: {:?}",
@@ -260,7 +260,7 @@ fn the_status_line_counts_the_matches_up_to_the_cursor() {
 
     state.cursor = kk::TextPosition { row: 3, col: 0 };
     let mut frame = frame_of(1, 40);
-    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    kk::render_status_line(&state, "test.txt", &mut frame);
     assert!(
         row_text(&frame, 0, 40).contains("2/2"),
         "at the second match: {:?}",
@@ -274,7 +274,7 @@ fn the_status_line_shows_zero_matches_while_the_query_is_empty() {
     state.search_prompt = Some(kk::SearchPrompt::new());
     let mut frame = frame_of(1, 40);
 
-    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    kk::render_status_line(&state, "test.txt", &mut frame);
 
     assert!(
         row_text(&frame, 0, 40).contains("0/0"),
@@ -288,7 +288,7 @@ fn the_status_line_omits_the_match_count_outside_a_search() {
     let state = state_of("alpha\n");
     let mut frame = frame_of(1, 40);
 
-    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    kk::render_status_line(&state, "test.txt", &mut frame);
 
     let text = row_text(&frame, 0, 40);
     assert!(
@@ -302,7 +302,7 @@ fn the_status_line_pads_the_whole_row() {
     let state = state_of("x\n");
     let mut frame = frame_of(1, 60);
 
-    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    kk::render_status_line(&state, "test.txt", &mut frame);
 
     // A painted cell at the last column means the bar reaches the right edge.
     // The count of painted cells is not the measure here: the clipboard icon is
@@ -321,7 +321,7 @@ fn the_status_line_shows_only_the_clipboards_first_line() {
     state.clipboard.write("copied\nsecond line");
     let mut frame = frame_of(1, 60);
 
-    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    kk::render_status_line(&state, "test.txt", &mut frame);
 
     let text = row_text(&frame, 0, 60);
     assert!(text.contains("copied"), "the first line shows: {text:?}");
@@ -333,7 +333,7 @@ fn the_status_line_always_shows_the_clipboard_icon() {
     let state = state_of("one\n");
     let mut frame = frame_of(1, 40);
 
-    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    kk::render_status_line(&state, "test.txt", &mut frame);
 
     let text = row_text(&frame, 0, 40);
     assert!(
@@ -348,7 +348,7 @@ fn the_status_line_puts_the_magnifier_before_the_match_count() {
     state.search_prompt = Some(kk::SearchPrompt::new());
     let mut frame = frame_of(1, 40);
 
-    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    kk::render_status_line(&state, "test.txt", &mut frame);
 
     let text = row_text(&frame, 0, 40);
     assert!(
@@ -366,7 +366,7 @@ fn the_status_line_shows_the_icon_of_the_mode_on_screen() {
     state.search_clipboard.write("from the prompt");
 
     let mut frame = frame_of(1, 60);
-    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    kk::render_status_line(&state, "test.txt", &mut frame);
     let text = row_text(&frame, 0, 60);
     assert!(
         text.contains("from the buffer"),
@@ -379,7 +379,7 @@ fn the_status_line_shows_the_icon_of_the_mode_on_screen() {
 
     state.search_prompt = Some(kk::SearchPrompt::new());
     let mut frame = frame_of(1, 60);
-    kk::StatusLineRenderer.render(&state, "test.txt", &mut frame);
+    kk::render_status_line(&state, "test.txt", &mut frame);
     let text = row_text(&frame, 0, 60);
     assert!(
         text.contains("from the prompt"),
@@ -397,7 +397,7 @@ fn the_message_line_paints_the_message_at_the_origin() {
     state.set_message("Saved 4 chars");
     let mut frame = frame_of(1, 20);
 
-    kk::MessageLineRenderer.render(&state, &mut frame);
+    kk::render_message_line(&state, &mut frame);
 
     assert_eq!(row_text(&frame, 0, 20), "Saved 4 chars       ");
 }
@@ -407,7 +407,7 @@ fn the_message_line_leaves_a_frame_without_a_message_untouched() {
     let state = state_of("one\n");
     let mut frame = frame_of(2, 10);
 
-    kk::MessageLineRenderer.render(&state, &mut frame);
+    kk::render_message_line(&state, &mut frame);
 
     assert_eq!(
         painted_cells(&frame),
@@ -425,7 +425,7 @@ fn the_message_line_prompts_and_shows_the_query_while_a_search_is_open() {
     }
     let mut frame = frame_of(1, 20);
 
-    kk::MessageLineRenderer.render(&state, &mut frame);
+    kk::render_message_line(&state, &mut frame);
 
     assert_eq!(row_text(&frame, 0, 20), "Search: ab          ");
 }
@@ -437,7 +437,7 @@ fn the_query_hides_the_pending_message() {
     state.search_prompt = Some(kk::SearchPrompt::new());
     let mut frame = frame_of(1, 20);
 
-    kk::MessageLineRenderer.render(&state, &mut frame);
+    kk::render_message_line(&state, &mut frame);
 
     assert_eq!(
         row_text(&frame, 0, 20),

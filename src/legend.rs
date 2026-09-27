@@ -1,8 +1,9 @@
 //! Paints the key-binding legend.
-
-use crate::terminal::put_str;
+//!
+//! See [`render_legend`] for what the box looks like and when it is left off.
 
 use crate::binding::Mode;
+use crate::terminal::put_str;
 
 /// Paints the key-binding legend.
 ///
@@ -17,33 +18,27 @@ use crate::binding::Mode;
 /// cells its rows leave unwritten are painted as blanks. Drawing the rows
 /// straight into the frame would leave whatever was underneath showing through
 /// the gaps beside them.
-#[derive(Debug)]
-pub struct LegendRenderer;
-
-impl LegendRenderer {
-    /// Paints the legend for `mode` into the frame's top-right corner.
-    pub fn render(&self, mode: Mode, frame: &mut tuinix::Frame) {
-        let legend = mode.legend_size(frame.size());
-        if legend != full_size(mode) {
-            return;
-        }
-
-        let mut box_frame = tuinix::Frame::new(legend);
-        for (row, text) in mode.legend().iter().enumerate() {
-            let at = tuinix::Position { row, col: 0 };
-            put_str(&mut box_frame, at, text, tuinix::Style::new());
-        }
-
-        let origin = tuinix::Position {
-            row: 0,
-            col: frame.size().cols - legend.cols,
-        };
-        frame.put_frame(origin, &box_frame);
+pub fn render_legend(mode: Mode, frame: &mut tuinix::Frame) {
+    let legend = mode.legend_size(frame.size());
+    if legend != full_legend_size(mode) {
+        return;
     }
+
+    let mut box_frame = tuinix::Frame::new(legend);
+    for (row, text) in mode.legend().iter().enumerate() {
+        let at = tuinix::Position { row, col: 0 };
+        put_str(&mut box_frame, at, text, tuinix::Style::new());
+    }
+
+    let origin = tuinix::Position {
+        row: 0,
+        col: frame.size().cols - legend.cols,
+    };
+    frame.put_frame(origin, &box_frame);
 }
 
 /// The size the legend of `mode` needs, with room to spare.
-fn full_size(mode: Mode) -> tuinix::Size {
+pub fn full_legend_size(mode: Mode) -> tuinix::Size {
     mode.legend_size(tuinix::Size {
         rows: usize::MAX,
         cols: usize::MAX,

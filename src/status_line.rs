@@ -18,46 +18,40 @@ use crate::state::State;
 ///
 /// `path` is passed in rather than read off [`State`]: the core holds no file
 /// path, so the edge that owns one hands its display form over for painting.
-#[derive(Debug)]
-pub struct StatusLineRenderer;
+pub fn render_status_line(state: &State, path: &str, frame: &mut tuinix::Frame) {
+    let style = tuinix::Style::new().reverse().bold();
 
-impl StatusLineRenderer {
-    /// Paints the status line into `frame`, labelling the buffer `path`.
-    pub fn render(&self, state: &State, path: &str, frame: &mut tuinix::Frame) {
-        let style = tuinix::Style::new().reverse().bold();
+    let cursor = state.cursor_position();
+    let row = cursor.row + 1; // Convert to 1-based index
+    let col = cursor.col + 1; // Convert to 1-based index
 
-        let cursor = state.cursor_position();
-        let row = cursor.row + 1; // Convert to 1-based index
-        let col = cursor.col + 1; // Convert to 1-based index
+    // The prompt keeps its own clipboard, so the summary shown is the one
+    // belonging to the mode that is on screen.
+    let summary = if state.search_prompt.is_some() {
+        state.search_clipboard.summary_line()
+    } else {
+        state.clipboard.summary_line()
+    };
 
-        // The prompt keeps its own clipboard, so the summary shown is the one
-        // belonging to the mode that is on screen.
-        let summary = if state.search_prompt.is_some() {
-            state.search_clipboard.summary_line()
-        } else {
-            state.clipboard.summary_line()
-        };
-
-        // The hits are shown only while a prompt is open, and the icon goes with
-        // them; the clipboard icon is always there, its summary or not. The
-        // separator goes in with the hits so an empty `hits` leaves one space
-        // rather than two.
-        let hits = if state.search_prompt.is_none() {
-            String::new()
-        } else {
-            format!(
-                " 🔍{}/{}",
-                state.highlight.count_up_to(cursor),
-                state.highlight.items.len()
-            )
-        };
-        let text = format!(" [{path}:{row}:{col}]{hits} 📋{summary}");
-        // Pad the whole row so the reverse style covers it. The padding is
-        // measured in columns, not `char`s: the icons are wide, so a row padded
-        // by character count would stop short of the right edge.
-        let width = frame.size().cols;
-        let pad = width.saturating_sub(crate::terminal::str_cols(&text));
-        let padded = format!("{text}{}", " ".repeat(pad));
-        put_str(frame, tuinix::Position::ORIGIN, &padded, style);
-    }
+    // The hits are shown only while a prompt is open, and the icon goes with
+    // them; the clipboard icon is always there, its summary or not. The
+    // separator goes in with the hits so an empty `hits` leaves one space
+    // rather than two.
+    let hits = if state.search_prompt.is_none() {
+        String::new()
+    } else {
+        format!(
+            " 🔍{}/{}",
+            state.highlight.count_up_to(cursor),
+            state.highlight.items.len()
+        )
+    };
+    let text = format!(" [{path}:{row}:{col}]{hits} 📋{summary}");
+    // Pad the whole row so the reverse style covers it. The padding is
+    // measured in columns, not `char`s: the icons are wide, so a row padded
+    // by character count would stop short of the right edge.
+    let width = frame.size().cols;
+    let pad = width.saturating_sub(crate::terminal::str_cols(&text));
+    let padded = format!("{text}{}", " ".repeat(pad));
+    put_str(frame, tuinix::Position::ORIGIN, &padded, style);
 }
