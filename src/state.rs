@@ -14,6 +14,11 @@ use crate::{
 };
 
 /// The number of undo snapshots kept before the oldest is discarded.
+///
+/// TODO: each snapshot clones the whole [`TextBuffer`](crate::TextBuffer), so
+/// the history can cost this many copies of the file. A diff would make a
+/// snapshot cost the edit instead, at the price of redo bookkeeping and every
+/// handler reporting what it changed.
 pub const MAX_HISTORY_SIZE: usize = 1000;
 
 /// Everything the editor knows: the buffer, the cursor, and the surrounding
