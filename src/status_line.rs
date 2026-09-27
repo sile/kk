@@ -12,7 +12,7 @@ use crate::state::State;
 /// many matches the query found and `n` is how many start at or before the
 /// cursor, so it names the match the cursor has reached. An empty query counts
 /// `0/0`. `CLIPBOARD` is a `📋` that is always shown, followed by the summary of
-/// whichever clipboard the current context owns: the search prompt's own while
+/// whichever clipboard the current mode owns: the search prompt's own while
 /// a prompt is open, and the buffer's otherwise. The whole row is padded so the
 /// reverse-video style reaches the right edge.
 ///
@@ -31,7 +31,7 @@ impl StatusLineRenderer {
         let col = cursor.col + 1; // Convert to 1-based index
 
         // The prompt keeps its own clipboard, so the summary shown is the one
-        // belonging to the context that is on screen.
+        // belonging to the mode that is on screen.
         let summary = if state.search_mode.is_some() {
             &state.search_clipboard.summary_line
         } else {

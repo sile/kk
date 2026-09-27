@@ -28,7 +28,7 @@ pub struct App {
     prev_frame: Option<tuinix::Frame>,
     path: PathBuf,
     saved_text: String,
-    context: kk::Context,
+    mode: kk::Mode,
     state: kk::State,
     text_area: kk::TextAreaRenderer,
     message_line: kk::MessageLineRenderer,
@@ -91,7 +91,7 @@ impl App {
             path,
             saved_text: text,
             state,
-            context: kk::Context::Edit,
+            mode: kk::Mode::Edit,
             text_area: kk::TextAreaRenderer,
             message_line: kk::MessageLineRenderer,
             status_line: kk::StatusLineRenderer,
@@ -187,7 +187,7 @@ impl App {
             return Ok(());
         }
 
-        let Some(resolved) = kk::resolve(self.context, &input) else {
+        let Some(resolved) = kk::resolve(self.mode, &input) else {
             self.state
                 .set_message(format!("No action found: '{}'", kk::display_input(&input)));
             return Ok(());
@@ -197,9 +197,8 @@ impl App {
             self.handle_action(action, &input)?;
         }
 
-        // todo. context toiu yougo ha zentaiteki ni haisisite mode ni touitu sitemo iinokamo
-        if let Some(context) = resolved.context {
-            self.context = context;
+        if let Some(mode) = resolved.mode {
+            self.mode = mode;
         }
 
         Ok(())
@@ -338,16 +337,16 @@ impl App {
         self.driver.size().to_region().drop_bottom(2)
     }
 
-    /// Returns the region the legend of `context` is painted into, or `None`
-    /// when the frame is too small to hold it whole.
+    /// Returns the region the legend of `mode` is painted into, or `None` when
+    /// the frame is too small to hold it whole.
     ///
     /// The legend is not painted at all when it does not fit, so a `None` here
     /// means there is nothing for the cursor to share and nothing to hide.
-    fn legend_region(&self, context: kk::Context) -> Option<tuinix::Region> {
+    fn legend_region(&self, mode: kk::Mode) -> Option<tuinix::Region> {
         let size = self.driver.size();
-        let legend = kk::legend_size(context, size);
+        let legend = kk::legend_size(mode, size);
         let full = kk::legend_size(
-            context,
+            mode,
             tuinix::Size {
                 rows: usize::MAX,
                 cols: usize::MAX,
@@ -410,10 +409,10 @@ impl App {
         // prompt is open the terminal cursor is in the query, but the buffer
         // cursor is still painted in the text area, reversed, and that is the
         // one a legend over it would cover.
-        if let Some(legend_region) = self.legend_region(self.context) {
+        if let Some(legend_region) = self.legend_region(self.mode) {
             let buffer_cursor = self.state.terminal_cursor_position();
             if self.legend_visible && !legend_region.contains(buffer_cursor) {
-                self.legend.render(self.context, &mut frame);
+                self.legend.render(self.mode, &mut frame);
             }
         }
 

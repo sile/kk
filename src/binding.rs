@@ -1,14 +1,13 @@
-//! Input contexts and the `match`-based resolvers that map input to actions.
+//! Input modes and the `match`-based resolvers that map input to actions.
 
 use crate::action::Action;
 
-/// The legend rows for the edit context, in legend order, the bottom border
-/// last.
+/// The legend rows for the edit mode, in legend order, the bottom border last.
 ///
 /// Each row is a whole row of the legend, written out as the user reads it: the
 /// border stroke, the chord, the spaces that separate it from its label, and the
 /// label. Only the left border is drawn, so no row is closed on the right, and
-/// the last row is the bottom border with the context title centered in it. The
+/// the last row is the bottom border with the mode title centered in it. The
 /// bindings are hard-coded, so this table is too, and the two are kept in step
 /// by hand.
 pub const EDIT_LEGEND: &[&str] = &[
@@ -33,7 +32,7 @@ pub const EDIT_LEGEND: &[&str] = &[
     "\u{2514}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
-/// The legend rows for the search context, in legend order, the bottom border
+/// The legend rows for the search mode, in legend order, the bottom border
 /// last.
 pub const SEARCH_LEGEND: &[&str] = &[
     "\u{2502}C-g cancel",
@@ -50,8 +49,8 @@ pub const SEARCH_LEGEND: &[&str] = &[
     "\u{2514}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
-/// The legend rows for the extension context, in legend order, the bottom
-/// border last.
+/// The legend rows for the extension mode, in legend order, the bottom border
+/// last.
 pub const EXT_LEGEND: &[&str] = &[
     "\u{2502}C-g cancel",
     "\u{2502}s   save",
@@ -62,12 +61,12 @@ pub const EXT_LEGEND: &[&str] = &[
     "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
-/// Returns the legend rows of `context`, in legend order.
-pub fn legend(context: Context) -> &'static [&'static str] {
-    match context {
-        Context::Edit => EDIT_LEGEND,
-        Context::Search => SEARCH_LEGEND,
-        Context::Ext => EXT_LEGEND,
+/// Returns the legend rows of `mode`, in legend order.
+pub fn legend(mode: Mode) -> &'static [&'static str] {
+    match mode {
+        Mode::Edit => EDIT_LEGEND,
+        Mode::Search => SEARCH_LEGEND,
+        Mode::Ext => EXT_LEGEND,
     }
 }
 
@@ -85,7 +84,7 @@ pub struct LegendSize {
     pub rows: usize,
 }
 
-/// Returns the size the legend of `context` needs, limited to `limit`.
+/// Returns the size the legend of `mode` needs, limited to `limit`.
 ///
 /// A limit smaller than the legend reports the limit, so a caller that compares
 /// the result against the limit can tell the legend was clipped.
@@ -94,13 +93,13 @@ pub struct LegendSize {
 ///
 /// ```
 /// let room = tuinix::Size { rows: 40, cols: 100 };
-/// let ext = kk::legend_size(kk::Context::Ext, room);
+/// let ext = kk::legend_size(kk::Mode::Ext, room);
 /// assert_eq!(ext.rows, 7);
 /// assert_eq!(ext.cols, 15);
 /// ```
-pub fn legend_size(context: Context, limit: tuinix::Size) -> LegendSize {
-    let rows = legend(context).len();
-    let cols = legend(context)
+pub fn legend_size(mode: Mode, limit: tuinix::Size) -> LegendSize {
+    let rows = legend(mode).len();
+    let cols = legend(mode)
         .iter()
         .map(|row| crate::terminal::str_cols(row))
         .max()
@@ -111,76 +110,82 @@ pub fn legend_size(context: Context, limit: tuinix::Size) -> LegendSize {
     }
 }
 
-/// Identifies one of the built-in input contexts.
+/// Identifies one of the built-in input modes.
+///
+/// A mode selects which binding table an input is resolved against, and a
+/// resolved input may carry the mode to move to. [`Search`](Mode::Search) and
+/// [`Ext`](Mode::Ext) are entered by a chord and left by another: saving,
+/// reloading, or cancelling leaves [`Ext`](Mode::Ext).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Context {
-    /// The default editing context.
+pub enum Mode {
+    /// The default editing mode.
     Edit,
 
-    /// The context active while search mode is collecting a query.
+    /// The mode active while a search prompt is collecting a query; its
+    /// bindings edit the query and move between hits.
     Search,
 
-    /// A context reserved for extensions.
+    /// The mode `C-x` enters, holding the buffer-level chords.
     Ext,
 }
 
-/// What a single terminal input does: an action to run and a context to switch
-/// to. Either field may be `None`.
+/// What a single terminal input does: an action to run and a mode to switch to.
+/// Either field may be `None`.
 #[derive(Debug, Clone)]
 pub struct Resolved {
     /// The action to carry out, if any.
     pub action: Option<Action>,
 
-    /// The context to switch to, if any.
-    pub context: Option<Context>,
+    /// The mode to switch to, if any.
+    pub mode: Option<Mode>,
 }
 
-/// Resolves `input` in `context` to the action and context switch it means.
+/// Resolves `input` in `mode` to the action and mode switch it means.
 ///
-/// Returns `None` when nothing in the context is bound to that input; callers
+/// Returns `None` when nothing in the mode is bound to that input; callers
 /// report that to the user.
 ///
 /// The input has to be a key: no mouse, paste, or unrecognized input is bound.
-pub fn resolve(context: Context, input: &tuinix::Input) -> Option<Resolved> {
+pub fn resolve(mode: Mode, input: &tuinix::Input) -> Option<Resolved> {
     let key = match input {
         tuinix::Input::Key(key) => key,
         _ => return None,
     };
 
-    match context {
-        Context::Edit => resolve_edit(key),
-        Context::Search => resolve_search(key),
-        Context::Ext => resolve_ext(key),
+    match mode {
+        Mode::Edit => resolve_edit(key),
+        Mode::Search => resolve_search(key),
+        Mode::Ext => resolve_ext(key),
     }
 }
 
-/// Runs `action` and stays in the current context.
+/// Runs `action` and stays in the current mode.
 fn act(action: Action) -> Resolved {
     Resolved {
         action: Some(action),
-        context: None,
+        mode: None,
     }
 }
 
-/// Runs `action` and then switches to `context`.
-fn then(action: Action, context: Context) -> Resolved {
+/// Runs `action` and then switches to `mode`.
+fn then(action: Action, mode: Mode) -> Resolved {
     Resolved {
         action: Some(action),
-        context: Some(context),
+        mode: Some(mode),
     }
 }
 
-/// Switches to `context` without running anything.
-fn only(context: Context) -> Resolved {
+/// Switches to `mode` without running anything.
+fn only(mode: Mode) -> Resolved {
     Resolved {
         action: None,
-        context: Some(context),
+        mode: Some(mode),
     }
 }
 
-/// Ends the prompt and restores the edit context.
+/// Ends the prompt and restores the edit mode.
 fn cancel() -> Resolved {
-    then(Action::Cancel, Context::Edit)
+    then(Action::Cancel, Mode::Edit)
 }
 
 fn resolve_edit(key: &tuinix::KeyInput) -> Option<Resolved> {
@@ -189,8 +194,8 @@ fn resolve_edit(key: &tuinix::KeyInput) -> Option<Resolved> {
     Some(match (ctrl, code) {
         (true, tuinix::KeyCode::Char('c')) => act(Action::Quit),
         (true, tuinix::KeyCode::Char('g')) => cancel(),
-        (true, tuinix::KeyCode::Char('s')) => then(Action::SearchEnter, Context::Search),
-        (true, tuinix::KeyCode::Char('x')) => only(Context::Ext),
+        (true, tuinix::KeyCode::Char('s')) => then(Action::SearchEnter, Mode::Search),
+        (true, tuinix::KeyCode::Char('x')) => only(Mode::Ext),
         (true, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
         (true, tuinix::KeyCode::Char('w')) => act(Action::MarkCut),
         (true, tuinix::KeyCode::Char('u')) => act(Action::BufferUndo),
@@ -227,8 +232,8 @@ fn resolve_search(key: &tuinix::KeyInput) -> Option<Resolved> {
     let tuinix::KeyInput { ctrl, code, .. } = *key;
 
     Some(match (ctrl, code) {
-        (true, tuinix::KeyCode::Char('g')) => then(Action::SearchCancel, Context::Edit),
-        (false, tuinix::KeyCode::Enter) => then(Action::SearchAccept, Context::Edit),
+        (true, tuinix::KeyCode::Char('g')) => then(Action::SearchCancel, Mode::Edit),
+        (false, tuinix::KeyCode::Enter) => then(Action::SearchAccept, Mode::Edit),
         (true, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
         (true, tuinix::KeyCode::Char('k')) => act(Action::SearchKillQuery),
         (true, tuinix::KeyCode::Char('s')) => act(Action::SearchNextHit),
@@ -255,19 +260,19 @@ fn resolve_search(key: &tuinix::KeyInput) -> Option<Resolved> {
 fn resolve_ext(key: &tuinix::KeyInput) -> Option<Resolved> {
     let tuinix::KeyInput { ctrl, code, .. } = *key;
 
-    // The extension context is entered with `C-x`, so its own chords drop the
+    // The extension mode is entered with `C-x`, so its own chords drop the
     // ctrl prefix: a bare `s` saves. That is not just a convention: a terminal
     // reports a control chord on a letter as the letter itself, so `C-s` inside
     // `C-x` would be the same bytes as a plain `s` anyway. Only `C-g` keeps its
-    // ctrl, matching every other context, and case is what separates save from
+    // ctrl, matching every other mode, and case is what separates save from
     // force-save.
     Some(match (ctrl, code) {
         (true, tuinix::KeyCode::Char('g')) => cancel(),
-        (false, tuinix::KeyCode::Char('S')) => then(Action::BufferForceSave, Context::Edit),
-        (false, tuinix::KeyCode::Char('s')) => then(Action::BufferSave, Context::Edit),
-        (false, tuinix::KeyCode::Char('r')) => then(Action::BufferReload, Context::Edit),
-        (false, tuinix::KeyCode::Char('a')) => then(Action::CursorBufferStart, Context::Edit),
-        (false, tuinix::KeyCode::Char('e')) => then(Action::CursorBufferEnd, Context::Edit),
+        (false, tuinix::KeyCode::Char('S')) => then(Action::BufferForceSave, Mode::Edit),
+        (false, tuinix::KeyCode::Char('s')) => then(Action::BufferSave, Mode::Edit),
+        (false, tuinix::KeyCode::Char('r')) => then(Action::BufferReload, Mode::Edit),
+        (false, tuinix::KeyCode::Char('a')) => then(Action::CursorBufferStart, Mode::Edit),
+        (false, tuinix::KeyCode::Char('e')) => then(Action::CursorBufferEnd, Mode::Edit),
         (false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),
         _ => return None,
     })

@@ -12,11 +12,11 @@ pub enum Action {
 
     /// Drops the mark and the search state, and reports `Canceled`.
     ///
-    /// It is the `C-g` of the edit and extension contexts, where no prompt is
+    /// It is the `C-g` of the edit and extension modes, where no prompt is
     /// open; leaving a prompt is [`SearchCancel`](Action::SearchCancel).
     Cancel,
 
-    /// Persists the buffer to its file, leaves the extension context, and
+    /// Persists the buffer to its file, leaves the extension mode, and
     /// reports `Saved!`.
     ///
     /// The edge refuses the write when the file on disk no longer holds what

@@ -803,7 +803,7 @@ impl State {
 
     /// Drops the mark and the search state, and reports `Canceled`.
     ///
-    /// This is the `C-g` of the contexts that hold no prompt; a prompt is left
+    /// This is the `C-g` of the modes that hold no prompt; a prompt is left
     /// through [`handle_search_cancel`](State::handle_search_cancel).
     pub fn handle_cancel(&mut self) {
         self.clear_transient_state();
@@ -813,7 +813,7 @@ impl State {
     /// Drops the mark and every trace of a search, prompt included.
     ///
     /// Commands that leave the editing mode behind -- cancelling, saving --
-    /// call this, so a search cannot outlive the context that opened it. What
+    /// call this, so a search cannot outlive the mode that opened it. What
     /// the cursor does is the caller's business: cancelling puts it back and
     /// saving leaves it where it is.
     pub fn clear_transient_state(&mut self) {

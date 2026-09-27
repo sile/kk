@@ -358,7 +358,7 @@ fn the_status_line_puts_the_magnifier_before_the_match_count() {
 }
 
 #[test]
-fn the_status_line_shows_the_icon_of_the_context_on_screen() {
+fn the_status_line_shows_the_icon_of_the_mode_on_screen() {
     // The prompt has its own clipboard, so the summary shown is the prompt's
     // while it is open and the buffer's otherwise.
     let mut state = state_of("one\n");

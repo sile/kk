@@ -20,7 +20,7 @@ fn typing_then_saving_writes_the_edited_content() {
     kk.send_ctrl('e');
     kk.send_key(termnix::KeyCode::Enter, termnix::Modifiers::new());
     kk.send_text("two");
-    // Save is in the Ext context: `C-x` enters it, `s` saves.
+    // Save is in the Ext mode: `C-x` enters it, `s` saves.
     kk.send_ctrl('x');
     kk.send_char('s');
 
