@@ -13,14 +13,6 @@ use crate::{
     search_prompt::{Highlight, SearchPrompt},
 };
 
-/// The number of undo snapshots kept before the oldest is discarded.
-///
-/// TODO: each snapshot clones the whole [`TextBuffer`](crate::TextBuffer), so
-/// the history can cost this many copies of the file. A diff would make a
-/// snapshot cost the edit instead, at the price of redo bookkeeping and every
-/// handler reporting what it changed.
-pub const MAX_HISTORY_SIZE: usize = 1000;
-
 /// Everything the editor knows: the buffer, the cursor, and the surrounding
 /// mode state.
 ///
@@ -71,6 +63,11 @@ pub struct State {
     cut_chained: bool,
 
     /// Undo snapshots, oldest first.
+    ///
+    /// Each snapshot clones the whole [`TextBuffer`](crate::TextBuffer), but a
+    /// clone only shares the lines that were not edited since (see
+    /// [`TextLine`](crate::TextLine)), so a snapshot costs the lines the edit
+    /// touched. The history is not capped.
     pub history: VecDeque<(TextPosition, TextBuffer)>,
 
     /// How many entries of [`history`](State::history) are still reachable by
@@ -192,10 +189,6 @@ impl State {
 
         if self.editing {
             return;
-        }
-
-        while self.history.len() >= MAX_HISTORY_SIZE {
-            self.history.pop_front();
         }
 
         self.history.push_back((self.cursor, self.buffer.clone()));

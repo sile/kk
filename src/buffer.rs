@@ -1,5 +1,7 @@
 //! The buffer model: lines of characters, with column-aware edits.
 
+use std::sync::Arc;
+
 /// The text being edited.
 ///
 /// A buffer is a list of [`TextLine`]s held in memory. The edits rewrite the
@@ -23,7 +25,7 @@ impl TextBuffer {
         Self {
             text: text
                 .lines()
-                .map(|l| TextLine(l.chars().collect()))
+                .map(|l| TextLine(Arc::new(l.chars().collect())))
                 .collect(),
         }
     }
@@ -393,23 +395,29 @@ impl TextBuffer {
 ///
 /// Columns are display cells, so a wide character occupies more than one of
 /// them; methods that take a column adjust for that as described per method.
+///
+/// The characters live behind an [`Arc`], so cloning a line -- and with it a
+/// whole [`TextBuffer`](crate::TextBuffer) snapshot for the undo history -- only
+/// bumps a reference count. A line that is then edited copies its characters
+/// once, which keeps a snapshot's cost proportional to the lines an edit
+/// actually touched rather than to the size of the file.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct TextLine(Vec<char>);
+pub struct TextLine(Arc<Vec<char>>);
 
 impl TextLine {
     /// Builds a line from `chars`.
     fn from_chars(chars: Vec<char>) -> Self {
-        TextLine(chars)
+        TextLine(Arc::new(chars))
     }
 
     /// Appends every character of `other` to this line.
     fn extend_from_line(&mut self, other: TextLine) {
-        self.0.extend(other.0);
+        Arc::make_mut(&mut self.0).extend_from_slice(&other.0);
     }
 
     /// Appends every character of `chars` to this line.
     fn extend_from_chars(&mut self, chars: Vec<char>) {
-        self.0.extend(chars);
+        Arc::make_mut(&mut self.0).extend(chars);
     }
 
     /// Keeps only the characters before column `col`, dropping the rest.
@@ -418,7 +426,7 @@ impl TextLine {
     /// so a column inside a wide character cuts before it.
     fn truncate_to_col(&mut self, col: usize) {
         let char_index = self.char_index_at_col(col);
-        self.0.truncate(char_index);
+        Arc::make_mut(&mut self.0).truncate(char_index);
     }
 
     /// Removes the characters in the column range `[start_col, end_col)`.
@@ -428,7 +436,7 @@ impl TextLine {
     fn remove_cols(&mut self, start_col: usize, end_col: usize) {
         let start_index = self.char_index_at_col(start_col);
         let end_index = self.char_index_at_col(end_col);
-        self.0.drain(start_index..end_index);
+        Arc::make_mut(&mut self.0).drain(start_index..end_index);
     }
 
     /// Removes and returns the characters at or past column `col`.
@@ -437,7 +445,7 @@ impl TextLine {
     /// so a column inside a wide character cuts before it.
     fn split_off_at_col(&mut self, col: usize) -> Vec<char> {
         let char_index = self.char_index_at_col(col);
-        self.0.split_off(char_index)
+        Arc::make_mut(&mut self.0).split_off(char_index)
     }
 
     /// Returns each character paired with the display column it starts at.
@@ -455,7 +463,7 @@ impl TextLine {
     /// A column that falls inside a wide character does not match it.
     pub fn char_at_col(&self, col: usize) -> Option<char> {
         let mut current_col = 0;
-        for &ch in &self.0 {
+        for &ch in self.0.iter() {
             if current_col == col {
                 return Some(ch);
             }
@@ -473,7 +481,7 @@ impl TextLine {
 
     fn adjust_to_char_boundary(&self, col: usize, floor: bool) -> usize {
         let mut start = 0;
-        for &ch in &self.0 {
+        for &ch in self.0.iter() {
             let end = start + crate::terminal::char_cols(ch);
             if start == col {
                 return col;
@@ -489,7 +497,7 @@ impl TextLine {
         let mut current_col = 0;
         for (i, &ch) in self.0.iter().enumerate() {
             if current_col == col {
-                self.0.remove(i);
+                Arc::make_mut(&mut self.0).remove(i);
                 return true;
             }
             current_col += crate::terminal::char_cols(ch);
@@ -502,7 +510,7 @@ impl TextLine {
 
     fn find_char_before(&self, col: usize) -> usize {
         let mut current_col = 0;
-        for &ch in &self.0 {
+        for &ch in self.0.iter() {
             let next_col = current_col + crate::terminal::char_cols(ch);
             if next_col >= col {
                 return current_col;
@@ -525,7 +533,7 @@ impl TextLine {
             char_index = i + 1;
         }
 
-        self.0.insert(char_index, ch);
+        Arc::make_mut(&mut self.0).insert(char_index, ch);
     }
 
     /// Returns the number of characters in this line.
@@ -562,7 +570,7 @@ impl TextLine {
 
 impl std::fmt::Display for TextLine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for &ch in &self.0 {
+        for &ch in self.0.iter() {
             std::fmt::Write::write_char(f, ch)?;
         }
         Ok(())
