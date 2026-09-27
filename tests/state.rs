@@ -363,7 +363,7 @@ fn accepting_a_search_keeps_the_query_for_a_later_prompt_paste() {
     for ch in "two".chars() {
         state.handle_char_insert(ch);
     }
-    state.handle_search_accept();
+    state.handle_search_finish();
 
     assert_eq!(state.search_clipboard.read(), "two");
 

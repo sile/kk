@@ -375,7 +375,7 @@ fn accepting_a_search_keeps_the_cursor_on_the_hit() {
     }
     state.handle_search_next_hit();
 
-    state.handle_search_accept();
+    state.handle_search_finish();
 
     assert_eq!(
         state.cursor,
@@ -394,7 +394,7 @@ fn a_second_search_starts_from_where_the_last_one_left_the_cursor() {
         state.handle_char_insert(ch);
     }
     state.handle_search_next_hit();
-    state.handle_search_accept();
+    state.handle_search_finish();
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 8 });
 
     // The next prompt remembers the accepted position, not the first one, so
@@ -410,7 +410,7 @@ fn leaving_a_search_that_was_never_opened_does_nothing() {
     state.cursor = kk::TextPosition { row: 0, col: 4 };
 
     state.handle_search_cancel();
-    state.handle_search_accept();
+    state.handle_search_finish();
 
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 4 });
     assert!(state.search_prompt.is_none());

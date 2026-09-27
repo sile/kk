@@ -272,7 +272,7 @@ impl App {
             kk::Action::ExtEnter => self.state.handle_ext_enter(),
             kk::Action::SearchEnter => self.state.handle_search_enter(),
             kk::Action::SearchCancel => self.state.handle_search_cancel(),
-            kk::Action::SearchAccept => self.state.handle_search_accept(),
+            kk::Action::SearchFinish => self.state.handle_search_finish(),
             kk::Action::SearchCutQuery => self.state.handle_search_cut_query(),
             kk::Action::SearchNextHit => self.state.handle_search_next_hit(),
             kk::Action::SearchPrevHit => self.state.handle_search_prev_hit(),

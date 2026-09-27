@@ -259,7 +259,7 @@ fn every_other_mode_has_a_way_back_to_edit() {
                 mode.resolve(&tuinix::Input::Key(key)),
                 Some(kk::Resolved {
                     action: Some(
-                        kk::Action::Cancel | kk::Action::SearchCancel | kk::Action::SearchAccept
+                        kk::Action::Cancel | kk::Action::SearchCancel | kk::Action::SearchFinish
                     ),
                     mode: Some(kk::Mode::Edit),
                 })

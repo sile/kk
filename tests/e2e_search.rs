@@ -91,8 +91,8 @@ fn cancelling_a_search_returns_the_cursor_to_where_it_started() {
 }
 
 #[test]
-fn accepting_a_search_leaves_the_cursor_on_the_hit() {
-    let path = scratch_file("search_accept_cursor.txt");
+fn finishing_a_search_leaves_the_cursor_on_the_hit() {
+    let path = scratch_file("search_finish_cursor.txt");
     std::fs::write(&path, "alpha\nbeta\ngamma\ndelta\n").expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);

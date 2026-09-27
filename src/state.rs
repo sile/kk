@@ -838,7 +838,7 @@ impl State {
     /// The cursor and viewport go back to their remembered positions, so a
     /// search that was merely looked at leaves the buffer untouched. The query
     /// itself is kept in [`search_clipboard`](State::search_clipboard), exactly
-    /// as [`handle_search_accept()`](State::handle_search_accept) keeps it: what
+    /// as [`handle_search_finish()`](State::handle_search_finish) keeps it: what
     /// an abandoned search leaves behind is the word it looked for, never a
     /// change to the buffer. Does nothing when no prompt is open.
     pub fn handle_search_cancel(&mut self) {
@@ -857,14 +857,14 @@ impl State {
         self.set_message("Canceled");
     }
 
-    /// Accepts the search prompt and stays on the hit the cursor sits on.
+    /// Finishes the search prompt and stays on the hit the cursor sits on.
     ///
     /// Only the prompt and the highlight go away: the cursor keeps the position
     /// the hit commands gave it. The query is put in
     /// [`search_clipboard`](State::search_clipboard), so the word that was
     /// searched for is there for a later `C-y`. Does nothing when no prompt is
     /// open.
-    pub fn handle_search_accept(&mut self) {
+    pub fn handle_search_finish(&mut self) {
         if self.search_prompt.is_none() {
             return;
         }

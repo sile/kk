@@ -217,7 +217,7 @@ fn resolve_search(key: &tuinix::KeyInput) -> Option<Resolved> {
 
     Some(match (ctrl, code) {
         (true, tuinix::KeyCode::Char('g')) => then(Action::SearchCancel, Mode::Edit),
-        (false, tuinix::KeyCode::Enter) => then(Action::SearchAccept, Mode::Edit),
+        (false, tuinix::KeyCode::Enter) => then(Action::SearchFinish, Mode::Edit),
         (true, tuinix::KeyCode::Char('y')) => act(Action::ClipboardPaste),
         (true, tuinix::KeyCode::Char('k')) => act(Action::SearchCutQuery),
         (true, tuinix::KeyCode::Char('s')) => act(Action::SearchNextHit),

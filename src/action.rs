@@ -102,13 +102,13 @@ pub enum Action {
     /// was opened.
     ///
     /// The query is kept for a later `C-y`, as it is on
-    /// [`SearchAccept`](Action::SearchAccept).
+    /// [`SearchFinish`](Action::SearchFinish).
     SearchCancel,
 
-    /// Leaves the search prompt on the hit the cursor sits on.
+    /// Leaves the search prompt, finished, on the hit the cursor sits on.
     ///
     /// The query is kept for a later `C-y`.
-    SearchAccept,
+    SearchFinish,
 
     /// Cuts from the search query's cursor to the end of the query.
     ///
