@@ -513,9 +513,9 @@ impl State {
                 (cursor_pos, mark_pos)
             };
 
-            if let Some(text) = self.get_text_in_range(start, end) {
+            if let Some(text) = self.buffer.text_in_range(start, end) {
                 // Delete the selected text
-                self.delete_text_in_range(start, end);
+                self.buffer.delete_range(start, end);
                 self.cursor = start;
                 self.mark = None;
 
@@ -526,95 +526,6 @@ impl State {
             }
         } else {
             self.set_message("No mark set");
-        }
-    }
-
-    // Helper method to get text in a range
-    fn get_text_in_range(&self, start: TextPosition, end: TextPosition) -> Option<String> {
-        if start == end {
-            return None;
-        }
-
-        let mut result = String::new();
-
-        if start.row == end.row {
-            // Single line selection
-            if let Some(line) = self.buffer.line(start.row) {
-                for (col, ch) in line.char_cols() {
-                    if col >= start.col && col < end.col {
-                        result.push(ch);
-                    }
-                }
-            }
-        } else {
-            // Multi-line selection
-            for row in start.row..=end.row {
-                if let Some(line) = self.buffer.line(row) {
-                    if row == start.row {
-                        // First line: from start.col to end of line
-                        for (col, ch) in line.char_cols() {
-                            if col >= start.col {
-                                result.push(ch);
-                            }
-                        }
-                        result.push('\n');
-                    } else if row == end.row {
-                        // Last line: from start of line to end.col
-                        for (col, ch) in line.char_cols() {
-                            if col < end.col {
-                                result.push(ch);
-                            }
-                        }
-                    } else {
-                        // Middle lines: entire line
-                        result.push_str(&line.to_string());
-                        result.push('\n');
-                    }
-                }
-            }
-        }
-
-        if result.is_empty() {
-            None
-        } else {
-            Some(result)
-        }
-    }
-
-    // Helper method to delete text in a range
-    fn delete_text_in_range(&mut self, start: TextPosition, end: TextPosition) {
-        if start == end {
-            return;
-        }
-
-        // TODO: This should be implemented as a compound undo action
-        // For now, we'll do a simple implementation
-
-        if start.row == end.row {
-            // Single line deletion
-            self.buffer.remove_cols(start.row, start.col, end.col);
-        } else {
-            // Multi-line deletion
-            // Remove complete middle lines
-            for _ in start.row + 1..end.row {
-                self.buffer.remove_line(start.row + 1);
-            }
-
-            // Keep the part of the first line before the selection, then
-            // append the part of the last line after it.
-            self.buffer.truncate_line(start.row, start.col);
-
-            if let Some(end_line) = self.buffer.line(start.row + 1) {
-                let chars_to_keep: Vec<char> = end_line
-                    .char_cols()
-                    .filter(|(col, _)| *col >= end.col)
-                    .map(|(_, ch)| ch)
-                    .collect();
-
-                self.buffer.extend_line_from_chars(start.row, chars_to_keep);
-            }
-
-            self.buffer.remove_line(start.row + 1);
         }
     }
 

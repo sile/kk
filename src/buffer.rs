@@ -64,6 +64,101 @@ impl TextBuffer {
         self.text.iter()
     }
 
+    /// Returns the text between `start` and `end`, or `None` when the range is
+    /// empty or has no lines.
+    ///
+    /// A single-line range is that line's characters from `start.col` up to but
+    /// not including `end.col`. A multi-line range is the first line's tail, a
+    /// newline, every whole line between, and the last line's head, with a
+    /// newline after each line but the last.
+    pub fn text_in_range(&self, start: TextPosition, end: TextPosition) -> Option<String> {
+        if start == end {
+            return None;
+        }
+
+        let mut result = String::new();
+
+        if start.row == end.row {
+            if let Some(line) = self.line(start.row) {
+                for (col, ch) in line.char_cols() {
+                    if col >= start.col && col < end.col {
+                        result.push(ch);
+                    }
+                }
+            }
+        } else {
+            for row in start.row..=end.row {
+                let Some(line) = self.line(row) else {
+                    continue;
+                };
+
+                if row == start.row {
+                    for (col, ch) in line.char_cols() {
+                        if col >= start.col {
+                            result.push(ch);
+                        }
+                    }
+                    result.push('\n');
+                } else if row == end.row {
+                    for (col, ch) in line.char_cols() {
+                        if col < end.col {
+                            result.push(ch);
+                        }
+                    }
+                } else {
+                    result.push_str(&line.to_string());
+                    result.push('\n');
+                }
+            }
+        }
+
+        if result.is_empty() {
+            None
+        } else {
+            Some(result)
+        }
+    }
+
+    /// Removes the text between `start` and `end`.
+    ///
+    /// The lines the range covers are joined where it crosses a line break, so
+    /// a multi-line range leaves one line holding the text before `start.col`
+    /// followed by the text from `end.col` on. Does nothing when the range is
+    /// empty.
+    // TODO: This should be recorded as a single undo step; today the caller has
+    // to open the edit run around it.
+    pub fn delete_range(&mut self, start: TextPosition, end: TextPosition) {
+        if start == end {
+            return;
+        }
+
+        if start.row == end.row {
+            self.remove_cols(start.row, start.col, end.col);
+            return;
+        }
+
+        // Drop the whole lines between the first and the last, then join the
+        // last onto the first: what the first keeps is its head, and what the
+        // last keeps is its own tail.
+        for _ in start.row + 1..end.row {
+            self.remove_line(start.row + 1);
+        }
+
+        self.truncate_line(start.row, start.col);
+
+        if let Some(end_line) = self.line(start.row + 1) {
+            let chars_to_keep: Vec<char> = end_line
+                .char_cols()
+                .filter(|(col, _)| *col >= end.col)
+                .map(|(_, ch)| ch)
+                .collect();
+
+            self.extend_line_from_chars(start.row, chars_to_keep);
+        }
+
+        self.remove_line(start.row + 1);
+    }
+
     /// Keeps only the characters of line `row` before column `col`.
     ///
     /// Does nothing if there is no such line.
@@ -251,18 +346,7 @@ impl TextBuffer {
     /// Returns the index of the first character of `row` at or past column
     /// `col`, or `None` if there is no such row.
     pub fn char_index_at_col(&self, row: usize, col: usize) -> Option<usize> {
-        if let Some(line) = self.text.get(row) {
-            let mut current_col = 0;
-            for (i, &ch) in line.0.iter().enumerate() {
-                if current_col >= col {
-                    return Some(i);
-                }
-                current_col += crate::terminal::char_cols(ch);
-            }
-            Some(line.0.len())
-        } else {
-            None
-        }
+        self.line(row).map(|line| line.char_index_at_col(col))
     }
 
     /// Splits the line at `pos`, inserting a new line after it.
@@ -312,17 +396,17 @@ pub struct TextLine(Vec<char>);
 
 impl TextLine {
     /// Builds a line from `chars`.
-    pub fn from_chars(chars: Vec<char>) -> Self {
+    fn from_chars(chars: Vec<char>) -> Self {
         TextLine(chars)
     }
 
     /// Appends every character of `other` to this line.
-    pub fn extend_from_line(&mut self, other: TextLine) {
+    fn extend_from_line(&mut self, other: TextLine) {
         self.0.extend(other.0);
     }
 
     /// Appends every character of `chars` to this line.
-    pub fn extend_from_chars(&mut self, chars: Vec<char>) {
+    fn extend_from_chars(&mut self, chars: Vec<char>) {
         self.0.extend(chars);
     }
 
@@ -330,16 +414,16 @@ impl TextLine {
     ///
     /// The cut is made at the character whose start column is at or past `col`,
     /// so a column inside a wide character cuts before it.
-    pub fn truncate_to_col(&mut self, col: usize) {
+    fn truncate_to_col(&mut self, col: usize) {
         let char_index = self.char_index_at_col(col);
         self.0.truncate(char_index);
     }
 
     /// Removes the characters in the column range `[start_col, end_col)`.
     ///
-    /// The range is cut at character boundaries as
-    /// [`char_index_at_col`](TextLine::char_index_at_col) does.
-    pub fn remove_cols(&mut self, start_col: usize, end_col: usize) {
+    /// The range is cut at character boundaries as the character whose start
+    /// column is at or past a column.
+    fn remove_cols(&mut self, start_col: usize, end_col: usize) {
         let start_index = self.char_index_at_col(start_col);
         let end_index = self.char_index_at_col(end_col);
         self.0.drain(start_index..end_index);
@@ -349,7 +433,7 @@ impl TextLine {
     ///
     /// The cut is made at the character whose start column is at or past `col`,
     /// so a column inside a wide character cuts before it.
-    pub fn split_off_at_col(&mut self, col: usize) -> Vec<char> {
+    fn split_off_at_col(&mut self, col: usize) -> Vec<char> {
         let char_index = self.char_index_at_col(col);
         self.0.split_off(char_index)
     }
@@ -449,7 +533,7 @@ impl TextLine {
 
     /// Returns the index of the first character starting at or past column
     /// `col`, or the character count when `col` is past the end.
-    pub fn char_index_at_col(&self, col: usize) -> usize {
+    fn char_index_at_col(&self, col: usize) -> usize {
         let mut current_col = 0;
         for (i, &ch) in self.0.iter().enumerate() {
             if current_col >= col {
@@ -462,7 +546,7 @@ impl TextLine {
 
     /// Returns the display column where the `char_index`-th character starts,
     /// or the line's width when `char_index` is past the end.
-    pub fn col_at_char_index(&self, char_index: usize) -> usize {
+    fn col_at_char_index(&self, char_index: usize) -> usize {
         let mut col = 0;
         for (i, &ch) in self.0.iter().enumerate() {
             if i >= char_index {
