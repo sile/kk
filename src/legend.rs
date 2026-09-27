@@ -2,13 +2,13 @@
 
 use crate::terminal::put_str;
 
-use crate::binding::{self, Mode};
+use crate::binding::Mode;
 
 /// Paints the key-binding legend.
 ///
 /// The legend sits in the frame's top-right corner: one binding per row, and
 /// under them a bottom border with the mode title centered in it. Every row
-/// is painted as it is written in [`legend`](binding::legend), border strokes
+/// is painted as it is written in [`legend`](Mode::legend), border strokes
 /// and all, so the box needs no drawing arithmetic. It paints nothing when the
 /// frame cannot hold the legend whole: a legend clipped to fit would show chords
 /// without their labels.
@@ -23,13 +23,13 @@ pub struct LegendRenderer;
 impl LegendRenderer {
     /// Paints the legend for `mode` into the frame's top-right corner.
     pub fn render(&self, mode: Mode, frame: &mut tuinix::Frame) {
-        let legend = binding::legend_size(mode, frame.size());
+        let legend = mode.legend_size(frame.size());
         if legend != full_size(mode) {
             return;
         }
 
         let mut box_frame = tuinix::Frame::new(legend);
-        for (row, text) in binding::legend(mode).iter().enumerate() {
+        for (row, text) in mode.legend().iter().enumerate() {
             let at = tuinix::Position { row, col: 0 };
             put_str(&mut box_frame, at, text, tuinix::Style::new());
         }
@@ -44,11 +44,8 @@ impl LegendRenderer {
 
 /// The size the legend of `mode` needs, with room to spare.
 fn full_size(mode: Mode) -> tuinix::Size {
-    binding::legend_size(
-        mode,
-        tuinix::Size {
-            rows: usize::MAX,
-            cols: usize::MAX,
-        },
-    )
+    mode.legend_size(tuinix::Size {
+        rows: usize::MAX,
+        cols: usize::MAX,
+    })
 }

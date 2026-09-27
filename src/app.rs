@@ -187,7 +187,7 @@ impl App {
             return Ok(());
         }
 
-        let Some(resolved) = kk::resolve(self.mode, &input) else {
+        let Some(resolved) = self.mode.resolve(&input) else {
             self.state
                 .set_message(format!("No action found: '{}'", kk::display_input(&input)));
             return Ok(());
@@ -344,14 +344,11 @@ impl App {
     /// means there is nothing for the cursor to share and nothing to hide.
     fn legend_region(&self, mode: kk::Mode) -> Option<tuinix::Region> {
         let size = self.driver.size();
-        let legend = kk::legend_size(mode, size);
-        let full = kk::legend_size(
-            mode,
-            tuinix::Size {
-                rows: usize::MAX,
-                cols: usize::MAX,
-            },
-        );
+        let legend = mode.legend_size(size);
+        let full = mode.legend_size(tuinix::Size {
+            rows: usize::MAX,
+            cols: usize::MAX,
+        });
         if legend != full {
             return None;
         }

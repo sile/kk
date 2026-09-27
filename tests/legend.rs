@@ -13,13 +13,10 @@ const HORIZONTAL: &str = "\u{2500}";
 
 /// The size the legend of `mode` needs in an ample frame.
 fn full_size(mode: kk::Mode) -> tuinix::Size {
-    kk::legend_size(
-        mode,
-        tuinix::Size {
-            rows: 60,
-            cols: 200,
-        },
-    )
+    mode.legend_size(tuinix::Size {
+        rows: 60,
+        cols: 200,
+    })
 }
 
 /// A frame exactly the size of `mode`'s legend.
@@ -107,7 +104,7 @@ fn the_edit_legend_is_exactly_this_text() {
         "\u{2514}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 
-    assert_eq!(expected.len(), kk::legend(kk::Mode::Edit).len());
+    assert_eq!(expected.len(), kk::Mode::Edit.legend().len());
     for (row, line) in expected.iter().enumerate() {
         assert_eq!(row_text(&frame, row, cols), *line, "row {row}");
     }
@@ -134,7 +131,7 @@ fn the_search_legend_is_exactly_this_text() {
         "\u{2514}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 
-    assert_eq!(expected.len(), kk::legend(kk::Mode::Search).len());
+    assert_eq!(expected.len(), kk::Mode::Search.legend().len());
     for (row, line) in expected.iter().enumerate() {
         assert_eq!(row_text(&frame, row, cols), *line, "row {row}");
     }
@@ -143,7 +140,7 @@ fn the_search_legend_is_exactly_this_text() {
 #[test]
 fn every_row_of_the_legend_holds_exactly_one_chord_and_one_label() {
     for mode in [kk::Mode::Edit, kk::Mode::Search, kk::Mode::Ext] {
-        let rows = kk::legend(mode);
+        let rows = mode.legend();
         assert!(!rows.is_empty(), "{mode:?} has an empty legend");
         for row in rows {
             let (key, label) = row.trim().split_once(' ').expect("a chord and a label");
@@ -159,14 +156,15 @@ fn every_row_of_the_legend_holds_exactly_one_chord_and_one_label() {
 #[test]
 fn the_legend_height_counts_every_row_including_the_bottom_border() {
     for mode in [kk::Mode::Edit, kk::Mode::Search, kk::Mode::Ext] {
-        assert_eq!(full_size(mode).rows, kk::legend(mode).len(), "{mode:?}");
+        assert_eq!(full_size(mode).rows, mode.legend().len(), "{mode:?}");
     }
 }
 
 #[test]
 fn the_legend_width_is_the_widest_row() {
     for mode in [kk::Mode::Edit, kk::Mode::Search, kk::Mode::Ext] {
-        let widest = kk::legend(mode)
+        let widest = mode
+            .legend()
             .iter()
             .map(|row| kk::str_cols(row))
             .max()
@@ -200,7 +198,7 @@ fn every_row_paints_its_table_row_and_never_closes_with_a_border() {
         let mut frame = exact_frame(mode);
         kk::LegendRenderer.render(mode, &mut frame);
 
-        for (row, table_row) in kk::legend(mode).iter().enumerate() {
+        for (row, table_row) in mode.legend().iter().enumerate() {
             let text = row_text(&frame, row, size.cols);
             assert!(
                 text.starts_with(table_row),
@@ -217,7 +215,7 @@ fn every_row_paints_its_table_row_and_never_closes_with_a_border() {
 #[test]
 fn the_binding_rows_open_with_the_left_border() {
     for mode in [kk::Mode::Edit, kk::Mode::Search, kk::Mode::Ext] {
-        let rows = kk::legend(mode);
+        let rows = mode.legend();
         // The last row is the bottom border, which opens with its own corner.
         for (row, binding) in rows[..rows.len() - 1].iter().enumerate() {
             assert!(
@@ -235,7 +233,7 @@ fn the_binding_rows_open_with_the_left_border() {
 #[test]
 fn the_bottom_border_opens_with_its_own_corner() {
     for mode in [kk::Mode::Edit, kk::Mode::Search, kk::Mode::Ext] {
-        let rows = kk::legend(mode);
+        let rows = mode.legend();
         let bottom = rows.last().expect("a legend has a bottom border");
         assert!(
             bottom.starts_with(BOTTOM_LEFT),
@@ -333,11 +331,11 @@ fn a_legend_clipped_by_its_limit_reports_the_clipped_size() {
     for mode in [kk::Mode::Edit, kk::Mode::Search, kk::Mode::Ext] {
         let full = full_size(mode);
         for cols in [full.cols, full.cols - 1, 1, 0] {
-            let size = kk::legend_size(mode, tuinix::Size { rows: 60, cols });
+            let size = mode.legend_size(tuinix::Size { rows: 60, cols });
             assert_eq!(size.cols, cols.min(full.cols), "{mode:?} cols {cols}");
         }
         for rows in [full.rows, full.rows - 1, 1, 0] {
-            let size = kk::legend_size(mode, tuinix::Size { rows, cols: 200 });
+            let size = mode.legend_size(tuinix::Size { rows, cols: 200 });
             assert_eq!(size.rows, rows.min(full.rows), "{mode:?} rows {rows}");
         }
     }

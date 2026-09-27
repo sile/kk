@@ -61,44 +61,6 @@ pub const EXT_LEGEND: &[&str] = &[
     "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
-/// Returns the legend rows of `mode`, in legend order.
-pub fn legend(mode: Mode) -> &'static [&'static str] {
-    match mode {
-        Mode::Edit => EDIT_LEGEND,
-        Mode::Search => SEARCH_LEGEND,
-        Mode::Ext => EXT_LEGEND,
-    }
-}
-
-/// Returns the size the legend of `mode` needs, limited to `limit`.
-///
-/// The width is the widest legend row and the height is the number of rows, the
-/// bottom border included. Every row of the box is this wide, so a caller can
-/// size a frame to hold it whole. A limit smaller than the legend reports the
-/// limit, so a caller that compares the result against the limit can tell the
-/// legend was clipped.
-///
-/// # Examples
-///
-/// ```
-/// let room = tuinix::Size { rows: 40, cols: 100 };
-/// let ext = kk::legend_size(kk::Mode::Ext, room);
-/// assert_eq!(ext.rows, 7);
-/// assert_eq!(ext.cols, 15);
-/// ```
-pub fn legend_size(mode: Mode, limit: tuinix::Size) -> tuinix::Size {
-    let rows = legend(mode).len();
-    let cols = legend(mode)
-        .iter()
-        .map(|row| crate::terminal::str_cols(row))
-        .max()
-        .unwrap_or(0);
-    tuinix::Size {
-        rows: rows.min(limit.rows),
-        cols: cols.min(limit.cols),
-    }
-}
-
 /// Identifies one of the built-in input modes.
 ///
 /// A mode selects which binding table an input is resolved against, and a
@@ -118,6 +80,66 @@ pub enum Mode {
     Ext,
 }
 
+impl Mode {
+    /// Returns the legend rows of the mode, in legend order.
+    pub fn legend(self) -> &'static [&'static str] {
+        match self {
+            Mode::Edit => EDIT_LEGEND,
+            Mode::Search => SEARCH_LEGEND,
+            Mode::Ext => EXT_LEGEND,
+        }
+    }
+
+    /// Returns the size the legend of the mode needs, limited to `limit`.
+    ///
+    /// The width is the widest legend row and the height is the number of rows,
+    /// the bottom border included. Every row of the box is this wide, so a caller
+    /// can size a frame to hold it whole. A limit smaller than the legend reports
+    /// the limit, so a caller that compares the result against the limit can tell
+    /// the legend was clipped.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let room = tuinix::Size { rows: 40, cols: 100 };
+    /// let ext = kk::Mode::Ext.legend_size(room);
+    /// assert_eq!(ext.rows, 7);
+    /// assert_eq!(ext.cols, 15);
+    /// ```
+    pub fn legend_size(self, limit: tuinix::Size) -> tuinix::Size {
+        let rows = self.legend().len();
+        let cols = self
+            .legend()
+            .iter()
+            .map(|row| crate::terminal::str_cols(row))
+            .max()
+            .unwrap_or(0);
+        tuinix::Size {
+            rows: rows.min(limit.rows),
+            cols: cols.min(limit.cols),
+        }
+    }
+
+    /// Resolves `input` in the mode to the action and mode switch it means.
+    ///
+    /// Returns `None` when nothing in the mode is bound to that input; callers
+    /// report that to the user.
+    ///
+    /// The input has to be a key: no mouse, paste, or unrecognized input is bound.
+    pub fn resolve(self, input: &tuinix::Input) -> Option<Resolved> {
+        let key = match input {
+            tuinix::Input::Key(key) => key,
+            _ => return None,
+        };
+
+        match self {
+            Mode::Edit => resolve_edit(key),
+            Mode::Search => resolve_search(key),
+            Mode::Ext => resolve_ext(key),
+        }
+    }
+}
+
 /// What a single terminal input does: an action to run and a mode to switch to.
 /// Either field may be `None`.
 #[derive(Debug, Clone)]
@@ -127,25 +149,6 @@ pub struct Resolved {
 
     /// The mode to switch to, if any.
     pub mode: Option<Mode>,
-}
-
-/// Resolves `input` in `mode` to the action and mode switch it means.
-///
-/// Returns `None` when nothing in the mode is bound to that input; callers
-/// report that to the user.
-///
-/// The input has to be a key: no mouse, paste, or unrecognized input is bound.
-pub fn resolve(mode: Mode, input: &tuinix::Input) -> Option<Resolved> {
-    let key = match input {
-        tuinix::Input::Key(key) => key,
-        _ => return None,
-    };
-
-    match mode {
-        Mode::Edit => resolve_edit(key),
-        Mode::Search => resolve_search(key),
-        Mode::Ext => resolve_ext(key),
-    }
 }
 
 /// Runs `action` and stays in the current mode.

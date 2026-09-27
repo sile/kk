@@ -107,7 +107,8 @@ fn built_in_keys() -> Vec<tuinix::KeyInput> {
 
 /// Resolves `key` in `mode` and returns the action it ran.
 fn action_of(mode: kk::Mode, key: tuinix::KeyInput) -> Option<kk::Action> {
-    kk::resolve(mode, &tuinix::Input::Key(key)).and_then(|resolved| resolved.action)
+    mode.resolve(&tuinix::Input::Key(key))
+        .and_then(|resolved| resolved.action)
 }
 
 #[test]
@@ -121,7 +122,7 @@ fn every_built_in_chord_resolves_somewhere() -> noprop::TestResult {
         let key = noprop::sample_choice(ctx, &keys);
         let input = tuinix::Input::Key(key);
 
-        let resolved = MODES.iter().any(|&c| kk::resolve(c, &input).is_some());
+        let resolved = MODES.iter().any(|&c| c.resolve(&input).is_some());
         assert!(resolved, "{key:?} resolves in no mode at all");
         Ok(())
     })?;
@@ -133,7 +134,7 @@ fn every_built_in_chord_resolves_somewhere() -> noprop::TestResult {
 fn a_resolved_binding_does_something_or_switches_mode() {
     for &mode in &MODES {
         for key in built_in_keys() {
-            if let Some(resolved) = kk::resolve(mode, &tuinix::Input::Key(key)) {
+            if let Some(resolved) = mode.resolve(&tuinix::Input::Key(key)) {
                 assert!(
                     resolved.action.is_some() || resolved.mode.is_some(),
                     "{key:?} in {mode:?} neither acts nor switches mode"
@@ -255,7 +256,7 @@ fn every_other_mode_has_a_way_back_to_edit() {
     for &mode in &[kk::Mode::Search, kk::Mode::Ext] {
         let returns = built_in_keys().into_iter().any(|key| {
             matches!(
-                kk::resolve(mode, &tuinix::Input::Key(key)),
+                mode.resolve(&tuinix::Input::Key(key)),
                 Some(kk::Resolved {
                     action: Some(
                         kk::Action::Cancel | kk::Action::SearchCancel | kk::Action::SearchAccept
@@ -274,7 +275,8 @@ fn the_ext_mode_binds_its_chords_after_ctrl_x() {
     // Ext mode. Inside Ext the ctrl prefix is dropped, so each is a plain
     // letter that runs and returns to Edit.
     for (ch, expected) in [('r', 0), ('a', 1), ('e', 2)] {
-        let resolved = kk::resolve(kk::Mode::Ext, &tuinix::Input::Key(char_key(ch)))
+        let resolved = kk::Mode::Ext
+            .resolve(&tuinix::Input::Key(char_key(ch)))
             .unwrap_or_else(|| panic!("{ch} is not bound in Ext"));
         assert_eq!(
             resolved.mode,
@@ -296,8 +298,9 @@ fn the_ext_mode_binds_its_chords_after_ctrl_x() {
 
 #[test]
 fn the_ext_mode_binds_force_save_to_an_upper_case_s() {
-    let resolved =
-        kk::resolve(kk::Mode::Ext, &tuinix::Input::Key(char_key('S'))).expect("S is bound in Ext");
+    let resolved = kk::Mode::Ext
+        .resolve(&tuinix::Input::Key(char_key('S')))
+        .expect("S is bound in Ext");
     assert_eq!(resolved.mode, Some(kk::Mode::Edit));
     assert!(
         matches!(resolved.action, Some(kk::Action::BufferForceSave)),
@@ -306,8 +309,9 @@ fn the_ext_mode_binds_force_save_to_an_upper_case_s() {
     );
 
     // The lower-case letter must still be the checking save.
-    let plain =
-        kk::resolve(kk::Mode::Ext, &tuinix::Input::Key(char_key('s'))).expect("s is bound in Ext");
+    let plain = kk::Mode::Ext
+        .resolve(&tuinix::Input::Key(char_key('s')))
+        .expect("s is bound in Ext");
     assert!(matches!(plain.action, Some(kk::Action::BufferSave)));
 }
 
@@ -361,23 +365,17 @@ fn each_mode_resolves_its_own_chords() {
 #[test]
 fn non_key_input_never_resolves() {
     for &mode in &MODES {
-        assert!(kk::resolve(mode, &tuinix::Input::Mouse(left_press())).is_none());
+        assert!(mode.resolve(&tuinix::Input::Mouse(left_press())).is_none());
         assert!(
-            kk::resolve(
-                mode,
-                &tuinix::Input::Unrecognized {
-                    bytes: b"\x1b[?".to_vec()
-                }
-            )
+            mode.resolve(&tuinix::Input::Unrecognized {
+                bytes: b"\x1b[?".to_vec()
+            })
             .is_none()
         );
         assert!(
-            kk::resolve(
-                mode,
-                &tuinix::Input::Paste {
-                    bytes: b"hi".to_vec()
-                }
-            )
+            mode.resolve(&tuinix::Input::Paste {
+                bytes: b"hi".to_vec()
+            })
             .is_none()
         );
     }
