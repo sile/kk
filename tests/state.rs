@@ -34,8 +34,8 @@ enum Edit {
     /// Deletes the character under the cursor.
     Delete,
 
-    /// Kills from the cursor to the end of the line.
-    KillLine,
+    /// Cuts from the cursor to the end of the line.
+    CutLineTail,
 }
 
 impl Edit {
@@ -49,7 +49,7 @@ impl Edit {
             }
             Edit::Newline => state.handle_newline_insert(),
             Edit::Delete => state.handle_char_delete_forward(),
-            Edit::KillLine => state.handle_line_delete(),
+            Edit::CutLineTail => state.handle_line_cut_tail(),
         }
     }
 }
@@ -74,11 +74,11 @@ fn undo_restores_the_text_from_before_the_edit_run() -> noprop::TestResult {
                 0 => Edit::Insert(noprop::sample_ascii_printable_char(ctx)).apply(&mut state),
                 1 => Edit::Newline.apply(&mut state),
                 2 => Edit::Delete.apply(&mut state),
-                _ => Edit::KillLine.apply(&mut state),
+                _ => Edit::CutLineTail.apply(&mut state),
             }
 
             if saved_text(&state) == before {
-                // The edit was a no-op (deleting past the end, killing an
+                // The edit was a no-op (deleting past the end, cutting an
                 // already-empty tail), so there is nothing to undo.
                 continue;
             }
@@ -130,11 +130,11 @@ fn a_char_insert_reports_and_advances_by_the_character_width() {
 }
 
 #[test]
-fn line_delete_kills_to_the_end_of_the_line_into_the_clipboard() {
+fn line_cut_tail_cuts_to_the_end_of_the_line_into_the_clipboard() {
     let mut state = state_of("hello world\nnext\n");
     state.cursor = at(0, 5);
 
-    state.handle_line_delete();
+    state.handle_line_cut_tail();
 
     assert_eq!(saved_text(&state), "hello\nnext\n");
     assert_eq!(state.clipboard.read(), " world");
@@ -143,31 +143,31 @@ fn line_delete_kills_to_the_end_of_the_line_into_the_clipboard() {
 }
 
 #[test]
-fn line_delete_at_the_end_of_a_line_kills_the_newline() {
+fn line_cut_tail_at_the_end_of_a_line_cuts_the_newline() {
     let mut state = state_of("one\ntwo\n");
     state.cursor = at(0, 3);
 
-    state.handle_line_delete();
+    state.handle_line_cut_tail();
 
     assert_eq!(saved_text(&state), "onetwo\n");
     assert_eq!(state.clipboard.read(), "\n");
 }
 
 #[test]
-fn a_run_of_kills_collects_into_one_clipboard_entry() {
+fn a_run_of_cuts_collects_into_one_clipboard_entry() {
     let mut state = state_of("one\ntwo\nthree\n");
     state.cursor = at(0, 0);
 
-    // Kill `one`, then the newline, then `two` -- one run with no break.
-    state.handle_line_delete();
+    // Cut `one`, then the newline, then `two` -- one run with no break.
+    state.handle_line_cut_tail();
     assert_eq!(saved_text(&state), "\ntwo\nthree\n");
     assert_eq!(state.clipboard.read(), "one");
 
-    state.handle_line_delete();
+    state.handle_line_cut_tail();
     assert_eq!(saved_text(&state), "two\nthree\n");
     assert_eq!(state.clipboard.read(), "one\n");
 
-    state.handle_line_delete();
+    state.handle_line_cut_tail();
     assert_eq!(saved_text(&state), "\nthree\n");
     assert_eq!(state.clipboard.read(), "one\ntwo");
 
@@ -175,62 +175,62 @@ fn a_run_of_kills_collects_into_one_clipboard_entry() {
 }
 
 #[test]
-fn a_break_between_kills_starts_a_new_clipboard_entry() {
+fn a_break_between_cuts_starts_a_new_clipboard_entry() {
     let mut state = state_of("one\ntwo\n");
     state.cursor = at(0, 0);
 
-    state.handle_line_delete();
+    state.handle_line_cut_tail();
     assert_eq!(state.clipboard.read(), "one");
 
-    // Moving the cursor is a break, so the next kill replaces the entry.
+    // Moving the cursor is a break, so the next cut replaces the entry.
     state.handle_cursor_down();
-    state.handle_line_delete();
+    state.handle_line_cut_tail();
 
     assert_eq!(state.clipboard.read(), "two");
     assert_eq!(state.clipboard.summary_line(), "two");
 }
 
 #[test]
-fn an_edit_between_kills_starts_a_new_clipboard_entry() {
+fn an_edit_between_cuts_starts_a_new_clipboard_entry() {
     let mut state = state_of("one\ntwo\n");
     state.cursor = at(0, 0);
 
-    state.handle_line_delete();
+    state.handle_line_cut_tail();
     state.handle_char_insert('x');
-    state.handle_line_delete();
+    state.handle_line_cut_tail();
 
     assert_eq!(state.clipboard.read(), "\n");
 }
 
 #[test]
-fn a_kill_that_removed_nothing_still_leaves_the_previous_entry_alone() {
+fn a_cut_that_removed_nothing_still_leaves_the_previous_entry_alone() {
     let mut state = state_of("one\n");
     state.cursor = at(0, 3);
 
-    // The only line has no newline to kill, so this kill is a no-op.
-    state.handle_line_delete();
+    // The only line has no newline to cut, so this cut is a no-op.
+    state.handle_line_cut_tail();
     assert_eq!(saved_text(&state), "one\n");
     assert_eq!(state.clipboard.read(), "");
 
-    // A no-op kill chains like any other kill, but it has nothing of its own to
+    // A no-op cut chains like any other cut, but it has nothing of its own to
     // add, so the entry stands.
-    state.handle_line_delete();
+    state.handle_line_cut_tail();
     assert_eq!(state.clipboard.read(), "");
 }
 
 #[test]
-fn a_chained_kill_reports_that_it_appended() {
+fn a_chained_cut_reports_that_it_appended() {
     let mut state = state_of("one\ntwo\n");
     state.cursor = at(0, 0);
 
-    state.handle_line_delete();
-    assert_eq!(state.message.as_deref(), Some("Killed 3 characters"));
+    state.handle_line_cut_tail();
+    assert_eq!(state.message.as_deref(), Some("Cut 3 characters"));
 
-    // The next kill continues the run, so it says it appended.
-    state.handle_line_delete();
+    // The next cut continues the run, so it says it appended.
+    state.handle_line_cut_tail();
     assert_eq!(state.message.as_deref(), Some("Appended newline"));
 
-    state.handle_line_delete();
+    state.handle_line_cut_tail();
     assert_eq!(state.message.as_deref(), Some("Appended 3 characters"));
 }
 
@@ -275,7 +275,7 @@ fn pasting_an_empty_clipboard_changes_nothing() {
 }
 
 #[test]
-fn killing_from_the_query_does_not_touch_the_buffers_clipboard() {
+fn cutting_from_the_query_does_not_touch_the_buffers_clipboard() {
     let mut state = state_of("one two\n");
     state.clipboard.write("from the buffer");
 
@@ -285,10 +285,10 @@ fn killing_from_the_query_does_not_touch_the_buffers_clipboard() {
     }
     // The prompt's cursor sits at the end, so move it back to have a tail.
     if let Some(search) = &mut state.search_prompt {
-        search.cursor = 0;
+        search.move_cursor_to_start();
     }
 
-    state.handle_search_kill_query();
+    state.handle_search_cut_query();
 
     assert_eq!(state.search_clipboard.read(), "query");
     assert_eq!(
@@ -299,7 +299,7 @@ fn killing_from_the_query_does_not_touch_the_buffers_clipboard() {
 }
 
 #[test]
-fn killing_from_the_query_leaves_the_text_before_the_cursor() {
+fn cutting_from_the_query_leaves_the_text_before_the_cursor() {
     let mut state = state_of("one two\n");
 
     state.handle_search_enter();
@@ -308,32 +308,33 @@ fn killing_from_the_query_leaves_the_text_before_the_cursor() {
     }
     // The prompt's cursor sits at the end, so move it back into the middle.
     if let Some(search) = &mut state.search_prompt {
-        search.cursor = 2;
+        search.move_cursor_to_start();
+        search.move_cursor_right();
+        search.move_cursor_right();
     }
 
-    state.handle_search_kill_query();
+    state.handle_search_cut_query();
 
     let search = state.search_prompt.as_ref().expect("the prompt is open");
-    let remaining: String = search.query.iter().collect();
-    assert_eq!(remaining, "qu", "what was before the cursor stays");
+    assert_eq!(search.query(), "qu", "what was before the cursor stays");
     assert_eq!(state.search_clipboard.read(), "ery");
 }
 
 #[test]
-fn killing_an_empty_tail_writes_nothing() {
+fn cutting_an_empty_tail_writes_nothing() {
     let mut state = state_of("one two\n");
-    state.search_clipboard.write("an earlier kill");
+    state.search_clipboard.write("an earlier cut");
 
     state.handle_search_enter();
 
-    state.handle_search_kill_query();
+    state.handle_search_cut_query();
 
     assert_eq!(
         state.search_clipboard.read(),
-        "an earlier kill",
+        "an earlier cut",
         "an empty query does not wipe the entry"
     );
-    assert_eq!(state.message.as_deref(), Some("Nothing to kill"));
+    assert_eq!(state.message.as_deref(), Some("Nothing to cut"));
 }
 
 #[test]
@@ -346,8 +347,11 @@ fn the_prompt_pastes_its_own_clipboard_into_the_query() {
     state.handle_clipboard_paste();
 
     let search = state.search_prompt.as_ref().expect("the prompt is open");
-    let query: String = search.query.iter().collect();
-    assert_eq!(query, "two", "the prompt's own contents are what lands");
+    assert_eq!(
+        search.query(),
+        "two",
+        "the prompt's own contents are what lands"
+    );
     assert_eq!(saved_text(&state), "one two\n", "the buffer is untouched");
 }
 
@@ -368,8 +372,7 @@ fn accepting_a_search_keeps_the_query_for_a_later_prompt_paste() {
     state.handle_search_enter();
     state.handle_clipboard_paste();
     let search = state.search_prompt.as_ref().expect("the prompt is open");
-    let query: String = search.query.iter().collect();
-    assert_eq!(query, "two");
+    assert_eq!(search.query(), "two");
     assert_eq!(
         state.clipboard.read(),
         "",

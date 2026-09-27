@@ -201,8 +201,8 @@ fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
             .search_prompt
             .as_ref()
             .expect("the prompt is open")
-            .query,
-        vec!['x', 'y']
+            .query(),
+        "xy"
     );
     assert_eq!(
         state.cursor, buffer_cursor,
@@ -216,7 +216,7 @@ fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
             .search_prompt
             .as_ref()
             .expect("the prompt is open")
-            .cursor,
+            .cursor(),
         1
     );
     state.handle_char_delete_backward();
@@ -225,15 +225,15 @@ fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
             .search_prompt
             .as_ref()
             .expect("the prompt is open")
-            .query,
-        vec!['y']
+            .query(),
+        "y"
     );
     assert_eq!(
         state
             .search_prompt
             .as_ref()
             .expect("the prompt is open")
-            .cursor,
+            .cursor(),
         0
     );
     state.handle_cursor_line_end();
@@ -242,7 +242,7 @@ fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
             .search_prompt
             .as_ref()
             .expect("the prompt is open")
-            .cursor,
+            .cursor(),
         1
     );
     state.handle_cursor_line_start();
@@ -251,7 +251,7 @@ fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
             .search_prompt
             .as_ref()
             .expect("the prompt is open")
-            .cursor,
+            .cursor(),
         0
     );
 

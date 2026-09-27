@@ -60,7 +60,7 @@ fn the_legend_hides_for_the_buffer_cursor_while_the_prompt_is_open() {
         h.screen_contains(LEGEND_ROW) && h.screen_text().contains("Search:")
     });
 
-    // `C-c` is the search prompt's kill-query, so the prompt has to be closed
+    // `C-c` is the search prompt's cut-query, so the prompt has to be closed
     // before the usual quit chord means quit again.
     kk.send_ctrl('g');
     kk.wait_until("back in edit", |h| !h.screen_text().contains("Search:"));

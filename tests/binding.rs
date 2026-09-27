@@ -347,14 +347,14 @@ fn edit_accepts_an_alt_chord_as_text() {
 #[test]
 fn each_mode_resolves_its_own_chords() {
     // Both modes bind `C-k`, but each keeps its own clipboard: the two
-    // actions differ, so the kill never lands in the other's clipboard.
+    // actions differ, so the cut never lands in the other's clipboard.
     assert!(matches!(
         action_of(kk::Mode::Edit, ctrl_key('k')),
-        Some(kk::Action::LineDelete)
+        Some(kk::Action::LineCutTail)
     ));
     assert!(matches!(
         action_of(kk::Mode::Search, ctrl_key('k')),
-        Some(kk::Action::SearchKillQuery)
+        Some(kk::Action::SearchCutQuery)
     ));
 
     // Search has its own keys, which Edit does not.

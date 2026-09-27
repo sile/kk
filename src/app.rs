@@ -265,7 +265,7 @@ impl App {
             }
             kk::Action::CharDeleteBackward => self.state.handle_char_delete_backward(),
             kk::Action::CharDeleteForward => self.state.handle_char_delete_forward(),
-            kk::Action::LineDelete => self.state.handle_line_delete(),
+            kk::Action::LineCutTail => self.state.handle_line_cut_tail(),
             kk::Action::MarkSet => self.state.handle_mark_set(),
             kk::Action::MarkCut => self.state.handle_mark_cut(),
             kk::Action::ClipboardPaste => self.state.handle_clipboard_paste(),
@@ -273,7 +273,7 @@ impl App {
             kk::Action::SearchEnter => self.state.handle_search_enter(),
             kk::Action::SearchCancel => self.state.handle_search_cancel(),
             kk::Action::SearchAccept => self.state.handle_search_accept(),
-            kk::Action::SearchKillQuery => self.state.handle_search_kill_query(),
+            kk::Action::SearchCutQuery => self.state.handle_search_cut_query(),
             kk::Action::SearchNextHit => self.state.handle_search_next_hit(),
             kk::Action::SearchPrevHit => self.state.handle_search_prev_hit(),
         }

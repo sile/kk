@@ -47,9 +47,9 @@ pub struct State {
 
     /// The clipboard the search prompt keeps its own edits in.
     ///
-    /// The prompt's `C-k` kills from the query, and the text it removed is not
+    /// The prompt's `C-k` cuts from the query, and the text it removed is not
     /// buffer text, so it goes here rather than into
-    /// [`clipboard`](State::clipboard). The two are kept apart so a kill made
+    /// [`clipboard`](State::clipboard). The two are kept apart so a cut made
     /// while typing a query cannot replace what was copied out of the buffer:
     /// the prompt's `C-y` reads this one and the buffer's `C-y` reads the other.
     pub search_clipboard: Clipboard,
@@ -57,13 +57,13 @@ pub struct State {
     /// Whether an edit has already been recorded in [`history`](State::history).
     pub editing: bool,
 
-    /// Whether the last command was a kill, which is what makes a run of kills
+    /// Whether the last command was a cut, which is what makes a run of cuts
     /// collect into one clipboard entry rather than replacing it.
     ///
-    /// [`handle_line_delete()`](State::handle_line_delete) sets it, and both
-    /// `start_editing` and `finish_editing` clear it, so any edit or cursor
-    /// move breaks the run.
-    kill_chained: bool,
+    /// [`handle_line_cut_tail()`](State::handle_line_cut_tail) sets it, and
+    /// both `start_editing` and `finish_editing` clear it, so any edit or
+    /// cursor move breaks the run.
+    cut_chained: bool,
 
     /// Undo snapshots, oldest first.
     pub history: VecDeque<(TextPosition, TextBuffer)>,
@@ -100,7 +100,7 @@ impl State {
             clipboard: Clipboard::default(),
             search_clipboard: Clipboard::default(),
             editing: false,
-            kill_chained: false,
+            cut_chained: false,
             history: VecDeque::new(),
             undo_index: 0,
             search_prompt: None,
@@ -173,11 +173,11 @@ impl State {
     }
 
     fn start_editing(&mut self) {
-        // Any edit that starts here breaks a run of kills, including the ones
+        // Any edit that starts here breaks a run of cuts, including the ones
         // that continue an undo run and so never call `finish_editing`.
-        // `handle_line_delete` reads the flag before this and re-arms it after,
-        // which is what lets one kill chain onto the next.
-        self.kill_chained = false;
+        // `handle_line_cut_tail` reads the flag before this and re-arms it
+        // after, which is what lets one cut chain onto the next.
+        self.cut_chained = false;
 
         if self.editing {
             return;
@@ -195,16 +195,16 @@ impl State {
 
     /// Ends the current edit run, so the next edit records a new snapshot.
     ///
-    /// Also ends a run of kills. Together with `start_editing`, which clears the
+    /// Also ends a run of cuts. Together with `start_editing`, which clears the
     /// same flag, this covers every break: the edits that only start an edit
     /// (inserting, deleting a character) and the moves and commands that only
     /// end one (moving the cursor, undoing).
-    /// [`handle_line_delete()`](State::handle_line_delete) reads the flag before
-    /// its own `start_editing` and re-arms it after its `finish_editing`, which
-    /// is what chains one kill onto the next.
+    /// [`handle_line_cut_tail()`](State::handle_line_cut_tail) reads the flag
+    /// before its own `start_editing` and re-arms it after its
+    /// `finish_editing`, which is what chains one cut onto the next.
     pub fn finish_editing(&mut self) {
         self.editing = false;
-        self.kill_chained = false;
+        self.cut_chained = false;
     }
 
     /// Moves the cursor up one row.
@@ -272,7 +272,7 @@ impl State {
     /// instead.
     pub fn handle_cursor_left(&mut self) {
         if let Some(search) = &mut self.search_prompt {
-            search.cursor = search.cursor.saturating_sub(1);
+            search.move_cursor_left();
             return;
         }
 
@@ -293,7 +293,7 @@ impl State {
     /// instead.
     pub fn handle_cursor_right(&mut self) {
         if let Some(search) = &mut self.search_prompt {
-            search.cursor = (search.cursor + 1).min(search.query.len());
+            search.move_cursor_right();
             return;
         }
 
@@ -312,7 +312,7 @@ impl State {
     /// Moves the cursor to its line's first column.
     pub fn handle_cursor_line_start(&mut self) {
         if let Some(search) = &mut self.search_prompt {
-            search.cursor = 0;
+            search.move_cursor_to_start();
             return;
         }
 
@@ -323,7 +323,7 @@ impl State {
     /// Moves the cursor to its line's end.
     pub fn handle_cursor_line_end(&mut self) {
         if let Some(search) = &mut self.search_prompt {
-            search.cursor = search.query.len();
+            search.move_cursor_to_end();
             return;
         }
 
@@ -350,9 +350,7 @@ impl State {
     /// re-runs it.
     pub fn handle_char_delete_backward(&mut self) {
         if let Some(search) = &mut self.search_prompt {
-            if search.cursor > 0 {
-                search.query.remove(search.cursor - 1);
-                search.cursor -= 1;
+            if search.delete_char_backward() {
                 self.rerun_query();
             }
             return;
@@ -370,8 +368,7 @@ impl State {
     /// re-runs it.
     pub fn handle_char_delete_forward(&mut self) {
         if let Some(search) = &mut self.search_prompt {
-            if search.cursor < search.query.len() {
-                search.query.remove(search.cursor);
+            if search.delete_char_forward() {
                 self.rerun_query();
             }
             return;
@@ -626,7 +623,7 @@ impl State {
     /// Newlines in the contents become line breaks. While a search prompt is
     /// open, the contents enter the query instead and re-run it; the prompt
     /// reads [`search_clipboard`](State::search_clipboard), so what it pastes is
-    /// what its own `C-k` killed and never the buffer's.
+    /// what its own `C-k` cut and never the buffer's.
     pub fn handle_clipboard_paste(&mut self) {
         if let Some(search) = &mut self.search_prompt {
             let text = self.search_clipboard.read();
@@ -640,8 +637,7 @@ impl State {
             for ch in text.chars() {
                 // Skip control characters and newlines in search query
                 if !ch.is_control() {
-                    search.query.insert(search.cursor, ch);
-                    search.cursor += 1;
+                    search.insert_char(ch);
                 }
             }
 
@@ -717,13 +713,13 @@ impl State {
     /// Deletes from the cursor to the end of the line, or joins the next line
     /// when the cursor is already at the end.
     ///
-    /// The removed text goes to the clipboard. A kill that follows another one
-    /// without a break in between is chained onto the entry the previous kill
+    /// The removed text goes to the clipboard. A cut that follows another one
+    /// without a break in between is chained onto the entry the previous cut
     /// left rather than replacing it, so a run of `C-k` collects what it
     /// removed into one entry (see [`finish_editing()`](State::finish_editing) for
     /// what counts as a break).
-    pub fn handle_line_delete(&mut self) {
-        let append = self.kill_chained;
+    pub fn handle_line_cut_tail(&mut self) {
+        let append = self.cut_chained;
         self.start_editing();
 
         let cursor_pos = self.cursor_position();
@@ -743,37 +739,37 @@ impl State {
                 if append {
                     self.set_message("Appended newline");
                 } else {
-                    self.set_message("Killed newline");
+                    self.set_message("Cut newline");
                 }
             }
         } else {
             // Delete from cursor to end of line and copy to clipboard
-            let killed_text = self.buffer.cut_line_tail(cursor_pos.row, cursor_pos.col);
+            let cut_text = self.buffer.cut_line_tail(cursor_pos.row, cursor_pos.col);
 
-            match killed_text {
-                Some(killed_text) if !killed_text.is_empty() => {
+            match cut_text {
+                Some(cut_text) if !cut_text.is_empty() => {
                     // Copy to clipboard
                     if append {
-                        self.clipboard.append(&killed_text);
+                        self.clipboard.append(&cut_text);
                     } else {
-                        self.clipboard.write(&killed_text);
+                        self.clipboard.write(&cut_text);
                     }
 
-                    let chars = killed_text.chars().count();
+                    let chars = cut_text.chars().count();
                     if append {
                         self.set_message(format!("Appended {chars} characters"));
                     } else {
-                        self.set_message(format!("Killed {chars} characters"));
+                        self.set_message(format!("Cut {chars} characters"));
                     }
                 }
-                _ => self.set_message("Nothing to kill"),
+                _ => self.set_message("Nothing to cut"),
             }
         }
 
-        // Re-arm the flag so the next kill chains onto this one. This runs for a
-        // no-op kill too: what chains is the command, not its effect.
+        // Re-arm the flag so the next cut chains onto this one. This runs for a
+        // no-op cut too: what chains is the command, not its effect.
         self.finish_editing();
-        self.kill_chained = true;
+        self.cut_chained = true;
     }
 
     /// Drops the mark and the search state, and reports `Canceled`.
@@ -799,29 +795,29 @@ impl State {
         self.highlight = Highlight::default();
     }
 
-    /// Kills from the query cursor to the end of the query.
+    /// Cuts from the query cursor to the end of the query.
     ///
     /// The removed text goes to [`search_clipboard`](State::search_clipboard)
-    /// rather than to the buffer's clipboard, so the prompt's kills stay its
+    /// rather than to the buffer's clipboard, so the prompt's cuts stay its
     /// own. Nothing is written when there is nothing after the cursor, so a
-    /// prompt killed empty does not wipe what an earlier kill left behind.
+    /// prompt cut empty does not wipe what an earlier cut left behind.
     ///
     /// Does nothing when no search prompt is open.
-    pub fn handle_search_kill_query(&mut self) {
+    pub fn handle_search_cut_query(&mut self) {
         let Some(search) = &mut self.search_prompt else {
             return;
         };
 
-        let killed: String = search.query.drain(search.cursor..).collect();
+        let cut = search.cut_to_end();
 
-        if killed.is_empty() {
-            self.set_message("Nothing to kill");
+        if cut.is_empty() {
+            self.set_message("Nothing to cut");
             return;
         }
 
-        self.search_clipboard.write(&killed);
+        self.search_clipboard.write(&cut);
         self.rerun_query();
-        self.set_message(format!("Killed {} characters", killed.chars().count()));
+        self.set_message(format!("Cut {} characters", cut.chars().count()));
     }
 
     /// Opens the search prompt with an empty query.
@@ -887,7 +883,7 @@ impl State {
             return;
         };
 
-        let query: String = search.query.iter().collect();
+        let query = search.query();
         if !query.is_empty() {
             self.search_clipboard.write(&query);
         }

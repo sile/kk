@@ -22,7 +22,7 @@ impl Clipboard {
 
     /// Appends `content` to the current contents.
     ///
-    /// The clipboard holds one entry, so a run of kills that the editor treats
+    /// The clipboard holds one entry, so a run of cuts that the editor treats
     /// as one collects here rather than replacing what came before.
     pub fn append(&mut self, content: &str) {
         self.content.push_str(content);

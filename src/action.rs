@@ -79,8 +79,9 @@ pub enum Action {
     /// Deletes the character under the cursor.
     CharDeleteForward,
 
-    /// Deletes the cursor's whole line.
-    LineDelete,
+    /// Cuts from the cursor to the end of its line, or joins the next line when
+    /// the cursor is already at the end.
+    LineCutTail,
 
     /// Sets the mark at the cursor.
     MarkSet,
@@ -109,10 +110,10 @@ pub enum Action {
     /// The query is kept for a later `C-y`.
     SearchAccept,
 
-    /// Kills from the search query's cursor to the end of the query.
+    /// Cuts from the search query's cursor to the end of the query.
     ///
     /// The removed text goes to the prompt's own clipboard, not the buffer's.
-    SearchKillQuery,
+    SearchCutQuery,
 
     /// Moves the cursor to the next search hit.
     SearchNextHit,

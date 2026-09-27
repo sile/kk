@@ -15,11 +15,10 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct SearchPrompt {
     /// The query as entered so far.
-    pub query: Vec<char>,
+    query: Vec<char>,
 
-    /// The index in [`query`](SearchPrompt::query) where the next character is
-    /// inserted.
-    pub cursor: usize,
+    /// The index in `query` where the next character is inserted.
+    cursor: usize,
 }
 
 impl SearchPrompt {
@@ -44,14 +43,77 @@ impl SearchPrompt {
     /// Returns the line to show while the query is being typed: the prompt
     /// followed by the query so far.
     pub fn line(&self) -> String {
-        let query: String = self.query.iter().collect();
-        format!("{PROMPT}{query}")
+        format!("{PROMPT}{}", self.query())
+    }
+
+    /// Returns the query as a string.
+    pub fn query(&self) -> String {
+        self.query.iter().collect()
+    }
+
+    /// Returns the index in the query where the next character is inserted.
+    pub fn cursor(&self) -> usize {
+        self.cursor
     }
 
     /// Inserts `ch` at the query cursor.
     pub fn insert_char(&mut self, ch: char) {
         self.query.insert(self.cursor, ch);
         self.cursor += 1;
+    }
+
+    /// Deletes the character before the query cursor.
+    ///
+    /// Returns `true` if a character was deleted, or `false` when the cursor
+    /// is at the start of the query.
+    pub fn delete_char_backward(&mut self) -> bool {
+        if self.cursor > 0 {
+            self.query.remove(self.cursor - 1);
+            self.cursor -= 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Deletes the character under the query cursor.
+    ///
+    /// Returns `true` if a character was deleted, or `false` when the cursor
+    /// is at the end of the query.
+    pub fn delete_char_forward(&mut self) -> bool {
+        if self.cursor < self.query.len() {
+            self.query.remove(self.cursor);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Moves the query cursor one character left.
+    pub fn move_cursor_left(&mut self) {
+        self.cursor = self.cursor.saturating_sub(1);
+    }
+
+    /// Moves the query cursor one character right.
+    pub fn move_cursor_right(&mut self) {
+        self.cursor = (self.cursor + 1).min(self.query.len());
+    }
+
+    /// Moves the query cursor to the start of the query.
+    pub fn move_cursor_to_start(&mut self) {
+        self.cursor = 0;
+    }
+
+    /// Moves the query cursor to the end of the query.
+    pub fn move_cursor_to_end(&mut self) {
+        self.cursor = self.query.len();
+    }
+
+    /// Removes and returns the query from the cursor to its end.
+    ///
+    /// An empty cut returns an empty string.
+    pub fn cut_to_end(&mut self) -> String {
+        self.query.drain(self.cursor..).collect()
     }
 
     /// Runs the query against `buffer` and returns every match.
