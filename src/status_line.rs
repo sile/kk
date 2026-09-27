@@ -33,9 +33,9 @@ impl StatusLineRenderer {
         // The prompt keeps its own clipboard, so the summary shown is the one
         // belonging to the mode that is on screen.
         let summary = if state.search_prompt.is_some() {
-            &state.search_clipboard.summary_line
+            state.search_clipboard.summary_line()
         } else {
-            &state.clipboard.summary_line
+            state.clipboard.summary_line()
         };
 
         // The hits are shown only while a prompt is open, and the icon goes with

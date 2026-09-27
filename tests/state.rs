@@ -138,7 +138,7 @@ fn line_delete_kills_to_the_end_of_the_line_into_the_clipboard() {
 
     assert_eq!(saved_text(&state), "hello\nnext\n");
     assert_eq!(state.clipboard.read(), " world");
-    assert_eq!(state.clipboard.summary_line, " world");
+    assert_eq!(state.clipboard.summary_line(), " world");
     assert_eq!(state.cursor, at(0, 5));
 }
 
@@ -171,7 +171,7 @@ fn a_run_of_kills_collects_into_one_clipboard_entry() {
     assert_eq!(saved_text(&state), "\nthree\n");
     assert_eq!(state.clipboard.read(), "one\ntwo");
 
-    assert_eq!(state.clipboard.summary_line, "one");
+    assert_eq!(state.clipboard.summary_line(), "one");
 }
 
 #[test]
@@ -187,7 +187,7 @@ fn a_break_between_kills_starts_a_new_clipboard_entry() {
     state.handle_line_delete();
 
     assert_eq!(state.clipboard.read(), "two");
-    assert_eq!(state.clipboard.summary_line, "two");
+    assert_eq!(state.clipboard.summary_line(), "two");
 }
 
 #[test]

@@ -7,9 +7,6 @@
 #[derive(Debug, Default)]
 pub struct Clipboard {
     content: String,
-
-    /// The first line of the current contents, for the status line.
-    pub summary_line: String,
 }
 
 impl Clipboard {
@@ -19,26 +16,22 @@ impl Clipboard {
     }
 
     /// Replaces the contents with `content`.
-    ///
-    /// [`summary_line`](Self::summary_line) is updated to `content`'s first
-    /// line, or the empty string when `content` is empty.
     pub fn write(&mut self, content: &str) {
         self.content = content.to_owned();
-        self.update_summary();
     }
 
     /// Appends `content` to the current contents.
     ///
     /// The clipboard holds one entry, so a run of kills that the editor treats
-    /// as one collects here rather than replacing what came before. The summary
-    /// is recomputed from the joined text, so it stays on whatever the first
-    /// line of the run is.
+    /// as one collects here rather than replacing what came before.
     pub fn append(&mut self, content: &str) {
         self.content.push_str(content);
-        self.update_summary();
     }
 
-    fn update_summary(&mut self) {
-        self.summary_line = self.content.lines().next().unwrap_or_default().to_owned();
+    /// Returns the first line of the contents, for the status line.
+    ///
+    /// It is empty when the contents are empty.
+    pub fn summary_line(&self) -> &str {
+        self.content.lines().next().unwrap_or_default()
     }
 }
