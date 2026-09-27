@@ -66,8 +66,8 @@ fn a_column_inside_a_wide_character_snaps_to_its_edges() -> noprop::TestResult {
         // itself both ways, which is why "inside" is tested, not "is wide".
         let inside_wide = col % 2 == 1
             && col < cols
-            && buffer.text[0].char_at_col(col).is_none()
-            && buffer.text[0].char_at_col(col - 1) == Some('\u{3042}');
+            && buffer.line(0).unwrap().char_at_col(col).is_none()
+            && buffer.line(0).unwrap().char_at_col(col - 1) == Some('\u{3042}');
         if inside_wide {
             inside.set(inside.get() + 1);
             assert_eq!(floor.col, col - 1, "floor of column {col} for {text:?}");
@@ -76,7 +76,7 @@ fn a_column_inside_a_wide_character_snaps_to_its_edges() -> noprop::TestResult {
                 col + 1,
                 "ceil of the wide char's trailing cell {col} for {text:?}"
             );
-        } else if buffer.text[0].char_at_col(col).is_some() || col == cols {
+        } else if buffer.line(0).unwrap().char_at_col(col).is_some() || col == cols {
             // A real boundary is a fixed point of both directions.
             assert_eq!(floor.col, col, "floor of the boundary {col} for {text:?}");
             assert_eq!(ceil.col, col, "ceil of the boundary {col} for {text:?}");
@@ -104,7 +104,7 @@ fn inserting_then_deleting_before_restores_the_text() -> noprop::TestResult {
         let text = sample_line(ctx);
         let inserted = noprop::sample_choice(ctx, &['x', 'z', '\u{3042}']);
         let mut buffer = kk::TextBuffer::new(&text);
-        let char_index = noprop::sample_usize_in(ctx, 0..=buffer.text[0].0.len());
+        let char_index = noprop::sample_usize_in(ctx, 0..=buffer.line(0).unwrap().char_count());
         let col = buffer.col_at_char_index(0, char_index).expect("row 0");
         let at = kk::TextPosition { row: 0, col };
 
@@ -137,9 +137,9 @@ fn char_index_at_col_inverts_col_at_char_index() -> noprop::TestResult {
     runner.run(256, |ctx| {
         let text = sample_line(ctx);
         let buffer = kk::TextBuffer::new(&text);
-        let line = &buffer.text[0];
+        let line = buffer.line(0).unwrap();
 
-        for index in 0..=line.0.len() {
+        for index in 0..=line.char_count() {
             let col = buffer.col_at_char_index(0, index).expect("row 0");
             assert_eq!(
                 buffer.char_index_at_col(0, col),
@@ -161,7 +161,7 @@ fn a_wide_character_occupies_two_columns() {
     assert_eq!(buffer.char_index_at_col(0, 2), Some(1));
     assert_eq!(buffer.col_at_char_index(0, 1), Some(2));
     assert_eq!(
-        buffer.text[0].char_at_col(1),
+        buffer.line(0).unwrap().char_at_col(1),
         None,
         "column 1 is the wide char's trailing cell, not a character start"
     );

@@ -12,7 +12,7 @@
 #[derive(Debug, Clone)]
 pub struct TextBuffer {
     /// The lines, in order.
-    pub text: Vec<TextLine>,
+    text: Vec<TextLine>,
 }
 
 impl TextBuffer {
@@ -43,6 +43,76 @@ impl TextBuffer {
     /// Returns the number of lines.
     pub fn rows(&self) -> usize {
         self.text.len()
+    }
+
+    /// Returns line `row`, or `None` if there is no such line.
+    pub fn line(&self, row: usize) -> Option<&TextLine> {
+        self.text.get(row)
+    }
+
+    /// Removes and returns line `row`, or `None` if there is no such line.
+    pub fn remove_line(&mut self, row: usize) -> Option<TextLine> {
+        if row < self.text.len() {
+            Some(self.text.remove(row))
+        } else {
+            None
+        }
+    }
+
+    /// Returns the lines, in order.
+    pub fn lines(&self) -> std::slice::Iter<'_, TextLine> {
+        self.text.iter()
+    }
+
+    /// Keeps only the characters of line `row` before column `col`.
+    ///
+    /// Does nothing if there is no such line.
+    pub fn truncate_line(&mut self, row: usize, col: usize) {
+        if let Some(line) = self.text.get_mut(row) {
+            line.truncate_to_col(col);
+        }
+    }
+
+    /// Appends `chars` to the end of line `row`.
+    ///
+    /// Does nothing if there is no such line.
+    pub fn extend_line_from_chars(&mut self, row: usize, chars: Vec<char>) {
+        if let Some(line) = self.text.get_mut(row) {
+            line.extend_from_chars(chars);
+        }
+    }
+
+    /// Removes the characters of line `row` in the column range
+    /// `[start_col, end_col)`.
+    ///
+    /// Does nothing if there is no such line.
+    pub fn remove_cols(&mut self, row: usize, start_col: usize, end_col: usize) {
+        if let Some(line) = self.text.get_mut(row) {
+            line.remove_cols(start_col, end_col);
+        }
+    }
+
+    /// Removes and returns the characters of line `row` at or past column
+    /// `col`.
+    ///
+    /// Returns the removed text, or `None` if there is no such line. An empty
+    /// cut returns `Some(String::new())`.
+    pub fn cut_line_tail(&mut self, row: usize, col: usize) -> Option<String> {
+        let line = self.text.get_mut(row)?;
+        let tail = line.split_off_at_col(col);
+        Some(tail.into_iter().collect())
+    }
+
+    /// Joins line `row + 1` onto the end of line `row`, removing the former.
+    ///
+    /// Does nothing if either line is missing.
+    pub fn join_next_line(&mut self, row: usize) {
+        if row + 1 < self.text.len() {
+            let next_line = self.text.remove(row + 1);
+            if let Some(line) = self.text.get_mut(row) {
+                line.extend_from_line(next_line);
+            }
+        }
     }
 
     /// Returns the display width of line `row`, or 0 if there is no such line.
@@ -238,7 +308,7 @@ impl TextBuffer {
 /// Columns are display cells, so a wide character occupies more than one of
 /// them; methods that take a column adjust for that as described per method.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct TextLine(pub Vec<char>);
+pub struct TextLine(Vec<char>);
 
 impl TextLine {
     /// Builds a line from `chars`.
@@ -249,6 +319,30 @@ impl TextLine {
     /// Appends every character of `other` to this line.
     pub fn extend_from_line(&mut self, other: TextLine) {
         self.0.extend(other.0);
+    }
+
+    /// Appends every character of `chars` to this line.
+    pub fn extend_from_chars(&mut self, chars: Vec<char>) {
+        self.0.extend(chars);
+    }
+
+    /// Keeps only the characters before column `col`, dropping the rest.
+    ///
+    /// The cut is made at the character whose start column is at or past `col`,
+    /// so a column inside a wide character cuts before it.
+    pub fn truncate_to_col(&mut self, col: usize) {
+        let char_index = self.char_index_at_col(col);
+        self.0.truncate(char_index);
+    }
+
+    /// Removes the characters in the column range `[start_col, end_col)`.
+    ///
+    /// The range is cut at character boundaries as
+    /// [`char_index_at_col`](TextLine::char_index_at_col) does.
+    pub fn remove_cols(&mut self, start_col: usize, end_col: usize) {
+        let start_index = self.char_index_at_col(start_col);
+        let end_index = self.char_index_at_col(end_col);
+        self.0.drain(start_index..end_index);
     }
 
     /// Removes and returns the characters at or past column `col`.
@@ -346,6 +440,11 @@ impl TextLine {
         }
 
         self.0.insert(char_index, ch);
+    }
+
+    /// Returns the number of characters in this line.
+    pub fn char_count(&self) -> usize {
+        self.0.len()
     }
 
     /// Returns the index of the first character starting at or past column

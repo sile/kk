@@ -542,7 +542,7 @@ impl State {
 
         if start.row == end.row {
             // Single line selection
-            if let Some(line) = self.buffer.text.get(start.row) {
+            if let Some(line) = self.buffer.line(start.row) {
                 for (col, ch) in line.char_cols() {
                     if col >= start.col && col < end.col {
                         result.push(ch);
@@ -552,7 +552,7 @@ impl State {
         } else {
             // Multi-line selection
             for row in start.row..=end.row {
-                if let Some(line) = self.buffer.text.get(row) {
+                if let Some(line) = self.buffer.line(row) {
                     if row == start.row {
                         // First line: from start.col to end of line
                         for (col, ch) in line.char_cols() {
@@ -595,50 +595,29 @@ impl State {
 
         if start.row == end.row {
             // Single line deletion
-            if let Some(line) = self.buffer.text.get_mut(start.row) {
-                let start_char_idx = line.char_index_at_col(start.col);
-                let end_char_idx = line.char_index_at_col(end.col);
-
-                for _ in start_char_idx..end_char_idx {
-                    if start_char_idx < line.0.len() {
-                        line.0.remove(start_char_idx);
-                    }
-                }
-            }
+            self.buffer.remove_cols(start.row, start.col, end.col);
         } else {
             // Multi-line deletion
             // Remove complete middle lines
             for _ in start.row + 1..end.row {
-                if start.row + 1 < self.buffer.text.len() {
-                    self.buffer.text.remove(start.row + 1);
-                }
+                self.buffer.remove_line(start.row + 1);
             }
 
-            // Handle first and last lines
-            if let Some(start_line) = self.buffer.text.get_mut(start.row) {
-                let chars_to_keep: Vec<char> = start_line
-                    .char_cols()
-                    .filter(|(col, _)| *col < start.col)
-                    .map(|(_, ch)| ch)
-                    .collect();
-                start_line.0 = chars_to_keep;
-            }
+            // Keep the part of the first line before the selection, then
+            // append the part of the last line after it.
+            self.buffer.truncate_line(start.row, start.col);
 
-            if start.row + 1 < self.buffer.text.len()
-                && let Some(end_line) = self.buffer.text.get(start.row + 1).cloned()
-            {
+            if let Some(end_line) = self.buffer.line(start.row + 1) {
                 let chars_to_keep: Vec<char> = end_line
                     .char_cols()
                     .filter(|(col, _)| *col >= end.col)
                     .map(|(_, ch)| ch)
                     .collect();
 
-                if let Some(start_line) = self.buffer.text.get_mut(start.row) {
-                    start_line.0.extend(chars_to_keep);
-                }
-
-                self.buffer.text.remove(start.row + 1);
+                self.buffer.extend_line_from_chars(start.row, chars_to_keep);
             }
+
+            self.buffer.remove_line(start.row + 1);
         }
     }
 
@@ -752,9 +731,7 @@ impl State {
 
         if cursor_pos.col >= current_line_cols {
             // Cursor is at or past end of line - delete the newline (merge with next line)
-            if cursor_pos.row < self.buffer.rows().saturating_sub(1)
-                && let Some(next_line) = self.buffer.text.get(cursor_pos.row + 1).cloned()
-            {
+            if self.buffer.line(cursor_pos.row + 1).is_some() {
                 // Copy the newline to clipboard
                 if append {
                     self.clipboard.append("\n");
@@ -762,10 +739,7 @@ impl State {
                     self.clipboard.write("\n");
                 }
 
-                self.buffer.text.remove(cursor_pos.row + 1);
-                if let Some(current_line) = self.buffer.text.get_mut(cursor_pos.row) {
-                    current_line.extend_from_line(next_line);
-                }
+                self.buffer.join_next_line(cursor_pos.row);
                 if append {
                     self.set_message("Appended newline");
                 } else {
@@ -774,13 +748,10 @@ impl State {
             }
         } else {
             // Delete from cursor to end of line and copy to clipboard
-            if let Some(line) = self.buffer.text.get_mut(cursor_pos.row) {
-                let char_index = line.char_index_at_col(cursor_pos.col);
+            let killed_text = self.buffer.cut_line_tail(cursor_pos.row, cursor_pos.col);
 
-                // Extract the text that will be deleted
-                let killed_text: String = line.0[char_index..].iter().collect();
-
-                if !killed_text.is_empty() {
+            match killed_text {
+                Some(killed_text) if !killed_text.is_empty() => {
                     // Copy to clipboard
                     if append {
                         self.clipboard.append(&killed_text);
@@ -788,18 +759,14 @@ impl State {
                         self.clipboard.write(&killed_text);
                     }
 
-                    // Delete the text
-                    line.0.truncate(char_index);
-
                     let chars = killed_text.chars().count();
                     if append {
                         self.set_message(format!("Appended {chars} characters"));
                     } else {
                         self.set_message(format!("Killed {chars} characters"));
                     }
-                } else {
-                    self.set_message("Nothing to kill");
                 }
+                _ => self.set_message("Nothing to kill"),
             }
         }
 

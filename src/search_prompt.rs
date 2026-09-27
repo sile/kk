@@ -94,7 +94,7 @@ impl Highlight {
         let query_len = query_lower.len();
         let mut items = Vec::new();
 
-        for (row, line) in buffer.text.iter().enumerate() {
+        for (row, line) in buffer.lines().enumerate() {
             // (display column, lowercased char) for every character in the line.
             let mut line_end_col = 0;
             let chars: Vec<(usize, char)> = line

@@ -21,10 +21,10 @@ impl TextAreaRenderer {
 
         // Render visible lines from the buffer starting at viewport position
         let start_row = state.viewport.row;
-        let end_row = (start_row + available_rows).min(state.buffer.text.len());
+        let end_row = (start_row + available_rows).min(state.buffer.rows());
 
         for (screen_row, buffer_row) in (start_row..end_row).enumerate() {
-            if let Some(line) = state.buffer.text.get(buffer_row) {
+            if let Some(line) = state.buffer.line(buffer_row) {
                 self.render_line(
                     line,
                     state.viewport.col,
