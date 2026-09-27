@@ -32,6 +32,6 @@ pub use fmt::display_input;
 pub use render::{
     full_legend_size, render_legend, render_message_line, render_status_line, render_text_area,
 };
-pub use search_prompt::{Highlight, SearchPrompt};
+pub use search_prompt::{Highlight, HighlightItem, SearchPrompt};
 pub use state::State;
 pub use terminal::{char_cols, put_str, str_cols};
