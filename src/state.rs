@@ -60,7 +60,7 @@ pub struct State {
     /// Whether the last command was a kill, which is what makes a run of kills
     /// collect into one clipboard entry rather than replacing it.
     ///
-    /// [`handle_line_delete`](State::handle_line_delete) sets it, and both
+    /// [`handle_line_delete()`](State::handle_line_delete) sets it, and both
     /// `start_editing` and `finish_editing` clear it, so any edit or cursor
     /// move breaks the run.
     kill_chained: bool,
@@ -80,7 +80,7 @@ pub struct State {
     /// A search moves the cursor to a hit and the viewport to follow it;
     /// leaving the prompt with `C-g` puts both back, so an abandoned search
     /// leaves no trace. The prompt is always opened through
-    /// [`handle_search_enter`](State::handle_search_enter), which fills this in.
+    /// [`handle_search_enter()`](State::handle_search_enter), which fills this in.
     search_return: Option<(TextPosition, TextPosition)>,
 
     /// The current search matches, used for highlighting.
@@ -199,7 +199,7 @@ impl State {
     /// same flag, this covers every break: the edits that only start an edit
     /// (inserting, deleting a character) and the moves and commands that only
     /// end one (moving the cursor, undoing).
-    /// [`handle_line_delete`](State::handle_line_delete) reads the flag before
+    /// [`handle_line_delete()`](State::handle_line_delete) reads the flag before
     /// its own `start_editing` and re-arms it after its `finish_editing`, which
     /// is what chains one kill onto the next.
     pub fn finish_editing(&mut self) {
@@ -219,7 +219,7 @@ impl State {
     /// than refused: the row is clamped to the buffer and the column to the
     /// target line, and the column is then snapped back onto a character
     /// boundary. The viewport follows on the next
-    /// [`adjust_viewport`](Self::adjust_viewport).
+    /// [`adjust_viewport()`](State::adjust_viewport).
     pub fn handle_cursor_to_position(&mut self, row: usize, col: usize) {
         self.cursor.row = row.min(self.buffer.rows());
         self.cursor.col = self.buffer.cols(self.cursor.row).min(col);
@@ -245,7 +245,7 @@ impl State {
     /// Scrolls the viewport and the cursor `rows` lines down, or up when
     /// `rows` is negative.
     ///
-    /// The cursor moves with the viewport because [`adjust_viewport`](Self::adjust_viewport)
+    /// The cursor moves with the viewport because [`adjust_viewport()`](State::adjust_viewport)
     /// pulls the viewport back to the cursor on the next render, so a viewport
     /// moved on its own would snap right back.
     pub fn handle_scroll(&mut self, rows: isize) {
@@ -720,7 +720,7 @@ impl State {
     /// The removed text goes to the clipboard. A kill that follows another one
     /// without a break in between is chained onto the entry the previous kill
     /// left rather than replacing it, so a run of `C-k` collects what it
-    /// removed into one entry (see [`finish_editing`](State::finish_editing) for
+    /// removed into one entry (see [`finish_editing()`](State::finish_editing) for
     /// what counts as a break).
     pub fn handle_line_delete(&mut self) {
         let append = self.kill_chained;
@@ -779,7 +779,7 @@ impl State {
     /// Drops the mark and the search state, and reports `Canceled`.
     ///
     /// This is the `C-g` of the modes that hold no prompt; a prompt is left
-    /// through [`handle_search_cancel`](State::handle_search_cancel).
+    /// through [`handle_search_cancel()`](State::handle_search_cancel).
     pub fn handle_cancel(&mut self) {
         self.clear_transient_state();
         self.set_message("Canceled");
@@ -827,7 +827,7 @@ impl State {
     /// Opens the search prompt with an empty query.
     ///
     /// The cursor and viewport are remembered first, so
-    /// [`handle_search_cancel`](State::handle_search_cancel) can put the buffer
+    /// [`handle_search_cancel()`](State::handle_search_cancel) can put the buffer
     /// back where the search found it. The mark and the previous highlight are
     /// dropped: they belong to the editing that the prompt interrupts.
     pub fn handle_search_enter(&mut self) {
@@ -842,7 +842,7 @@ impl State {
     /// The cursor and viewport go back to their remembered positions, so a
     /// search that was merely looked at leaves the buffer untouched. The query
     /// itself is kept in [`search_clipboard`](State::search_clipboard), exactly
-    /// as [`handle_search_accept`](State::handle_search_accept) keeps it: what
+    /// as [`handle_search_accept()`](State::handle_search_accept) keeps it: what
     /// an abandoned search leaves behind is the word it looked for, never a
     /// change to the buffer. Does nothing when no prompt is open.
     pub fn handle_search_cancel(&mut self) {

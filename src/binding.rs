@@ -32,7 +32,7 @@ pub const EDIT_LEGEND: &[&str] = &[
     "\u{2514}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
-/// The legend rows for the [search mode](crate::Mode::Search), in legend order,
+/// The legend rows for the [search mode](Mode::Search), in legend order,
 /// the bottom border last.
 pub const SEARCH_LEGEND: &[&str] = &[
     "\u{2502}C-g cancel",

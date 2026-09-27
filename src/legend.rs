@@ -9,7 +9,7 @@ use crate::terminal::put_str;
 ///
 /// The legend sits in the frame's top-right corner: one binding per row, and
 /// under them a bottom border with the mode title centered in it. Every row
-/// is painted as it is written in [`legend`](Mode::legend), border strokes
+/// is painted as it is written in [`legend()`](Mode::legend), border strokes
 /// and all, so the box needs no drawing arithmetic. It paints nothing when the
 /// frame cannot hold the legend whole: a legend clipped to fit would show chords
 /// without their labels.
