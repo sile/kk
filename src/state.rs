@@ -10,7 +10,7 @@ use std::collections::VecDeque;
 use crate::{
     buffer::{TextBuffer, TextPosition},
     clipboard::Clipboard,
-    search_mode::{Highlight, SearchMode},
+    search_prompt::{Highlight, SearchPrompt},
 };
 
 /// The number of undo snapshots kept before the oldest is discarded.
@@ -73,7 +73,7 @@ pub struct State {
     pub undo_index: usize,
 
     /// The active search prompt, if one is open. // TODO: non-optional
-    pub search_mode: Option<SearchMode>,
+    pub search_prompt: Option<SearchPrompt>,
 
     /// Where the cursor and viewport were when the search prompt opened.
     ///
@@ -103,7 +103,7 @@ impl State {
             kill_chained: false,
             history: VecDeque::new(),
             undo_index: 0,
-            search_mode: None,
+            search_prompt: None,
             search_return: None,
             highlight: Highlight::default(),
         }
@@ -271,7 +271,7 @@ impl State {
     /// While a search prompt is open, this moves the query's insertion cursor
     /// instead.
     pub fn handle_cursor_left(&mut self) {
-        if let Some(search) = &mut self.search_mode {
+        if let Some(search) = &mut self.search_prompt {
             search.cursor = search.cursor.saturating_sub(1);
             return;
         }
@@ -292,7 +292,7 @@ impl State {
     /// While a search prompt is open, this moves the query's insertion cursor
     /// instead.
     pub fn handle_cursor_right(&mut self) {
-        if let Some(search) = &mut self.search_mode {
+        if let Some(search) = &mut self.search_prompt {
             search.cursor = (search.cursor + 1).min(search.query.len());
             return;
         }
@@ -311,7 +311,7 @@ impl State {
 
     /// Moves the cursor to its line's first column.
     pub fn handle_cursor_line_start(&mut self) {
-        if let Some(search) = &mut self.search_mode {
+        if let Some(search) = &mut self.search_prompt {
             search.cursor = 0;
             return;
         }
@@ -322,7 +322,7 @@ impl State {
 
     /// Moves the cursor to its line's end.
     pub fn handle_cursor_line_end(&mut self) {
-        if let Some(search) = &mut self.search_mode {
+        if let Some(search) = &mut self.search_prompt {
             search.cursor = search.query.len();
             return;
         }
@@ -349,7 +349,7 @@ impl State {
     /// While a search prompt is open, this deletes from the query instead and
     /// re-runs it.
     pub fn handle_char_delete_backward(&mut self) {
-        if let Some(search) = &mut self.search_mode {
+        if let Some(search) = &mut self.search_prompt {
             if search.cursor > 0 {
                 search.query.remove(search.cursor - 1);
                 search.cursor -= 1;
@@ -369,7 +369,7 @@ impl State {
     /// While a search prompt is open, this deletes from the query instead and
     /// re-runs it.
     pub fn handle_char_delete_forward(&mut self) {
-        if let Some(search) = &mut self.search_mode {
+        if let Some(search) = &mut self.search_prompt {
             if search.cursor < search.query.len() {
                 search.query.remove(search.cursor);
                 self.rerun_query();
@@ -387,7 +387,7 @@ impl State {
     /// or `C-r` asks for a hit, so typing a query does not drag the buffer
     /// around under the prompt.
     fn rerun_query(&mut self) {
-        let Some(search) = &self.search_mode else {
+        let Some(search) = &self.search_prompt else {
             return;
         };
         self.highlight = search.search(&self.buffer);
@@ -438,7 +438,7 @@ impl State {
     /// While a search prompt is open, the character enters the query instead
     /// and re-runs it.
     pub fn handle_char_insert(&mut self, ch: char) {
-        if let Some(search) = &mut self.search_mode {
+        if let Some(search) = &mut self.search_prompt {
             search.insert_char(ch);
             self.rerun_query();
             return;
@@ -641,7 +641,7 @@ impl State {
     /// reads [`search_clipboard`](State::search_clipboard), so what it pastes is
     /// what its own `C-k` killed and never the buffer's.
     pub fn handle_clipboard_paste(&mut self) {
-        if let Some(search) = &mut self.search_mode {
+        if let Some(search) = &mut self.search_prompt {
             let text = self.search_clipboard.read();
 
             if text.is_empty() {
@@ -820,7 +820,7 @@ impl State {
         self.search_return = None;
         self.finish_editing();
         self.mark = None;
-        self.search_mode = None;
+        self.search_prompt = None;
         self.highlight = Highlight::default();
     }
 
@@ -833,7 +833,7 @@ impl State {
     ///
     /// Does nothing when no search prompt is open.
     pub fn handle_search_kill_query(&mut self) {
-        let Some(search) = &mut self.search_mode else {
+        let Some(search) = &mut self.search_prompt else {
             return;
         };
 
@@ -858,8 +858,8 @@ impl State {
     pub fn handle_search_enter(&mut self) {
         self.clear_transient_state();
         self.search_return = Some((self.cursor, self.viewport));
-        self.search_mode = Some(SearchMode::new());
-        self.set_message("Entered search mode");
+        self.search_prompt = Some(SearchPrompt::new());
+        self.set_message("Entered the search prompt");
     }
 
     /// Abandons the search prompt and returns to where it was opened.
@@ -871,7 +871,7 @@ impl State {
     /// an abandoned search leaves behind is the word it looked for, never a
     /// change to the buffer. Does nothing when no prompt is open.
     pub fn handle_search_cancel(&mut self) {
-        if self.search_mode.is_none() {
+        if self.search_prompt.is_none() {
             return;
         }
 
@@ -894,7 +894,7 @@ impl State {
     /// searched for is there for a later `C-y`. Does nothing when no prompt is
     /// open.
     pub fn handle_search_accept(&mut self) {
-        if self.search_mode.is_none() {
+        if self.search_prompt.is_none() {
             return;
         }
 
@@ -908,7 +908,7 @@ impl State {
     /// An empty query is not written, so leaving a prompt that was never typed
     /// into does not wipe the word an earlier search left.
     fn save_query_to_search_clipboard(&mut self) {
-        let Some(search) = &self.search_mode else {
+        let Some(search) = &self.search_prompt else {
             return;
         };
 
@@ -922,7 +922,7 @@ impl State {
     ///
     /// Does nothing when no search prompt is open.
     pub fn handle_search_next_hit(&mut self) {
-        if self.search_mode.is_none() {
+        if self.search_prompt.is_none() {
             return;
         }
 
@@ -950,7 +950,7 @@ impl State {
     ///
     /// Does nothing when no search prompt is open.
     pub fn handle_search_prev_hit(&mut self) {
-        if self.search_mode.is_none() {
+        if self.search_prompt.is_none() {
             return;
         }
 

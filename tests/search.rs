@@ -2,7 +2,7 @@
 
 use std::cell::Cell;
 
-use kk::{Highlight, SearchMode};
+use kk::{Highlight, SearchPrompt};
 
 /// A state over `text`, with no search open yet.
 fn state_of(text: &str) -> kk::State {
@@ -11,7 +11,7 @@ fn state_of(text: &str) -> kk::State {
 
 /// Runs `query` over `state` and returns the matches.
 fn run(query: &str, state: &kk::State) -> Highlight {
-    let mut search = SearchMode::new();
+    let mut search = SearchPrompt::new();
     for ch in query.chars() {
         search.insert_char(ch);
     }
@@ -190,14 +190,18 @@ fn a_query_longer_than_the_line_matches_nothing() {
 #[test]
 fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
     let mut state = state_of("abc\n");
-    state.search_mode = Some(SearchMode::new());
+    state.search_prompt = Some(SearchPrompt::new());
     let buffer_cursor = state.cursor;
 
     for ch in "xy".chars() {
         state.handle_char_insert(ch);
     }
     assert_eq!(
-        state.search_mode.as_ref().expect("search mode").query,
+        state
+            .search_prompt
+            .as_ref()
+            .expect("the prompt is open")
+            .query,
         vec!['x', 'y']
     );
     assert_eq!(
@@ -207,17 +211,49 @@ fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
 
     // The movement handlers drive the query cursor while a search is open.
     state.handle_cursor_left();
-    assert_eq!(state.search_mode.as_ref().expect("search mode").cursor, 1);
+    assert_eq!(
+        state
+            .search_prompt
+            .as_ref()
+            .expect("the prompt is open")
+            .cursor,
+        1
+    );
     state.handle_char_delete_backward();
     assert_eq!(
-        state.search_mode.as_ref().expect("search mode").query,
+        state
+            .search_prompt
+            .as_ref()
+            .expect("the prompt is open")
+            .query,
         vec!['y']
     );
-    assert_eq!(state.search_mode.as_ref().expect("search mode").cursor, 0);
+    assert_eq!(
+        state
+            .search_prompt
+            .as_ref()
+            .expect("the prompt is open")
+            .cursor,
+        0
+    );
     state.handle_cursor_line_end();
-    assert_eq!(state.search_mode.as_ref().expect("search mode").cursor, 1);
+    assert_eq!(
+        state
+            .search_prompt
+            .as_ref()
+            .expect("the prompt is open")
+            .cursor,
+        1
+    );
     state.handle_cursor_line_start();
-    assert_eq!(state.search_mode.as_ref().expect("search mode").cursor, 0);
+    assert_eq!(
+        state
+            .search_prompt
+            .as_ref()
+            .expect("the prompt is open")
+            .cursor,
+        0
+    );
 
     // The query re-runs as it is edited, so the highlight tracks it.
     assert_eq!(state.highlight.items.len(), 0, "'y' is not in the buffer");
@@ -227,7 +263,7 @@ fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
 #[test]
 fn typing_a_query_fills_in_the_highlight() {
     let mut state = state_of("abc abc\n");
-    state.search_mode = Some(SearchMode::new());
+    state.search_prompt = Some(SearchPrompt::new());
 
     for ch in "abc".chars() {
         state.handle_char_insert(ch);
@@ -240,7 +276,7 @@ fn typing_a_query_fills_in_the_highlight() {
 #[test]
 fn typing_a_query_leaves_the_cursor_alone_even_when_it_matches() {
     let mut state = state_of("one two one\n");
-    state.search_mode = Some(SearchMode::new());
+    state.search_prompt = Some(SearchPrompt::new());
     state.cursor = kk::TextPosition { row: 0, col: 4 };
 
     // Every character matches, so the old behaviour would have jumped to the
@@ -264,7 +300,7 @@ fn typing_a_query_leaves_the_cursor_alone_even_when_it_matches() {
 #[test]
 fn the_next_hit_advances_and_wraps_around() {
     let mut state = state_of("one two one\n");
-    state.search_mode = Some(SearchMode::new());
+    state.search_prompt = Some(SearchPrompt::new());
     for ch in "one".chars() {
         state.handle_char_insert(ch);
     }
@@ -280,7 +316,7 @@ fn the_next_hit_advances_and_wraps_around() {
 #[test]
 fn the_previous_hit_goes_back_and_wraps_around() {
     let mut state = state_of("one two one\n");
-    state.search_mode = Some(SearchMode::new());
+    state.search_prompt = Some(SearchPrompt::new());
     for ch in "one".chars() {
         state.handle_char_insert(ch);
     }
@@ -324,7 +360,7 @@ fn cancelling_a_search_puts_the_cursor_and_viewport_back() {
 
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 4 });
     assert_eq!(state.viewport, kk::TextPosition { row: 0, col: 2 });
-    assert!(state.search_mode.is_none(), "the prompt is gone");
+    assert!(state.search_prompt.is_none(), "the prompt is gone");
     assert!(state.highlight.items.is_empty(), "the highlight is gone");
 }
 
@@ -346,7 +382,7 @@ fn accepting_a_search_keeps_the_cursor_on_the_hit() {
         kk::TextPosition { row: 0, col: 8 },
         "the hit is where editing resumes"
     );
-    assert!(state.search_mode.is_none(), "the prompt is gone");
+    assert!(state.search_prompt.is_none(), "the prompt is gone");
     assert!(state.highlight.items.is_empty(), "the highlight is gone");
 }
 
@@ -377,5 +413,5 @@ fn leaving_a_search_that_was_never_opened_does_nothing() {
     state.handle_search_accept();
 
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 4 });
-    assert!(state.search_mode.is_none());
+    assert!(state.search_prompt.is_none());
 }

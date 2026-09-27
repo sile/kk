@@ -5,24 +5,24 @@ use crate::{
     terminal::char_cols,
 };
 
-/// A search in progress.
+/// An open search prompt and the query typed into it.
 ///
 /// The query is edited as a list of characters with an insertion cursor, so a
 /// query can be built up one keypress at a time before it is run. The matches
-/// are collected by [`search`](SearchMode::search) in buffer order; which one
+/// are collected by [`search`](SearchPrompt::search) in buffer order; which one
 /// the cursor visits is the hit commands' business, not the prompt's, so the
 /// prompt holds no direction.
 #[derive(Debug, Default)]
-pub struct SearchMode {
+pub struct SearchPrompt {
     /// The query as entered so far.
     pub query: Vec<char>,
 
-    /// The index in [`query`](SearchMode::query) where the next character is
+    /// The index in [`query`](SearchPrompt::query) where the next character is
     /// inserted.
     pub cursor: usize,
 }
 
-impl SearchMode {
+impl SearchPrompt {
     /// Starts an empty query.
     pub fn new() -> Self {
         Self::default()

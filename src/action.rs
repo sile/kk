@@ -88,20 +88,20 @@ pub enum Action {
     /// Inserts the clipboard's contents at the cursor.
     ClipboardPaste,
 
-    /// Enters search mode with an empty query.
+    /// Enters the search prompt with an empty query.
     ///
     /// The direction is not chosen here: it belongs to the hit commands, so the
     /// same entry serves both.
     SearchEnter,
 
-    /// Leaves search mode, returning the cursor and viewport to where the prompt
+    /// Leaves the search prompt, returning the cursor and viewport to where it
     /// was opened.
     ///
     /// The query is kept for a later `C-y`, as it is on
     /// [`SearchAccept`](Action::SearchAccept).
     SearchCancel,
 
-    /// Leaves search mode on the hit the cursor sits on.
+    /// Leaves the search prompt on the hit the cursor sits on.
     ///
     /// The query is kept for a later `C-y`.
     SearchAccept,

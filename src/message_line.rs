@@ -19,7 +19,7 @@ impl MessageLineRenderer {
     pub fn render(&self, state: &State, frame: &mut tuinix::Frame) {
         // The prompt and the query are not one string on `State`, so the line
         // they make is built here.
-        let search_line = state.search_mode.as_ref().map(|search| search.line());
+        let search_line = state.search_prompt.as_ref().map(|search| search.line());
         let text = match &search_line {
             Some(line) => line.as_str(),
             None => match &state.message {

@@ -32,7 +32,7 @@ impl StatusLineRenderer {
 
         // The prompt keeps its own clipboard, so the summary shown is the one
         // belonging to the mode that is on screen.
-        let summary = if state.search_mode.is_some() {
+        let summary = if state.search_prompt.is_some() {
             &state.search_clipboard.summary_line
         } else {
             &state.clipboard.summary_line
@@ -42,7 +42,7 @@ impl StatusLineRenderer {
         // them; the clipboard icon is always there, its summary or not. The
         // separator goes in with the hits so an empty `hits` leaves one space
         // rather than two.
-        let hits = if state.search_mode.is_none() {
+        let hits = if state.search_prompt.is_none() {
             String::new()
         } else {
             format!(

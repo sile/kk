@@ -5,7 +5,7 @@ mod e2e;
 use e2e::{KkHarness, scratch_file};
 
 #[test]
-fn search_enters_search_mode_and_finds_a_later_match() {
+fn search_enters_the_prompt_and_finds_a_later_match() {
     let path = scratch_file("search.txt");
     std::fs::write(&path, "alpha\nbeta\ngamma\n").expect("write scratch file");
 
@@ -53,7 +53,7 @@ fn search_can_be_cancelled_with_ctrl_g() {
     kk.send_ctrl('g');
 
     // Cancelling leaves the prompt behind and returns to the buffer.
-    kk.wait_until("search mode left", |h| !h.screen_contains("Search:"));
+    kk.wait_until("the prompt left", |h| !h.screen_contains("Search:"));
 
     let status = kk.quit();
     assert!(status.success(), "kk exited with {status:?}");

@@ -66,7 +66,7 @@ impl TextAreaRenderer {
                     .as_ref()
                     .is_some_and(|(start, end)| current_col >= *start && current_col < *end);
                 let is_highlighted = state.highlight.contains(pos);
-                let is_cursor = state.search_mode.is_some() && pos == state.cursor;
+                let is_cursor = state.search_prompt.is_some() && pos == state.cursor;
 
                 let style = if is_cursor || is_marked {
                     tuinix::Style::new().reverse()

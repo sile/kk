@@ -284,7 +284,7 @@ fn killing_from_the_query_does_not_touch_the_buffers_clipboard() {
         state.handle_char_insert(ch);
     }
     // The prompt's cursor sits at the end, so move it back to have a tail.
-    if let Some(search) = &mut state.search_mode {
+    if let Some(search) = &mut state.search_prompt {
         search.cursor = 0;
     }
 
@@ -307,13 +307,13 @@ fn killing_from_the_query_leaves_the_text_before_the_cursor() {
         state.handle_char_insert(ch);
     }
     // The prompt's cursor sits at the end, so move it back into the middle.
-    if let Some(search) = &mut state.search_mode {
+    if let Some(search) = &mut state.search_prompt {
         search.cursor = 2;
     }
 
     state.handle_search_kill_query();
 
-    let search = state.search_mode.as_ref().expect("the prompt is open");
+    let search = state.search_prompt.as_ref().expect("the prompt is open");
     let remaining: String = search.query.iter().collect();
     assert_eq!(remaining, "qu", "what was before the cursor stays");
     assert_eq!(state.search_clipboard.read(), "ery");
@@ -345,7 +345,7 @@ fn the_prompt_pastes_its_own_clipboard_into_the_query() {
     state.handle_search_enter();
     state.handle_clipboard_paste();
 
-    let search = state.search_mode.as_ref().expect("the prompt is open");
+    let search = state.search_prompt.as_ref().expect("the prompt is open");
     let query: String = search.query.iter().collect();
     assert_eq!(query, "two", "the prompt's own contents are what lands");
     assert_eq!(saved_text(&state), "one two\n", "the buffer is untouched");
@@ -367,7 +367,7 @@ fn accepting_a_search_keeps_the_query_for_a_later_prompt_paste() {
     // its query. The buffer's clipboard is a separate one and stays empty.
     state.handle_search_enter();
     state.handle_clipboard_paste();
-    let search = state.search_mode.as_ref().expect("the prompt is open");
+    let search = state.search_prompt.as_ref().expect("the prompt is open");
     let query: String = search.query.iter().collect();
     assert_eq!(query, "two");
     assert_eq!(

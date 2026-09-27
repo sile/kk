@@ -393,7 +393,7 @@ impl App {
         // The terminal cursor is in the query while one is open, and on the
         // buffer's cursor otherwise; the query shares the message line, so that
         // is the region its position is measured in.
-        let cursor = if let Some(search) = &self.state.search_mode {
+        let cursor = if let Some(search) = &self.state.search_prompt {
             Some(search.cursor_position(message_region))
         } else {
             Some(self.state.terminal_cursor_position())
