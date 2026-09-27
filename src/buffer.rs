@@ -488,6 +488,10 @@ impl std::fmt::Display for TextLine {
 /// Both fields are 0-based. `col` counts display cells, not characters, so a
 /// position must sit on a character boundary to name a character.
 ///
+/// This names a spot in the buffer, so it is not a
+/// [`tuinix::Position`](::tuinix::Position), which names a spot on the screen;
+/// the two differ by the viewport's offset.
+///
 /// The ordering is by `row` first and then `col`, so a range of positions can
 /// be compared directly.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
