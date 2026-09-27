@@ -1,7 +1,7 @@
 //! Formatting utilities for terminal UI display elements.
 
 /// Creates a displayable representation of a terminal input (key or mouse).
-pub fn input(input: &tuinix::Input) -> String {
+pub fn display_input(input: &tuinix::Input) -> String {
     match input {
         tuinix::Input::Key(key) => key_input(key),
         tuinix::Input::Mouse(mouse) => mouse_input(mouse.kind),

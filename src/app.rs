@@ -20,16 +20,6 @@ const ESCAPE_TIMEOUT_MS: libc::c_int = 50;
 /// How many lines one wheel notch scrolls.
 const SCROLL_ROWS: isize = 3;
 
-/// Whether a save checks the file on disk before overwriting it.
-#[derive(Debug, Clone, Copy)]
-enum SaveMode {
-    /// Refuse the write when the file no longer holds what this edge last saw.
-    CheckDisk,
-
-    /// Write regardless of what the file holds.
-    Force,
-}
-
 /// Owns the terminal edge and drives the core until the user quits.
 #[derive(Debug)]
 pub struct App {
@@ -64,13 +54,12 @@ impl App {
     /// edge has last seen, so a later save can tell whether the file changed
     /// underneath it.
     ///
-    /// `position` is the 1-based `:LINE[:COLUMN]` from the command line, as the user
-    /// spelled it. It is turned into the core's 0-based cursor here, and an
-    /// out-of-range position is clamped by the core rather than rejected.
+    /// `position` is where to leave the cursor, 0-based; an out-of-range
+    /// position is clamped by the core rather than rejected.
     pub fn new<P: AsRef<Path>>(
         path: P,
         create_new: bool,
-        position: Option<(usize, usize)>,
+        position: tuinix::Position,
     ) -> std::io::Result<Self> {
         let path = path.as_ref().to_path_buf();
         // `create_new` leaves the buffer empty without a read: the call only
@@ -85,10 +74,7 @@ impl App {
         let buffer = kk::TextBuffer::from_text(&text);
 
         let mut state = kk::State::new(buffer);
-        if let Some((row, col)) = position {
-            // The command line is 1-based; the core is 0-based.
-            state.handle_cursor_to_position(row.saturating_sub(1), col.saturating_sub(1));
-        }
+        state.handle_cursor_to_position(position.row, position.col);
         state.set_message(if create_new { "Created" } else { "Opened" });
         let mut driver = tuinix::TerminalDriver::new()?;
         // Mouse reporting is a convenience, not a requirement: a terminal that
@@ -203,7 +189,7 @@ impl App {
 
         let Some(resolved) = kk::resolve(self.context, &input) else {
             self.state
-                .set_message(format!("No action found: '{}'", kk::input(&input)));
+                .set_message(format!("No action found: '{}'", kk::display_input(&input)));
             return Ok(());
         };
 
@@ -211,6 +197,7 @@ impl App {
             self.handle_action(action, &input)?;
         }
 
+        // todo. context toiu yougo ha zentaiteki ni haisisite mode ni touitu sitemo iinokamo
         if let Some(context) = resolved.context {
             self.context = context;
         }
@@ -256,11 +243,11 @@ impl App {
             }
             kk::Action::Cancel => self.state.handle_cancel(),
             kk::Action::BufferSave => {
-                self.handle_buffer_save(SaveMode::CheckDisk)?;
+                self.handle_buffer_save(true)?;
                 self.state.clear_transient_state();
             }
             kk::Action::BufferForceSave => {
-                self.handle_buffer_save(SaveMode::Force)?;
+                self.handle_buffer_save(false)?;
                 self.state.clear_transient_state();
             }
             kk::Action::BufferReload => self.handle_buffer_reload()?,
@@ -305,13 +292,13 @@ impl App {
     /// Renders the buffer and writes it to `path` on behalf of the core.
     ///
     /// The core only produces the text; the write, and the report that follows
-    /// a successful one, happen here. Under [`SaveMode::CheckDisk`] the file is
-    /// read back first and a write is refused when it no longer holds what this
-    /// edge last read or wrote, so another writer's version is never silently
-    /// lost; the refusal names the chord that saves anyway.
-    fn handle_buffer_save(&mut self, mode: SaveMode) -> std::io::Result<()> {
+    /// a successful one, happen here. When `check_disk` is set the file is read
+    /// back first and a write is refused when it no longer holds what this edge
+    /// last read or wrote, so another writer's version is never silently lost;
+    /// the refusal names the chord that saves anyway.
+    fn handle_buffer_save(&mut self, check_disk: bool) -> std::io::Result<()> {
         let text = self.state.handle_buffer_save();
-        if let SaveMode::CheckDisk = mode {
+        if check_disk {
             match std::fs::read_to_string(&self.path) {
                 Ok(disk) if disk != self.saved_text => {
                     self.state

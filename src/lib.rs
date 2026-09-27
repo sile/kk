@@ -31,7 +31,7 @@ pub use action::Action;
 pub use binding::{Context, LegendSize, Resolved, legend, legend_size, resolve};
 pub use buffer::{TextBuffer, TextLine, TextPosition};
 pub use clipboard::Clipboard;
-pub use fmt::input;
+pub use fmt::display_input;
 pub use legend::LegendRenderer;
 pub use message_line::MessageLineRenderer;
 pub use search_mode::{Highlight, SearchMode};

@@ -385,12 +385,12 @@ fn non_key_input_never_resolves() {
 
 #[test]
 fn input_display_covers_unrecognized_and_paste() {
-    let unrecognized = kk::input(&tuinix::Input::Unrecognized {
+    let unrecognized = kk::display_input(&tuinix::Input::Unrecognized {
         bytes: b"\x1b[?".to_vec(),
     });
     assert_eq!(unrecognized, "<UNRECOGNIZED>");
 
-    let paste = kk::input(&tuinix::Input::Paste {
+    let paste = kk::display_input(&tuinix::Input::Paste {
         bytes: b"hi".to_vec(),
     });
     assert_eq!(paste, "<PASTE>");
@@ -398,9 +398,9 @@ fn input_display_covers_unrecognized_and_paste() {
 
 #[test]
 fn input_display_renders_keys_and_mouse() {
-    assert_eq!(kk::input(&tuinix::Input::Key(char_key('a'))), "a");
+    assert_eq!(kk::display_input(&tuinix::Input::Key(char_key('a'))), "a");
     assert_eq!(
-        kk::input(&tuinix::Input::Key(tuinix::KeyInput {
+        kk::display_input(&tuinix::Input::Key(tuinix::KeyInput {
             ctrl: true,
             alt: false,
             code: tuinix::KeyCode::Char('a'),
@@ -408,7 +408,7 @@ fn input_display_renders_keys_and_mouse() {
         "C-a"
     );
     assert_eq!(
-        kk::input(&tuinix::Input::Mouse(left_press())),
+        kk::display_input(&tuinix::Input::Mouse(left_press())),
         "<LEFTCLICK>"
     );
 }
