@@ -5,8 +5,6 @@
 //! reloading -- return the text to write and accept the text that was read, and
 //! the edge performs the actual read and write (see [`crate::Action`]).
 
-use std::collections::VecDeque;
-
 use crate::{
     buffer::{TextBuffer, TextPosition},
     clipboard::Clipboard,
@@ -68,7 +66,7 @@ pub struct State {
     /// clone only shares the lines that were not edited since (see
     /// [`TextLine`](crate::TextLine)), so a snapshot costs the lines the edit
     /// touched. The history is not capped.
-    pub history: VecDeque<(TextPosition, TextBuffer)>,
+    pub history: Vec<(TextPosition, TextBuffer)>,
 
     /// How many entries of [`history`](State::history) are still reachable by
     /// undo.
@@ -109,7 +107,7 @@ impl State {
             search_clipboard: Clipboard::default(),
             editing: false,
             cut_chained: false,
-            history: VecDeque::new(),
+            history: Vec::new(),
             undo_index: 0,
             search_prompt: None,
             search_return: None,
@@ -191,7 +189,7 @@ impl State {
             return;
         }
 
-        self.history.push_back((self.cursor, self.buffer.clone()));
+        self.history.push((self.cursor, self.buffer.clone()));
         self.undo_index = self.history.len();
 
         self.editing = true;
