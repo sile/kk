@@ -72,7 +72,13 @@ pub struct State {
     /// undo.
     pub undo_index: usize,
 
-    /// The active search prompt, if one is open. // TODO: non-optional
+    /// The active search prompt, if one is open.
+    ///
+    /// TODO: whether a prompt is open is also what
+    /// [`Mode::Search`](crate::Mode::Search) means, so the open-or-closed fact
+    /// lives in two places. It is kept as an `Option` because `State` does not
+    /// know the mode; folding the two together would mean moving the mode into
+    /// `State`.
     pub search_prompt: Option<SearchPrompt>,
 
     /// Where the cursor and viewport were when the search prompt opened.
