@@ -2,7 +2,7 @@
 
 use crate::terminal::put_str;
 
-use crate::binding::{self, LegendSize, Mode};
+use crate::binding::{self, Mode};
 
 /// Paints the key-binding legend.
 ///
@@ -28,10 +28,7 @@ impl LegendRenderer {
             return;
         }
 
-        let mut box_frame = tuinix::Frame::new(tuinix::Size {
-            rows: legend.rows,
-            cols: legend.cols,
-        });
+        let mut box_frame = tuinix::Frame::new(legend);
         for (row, text) in binding::legend(mode).iter().enumerate() {
             let at = tuinix::Position { row, col: 0 };
             put_str(&mut box_frame, at, text, tuinix::Style::new());
@@ -46,7 +43,7 @@ impl LegendRenderer {
 }
 
 /// The size the legend of `mode` needs, with room to spare.
-fn full_size(mode: Mode) -> LegendSize {
+fn full_size(mode: Mode) -> tuinix::Size {
     binding::legend_size(
         mode,
         tuinix::Size {

@@ -28,7 +28,7 @@ mod terminal;
 mod text_area;
 
 pub use action::Action;
-pub use binding::{LegendSize, Mode, Resolved, legend, legend_size, resolve};
+pub use binding::{Mode, Resolved, legend, legend_size, resolve};
 pub use buffer::{TextBuffer, TextLine, TextPosition};
 pub use clipboard::Clipboard;
 pub use fmt::display_input;

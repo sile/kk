@@ -361,10 +361,7 @@ impl App {
                 row: 0,
                 col: size.cols - legend.cols,
             },
-            size: tuinix::Size {
-                rows: legend.rows,
-                cols: legend.cols,
-            },
+            size: legend,
         })
     }
 

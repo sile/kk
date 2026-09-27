@@ -70,24 +70,13 @@ pub fn legend(mode: Mode) -> &'static [&'static str] {
     }
 }
 
-/// The columns a rendered legend occupies.
+/// Returns the size the legend of `mode` needs, limited to `limit`.
 ///
 /// The width is the widest legend row and the height is the number of rows, the
 /// bottom border included. Every row of the box is this wide, so a caller can
-/// size a frame to hold it whole.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LegendSize {
-    /// The box width in columns.
-    pub cols: usize,
-
-    /// The box height in rows, the bottom border included.
-    pub rows: usize,
-}
-
-/// Returns the size the legend of `mode` needs, limited to `limit`.
-///
-/// A limit smaller than the legend reports the limit, so a caller that compares
-/// the result against the limit can tell the legend was clipped.
+/// size a frame to hold it whole. A limit smaller than the legend reports the
+/// limit, so a caller that compares the result against the limit can tell the
+/// legend was clipped.
 ///
 /// # Examples
 ///
@@ -97,16 +86,16 @@ pub struct LegendSize {
 /// assert_eq!(ext.rows, 7);
 /// assert_eq!(ext.cols, 15);
 /// ```
-pub fn legend_size(mode: Mode, limit: tuinix::Size) -> LegendSize {
+pub fn legend_size(mode: Mode, limit: tuinix::Size) -> tuinix::Size {
     let rows = legend(mode).len();
     let cols = legend(mode)
         .iter()
         .map(|row| crate::terminal::str_cols(row))
         .max()
         .unwrap_or(0);
-    LegendSize {
-        cols: cols.min(limit.cols),
+    tuinix::Size {
         rows: rows.min(limit.rows),
+        cols: cols.min(limit.cols),
     }
 }
 

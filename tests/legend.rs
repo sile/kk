@@ -12,7 +12,7 @@ const BOTTOM_LEFT: &str = "\u{2514}";
 const HORIZONTAL: &str = "\u{2500}";
 
 /// The size the legend of `mode` needs in an ample frame.
-fn full_size(mode: kk::Mode) -> kk::LegendSize {
+fn full_size(mode: kk::Mode) -> tuinix::Size {
     kk::legend_size(
         mode,
         tuinix::Size {
@@ -24,11 +24,7 @@ fn full_size(mode: kk::Mode) -> kk::LegendSize {
 
 /// A frame exactly the size of `mode`'s legend.
 fn exact_frame(mode: kk::Mode) -> tuinix::Frame {
-    let size = full_size(mode);
-    tuinix::Frame::new(tuinix::Size {
-        rows: size.rows,
-        cols: size.cols,
-    })
+    tuinix::Frame::new(full_size(mode))
 }
 
 #[test]
