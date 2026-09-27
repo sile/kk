@@ -125,8 +125,10 @@ impl TextBuffer {
     /// a multi-line range leaves one line holding the text before `start.col`
     /// followed by the text from `end.col` on. Does nothing when the range is
     /// empty.
-    // TODO: This should be recorded as a single undo step; today the caller has
-    // to open the edit run around it.
+    ///
+    /// The whole deletion is one unit to the buffer, but not to the undo
+    /// history: a caller that wants it undone in one step opens the edit run
+    /// around this call.
     pub fn delete_range(&mut self, start: TextPosition, end: TextPosition) {
         if start == end {
             return;

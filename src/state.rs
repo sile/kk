@@ -514,10 +514,15 @@ impl State {
             };
 
             if let Some(text) = self.buffer.text_in_range(start, end) {
-                // Delete the selected text
+                // Open the edit run only once there is something to delete, so
+                // an empty region records no snapshot. The whole cut is one
+                // step: every change `delete_range` makes lands between these
+                // two calls.
+                self.start_editing();
                 self.buffer.delete_range(start, end);
                 self.cursor = start;
                 self.mark = None;
+                self.finish_editing();
 
                 self.clipboard.write(&text);
                 self.set_message(format!("Cut {} characters", text.chars().count()));

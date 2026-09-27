@@ -249,6 +249,47 @@ fn mark_cut_deletes_the_region_and_leaves_the_cursor_at_its_start() {
 }
 
 #[test]
+fn mark_cut_can_be_undone() {
+    let mut state = state_of("hello world\n");
+    state.cursor = at(0, 6);
+    state.handle_mark_set();
+    state.cursor = at(0, 11);
+
+    state.handle_mark_cut();
+    state.handle_buffer_undo();
+
+    assert_eq!(
+        saved_text(&state),
+        "hello world\n",
+        "the cut region was not restored"
+    );
+}
+
+#[test]
+fn mark_cut_is_one_undo_step_of_its_own() {
+    let mut state = state_of("hello world\n");
+    state.cursor = at(0, 6);
+    state.handle_mark_set();
+    state.cursor = at(0, 11);
+
+    state.handle_mark_cut();
+    state.finish_editing();
+    state.handle_char_insert('!');
+    state.finish_editing();
+
+    // The first undo drops the insert; the second, the cut.
+    state.handle_buffer_undo();
+    assert_eq!(saved_text(&state), "hello \n", "the insert was not undone");
+
+    state.handle_buffer_undo();
+    assert_eq!(
+        saved_text(&state),
+        "hello world\n",
+        "the cut was not the step before it"
+    );
+}
+
+#[test]
 fn pasting_clipboard_text_inserts_it_at_the_cursor() {
     let mut state = state_of("one\n");
     state.clipboard.write("a\nb");
