@@ -37,10 +37,11 @@ through the hits the reader just passed shuffles the text again each time.
 Recenter-on-every-hit is also inconsistent with how the rest of the editor
 moves the cursor. `C-p`, `C-n`, `C-b`, `C-f` scroll the viewport just far enough
 to keep the cursor visible and leave it alone when it already is; only the
-search steps and the startup position recenter. The startup position is
-arguably a different case -- the named position is the reason the file was
-opened, and it belongs in the middle once -- but a search step is a move like
-any other, and one step of a walk through hits should not re-frame the screen.
+search steps and the startup position recenter. The startup position is a
+different case and keeps its centering: the named position is the reason the
+file was opened, it happens once, and a file opened at a named position reads
+best with that position in the middle. A search step is a move like any other,
+and one step of a walk through hits should not re-frame the screen.
 
 ## Guide-level explanation
 
@@ -88,40 +89,83 @@ self.cursor = item.start_position;
 self.recenter_viewport = true;
 ```
 
-They should instead set the cursor and then let a shared helper decide whether
-the viewport has to move, and how:
+They should instead move the cursor and ask for the viewport to follow it,
+rather than for it to be centered:
 
 ```rust
 self.cursor = item.start_position;
-self.reveal_cursor(text_area_size);
+self.viewport_follow = ViewportFollow::KeepVisible;
 ```
 
-The helper needs the text area size, which the handlers do not have today:
-`State::handle_search_next_hit` and `handle_search_prev_hit` are called from
-`App` without a size, because only `adjust_viewport` (called later, from the
-render path) is given one. Two shapes are available:
+The name of the field and its variants is a placeholder (see the end of this
+section); what matters is that the search step stops asking for a recenter.
 
-- **Pass the size in.** `App` already knows the frame size where it dispatches
-  the action, so the handlers can take `text_area_size: tuinix::Size` and do the
-  decision themselves. This is a signature change to two public methods.
-- **Record the intent, not the size.** Keep the flag but give it a third state,
-  so `adjust_viewport` -- which already has the size -- makes the decision:
-  instead of a `bool` meaning "center no matter what", the state carries
-  "recenter if the cursor is not already visible".
+The picture is made slightly awkward by where the size lives. `State::handle_search_next_hit`
+and `handle_search_prev_hit` take no arguments, and the only place a size
+reaches `State` is `adjust_viewport`, called later from the render path. `App`
+does have the size and computes it lazily in `text_area_region()`
+(`self.driver.size().to_region().drop_bottom(2)`). So two shapes are available:
 
-Either shape works and the second keeps the handlers' signatures; the choice is
-left to implementation. What must not change is where the decision is made:
-whether a position is visible is a fact about the viewport and the text area,
-and both live where `adjust_viewport` already is.
+- **Pass the size in.** The `App` arm for `Action::SearchNextHit` (and
+  `SearchPrevHit`) computes `self.text_area_region().size` and calls
+  `self.state.handle_search_next_hit(size)`, and the handlers take
+  `text_area_size: tuinix::Size` and decide themselves. This is a signature
+  change to two public methods.
+- **Record the intent, not the size.** Replace the flag with a state that says
+  *how* the viewport should follow, so `adjust_viewport` -- which already has the
+  size -- makes the decision.
 
-`recenter_viewport` has two setters besides the search steps, which together
-account for all six places the flag is set: the startup position
+**The second shape is the one chosen.** It keeps the handlers' signatures, keeps
+the size in the one place that already has it, and keeps the decision in
+`adjust_viewport`, where visibility is already a question about the viewport and
+the text area. The first shape would put a size argument on methods whose only
+job is to move the cursor, and would duplicate the visibility rule outside
+`adjust_viewport`.
+
+The field becomes a two-variant enum rather than a `bool`:
+
+```rust
+/// How the next viewport adjustment should move the viewport.
+enum ViewportFollow {
+    /// Scroll just far enough to keep the cursor visible.
+    KeepVisible,
+    /// Center the cursor, whether or not it is already visible.
+    Recenter,
+}
+```
+
+`adjust_viewport` matches on it: `Recenter` does what the `true` case does
+today and clears back to `KeepVisible`, and `KeepVisible` runs the existing
+scroll rule whether the cursor is visible or not -- a cursor already inside
+the viewport is left alone by that rule anyway, so a search hit that is already
+visible needs no separate branch. The startup position and `C-l` set
+`Recenter`; the search steps set `KeepVisible` explicitly rather than just
+leaving the field alone, so a `Recenter` that some earlier command asked for
+cannot ride along with a search step (the field is reset by every adjustment
+today, but relying on that couples the search steps to when the render path
+happens to run).
+
+What must not change is where the *decision* is made: whether a position is
+visible is a fact about the viewport and the text area, and both live where
+`adjust_viewport` already is.
+
+The request has two setters besides the search steps, which together account
+for all six places the field is written: the startup position
 (`handle_cursor_to_position`) and `C-l` (`handle_view_recenter`). Only the four
 search-step assignments should lose the unconditional centering. `C-l` is an
 explicit "put my line in the middle" command and must keep recentering even
 when the cursor is already visible, and the startup position is deliberately
-centered for the reason in the motivation. The mouse handlers do not set the
-flag at all, so clicks are unaffected either way.
+centered for the reason in the motivation. The mouse handlers do not write the
+field at all, so clicks are unaffected either way.
+
+The field is public, and two tests read it directly: `tests/search.rs` asserts
+a hit recenters the view, and `tests/state.rs` asserts the request is used once.
+The first assertion describes behavior this proposal changes, so it has to be
+rewritten; the second survives in spirit (the request is still consumed by the
+next adjustment) but may need its names updated. Either shape touches the
+public API -- the first changes two method signatures, the second changes the
+field's type -- so under the crate's 0.x rules both are allowed, but neither is
+invisible.
 
 `adjust_viewport`'s keep-it-visible rule already handles both axes: it scrolls
 up when the row is above the viewport, down when it is at or past
@@ -138,9 +182,9 @@ is needed.
 - **The viewport stops being predictable from the hit.** With centering, the hit
   was always a known distance from the edges; now it depends on where it was
   already. A reader who counted on centering to orient themselves loses that.
-- **More state than a `bool`.** Either shape adds a concept -- a size parameter
-  threaded to two handlers, or a flag with three meanings -- for a cosmetic
-  improvement.
+- **More state than a `bool`.** The flag becomes a two-variant enum, which is a
+  concept more than `true`/`false` for a cosmetic improvement. It also changes a
+  public field's type.
 - **The current behavior is defensible.** "The hit is always in the middle" is a
   simple rule to state and to rely on, and recentering is never *wrong*, only
   sometimes unwanted.
@@ -169,10 +213,16 @@ is needed.
 
 ## Unresolved questions
 
-- Whether the startup position should keep centering unconditionally. This
-  proposal keeps it, on the grounds that it is a one-time "open here" rather
-  than a step in a walk, but the two are closer than they look if a future
-  change makes the startup position reachable from a key.
+The startup position keeps its unconditional centering: it is a one-time
+"open here" rather than a step in a walk, and a file opened at a named position
+reads best with that position in the middle of the text area. That is settled.
+
+One point remains open for implementation:
+
+- The exact name of the enum and its variants (`ViewportFollow` with
+  `KeepVisible`/`Recenter` above is a placeholder). The crate's docs are the
+  authority on the public API, so the name has to read well in that doc comment
+  and in the two tests that mention it.
 
 ## Future possibilities
 
