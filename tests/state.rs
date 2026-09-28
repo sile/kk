@@ -665,6 +665,43 @@ fn the_start_position_is_not_a_relative_move() {
 }
 
 #[test]
+fn the_start_position_centers_the_cursor() {
+    let mut state = state_of("one\ntwo\nthree\nfour\nfive\nsix\nseven\n");
+
+    state.handle_cursor_to_position(4, 0);
+    state.adjust_viewport(area(4, 40));
+
+    assert_eq!(
+        state.viewport.row, 2,
+        "4 - 4 / 2, so row 4 sits in the middle of the four visible rows"
+    );
+}
+
+#[test]
+fn the_start_position_centers_the_column_too() {
+    let mut state = state_of("0123456789\n");
+
+    state.handle_cursor_to_position(0, 8);
+    state.adjust_viewport(area(4, 4));
+
+    assert_eq!(
+        state.viewport.col, 6,
+        "8 - 4 / 2, so column 8 sits in the middle of the four visible columns"
+    );
+}
+
+#[test]
+fn the_start_position_centering_is_clamped_to_the_buffer_start() {
+    let mut state = state_of("one\ntwo\nthree\n");
+
+    // Centering row 0 would ask for row -2, which saturates back to 0.
+    state.handle_cursor_to_position(0, 0);
+    state.adjust_viewport(area(4, 40));
+
+    assert_eq!(state.viewport, at(0, 0));
+}
+
+#[test]
 fn scrolling_down_moves_the_cursor_and_the_viewport_together() {
     let mut state = state_of("a\nb\nc\nd\ne\nf\ng\n");
 

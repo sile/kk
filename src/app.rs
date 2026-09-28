@@ -51,7 +51,9 @@ impl App {
     /// underneath it.
     ///
     /// `position` is where to leave the cursor, 0-based; an out-of-range
-    /// position is clamped by the core rather than rejected.
+    /// position is clamped by the core rather than rejected. The cursor is
+    /// centered in the first frame, so a named line lands in the middle of the
+    /// text area instead of against an edge.
     pub fn new<P: AsRef<Path>>(
         path: P,
         create_new: bool,
