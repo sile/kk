@@ -215,17 +215,23 @@ impl State {
         self.finish_editing();
     }
 
-    /// Moves the cursor to `row`/`col` of the buffer.
+    /// Moves the cursor to `row`/`col` of the buffer and centers it.
     ///
     /// Both are absolute and 0-based. Out-of-range positions are clamped rather
     /// than refused: the row is clamped to the buffer and the column to the
     /// target line, and the column is then snapped back onto a character
-    /// boundary. The viewport follows on the next
-    /// [`adjust_viewport()`](State::adjust_viewport).
+    /// boundary.
+    ///
+    /// The cursor is centered by the next
+    /// [`adjust_viewport()`](State::adjust_viewport), not left for the generic
+    /// keep-it-visible rule. This is the startup path, where the named position
+    /// is the reason the file was opened and belongs in the middle of the text
+    /// area rather than against an edge.
     pub fn handle_cursor_to_position(&mut self, row: usize, col: usize) {
         self.cursor.row = row.min(self.buffer.rows());
         self.cursor.col = self.buffer.cols(self.cursor.row).min(col);
         self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
+        self.recenter_viewport = true;
         self.finish_editing();
     }
 
