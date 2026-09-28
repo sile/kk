@@ -100,7 +100,7 @@ fn the_edit_legend_is_exactly_this_text() {
         "\u{2502}C-h \u{232b} bs    ",
         "\u{2502}C-d \u{2326} delete",
         "\u{2502}C-l recenter",
-        "\u{2502}Tab save    ",
+        "\u{2502}Tab \u{21e5} save  ",
         "\u{2514}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 
