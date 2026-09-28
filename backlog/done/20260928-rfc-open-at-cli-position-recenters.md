@@ -1,6 +1,6 @@
 # RFC: Recenter the view when the CLI position puts the cursor off screen
 
-- Status: draft
+- Status: accepted
 
 ## Summary
 
@@ -160,3 +160,14 @@ If `FILE:LINE[:COLUMN]` grows other jump targets (a byte offset, a search
 pattern), they can set the same flag and inherit the same presentation. A
 future "open at the top" or "open at the center" command-line switch would be
 a natural place to expose the choice this RFC settles by default.
+
+## Outcome
+
+Implemented in [#2](https://github.com/sile/kk/pull/2) (merged as `ee3d8c8`).
+
+A named position is why the file was opened, so the cursor now lands in
+the middle of the text area rather than against an edge. Both axes are
+centered, and a bare FILE needs no special case: centering row 0 saturates
+to row 0.
+
+The scope is unchanged from what is described above.
