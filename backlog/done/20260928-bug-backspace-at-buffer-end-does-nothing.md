@@ -1,6 +1,6 @@
 # Bug: Backspace at the buffer end does nothing
 
-- Status: open
+- Status: fixed
 
 ## Summary
 
@@ -95,3 +95,11 @@ without widening the row range the method accepts for other edits. The failing
 behavior is covered by
 `backspace_at_the_buffer_end_joins_the_last_line_onto_the_previous_one` in
 `tests/state.rs`.
+
+## Outcome
+
+Fixed in [#1](https://github.com/sile/kk/pull/1) (merged as `b4775dd`).
+
+Backspace at the buffer end now moves the cursor back to the end of the last line instead of doing nothing. The report expected the trailing newline to be deleted, but a buffer always saves one, so there is nothing there to delete; pulling the cursor onto the last line is what lets a second press delete a character and a further one join that line onto the previous one.
+
+The scope is unchanged from what is described above.
