@@ -296,14 +296,14 @@ impl App {
             match std::fs::read_to_string(&self.path) {
                 Ok(disk) if disk != self.saved_text => {
                     self.state
-                        .set_message("Changed on disk; C-x S to overwrite");
+                        .set_message("Changed on disk; C-x s to overwrite");
                     return Ok(());
                 }
                 // A file that has gone missing is not what this edge last saw,
                 // so it counts as a change too: writing would recreate it.
                 Ok(_) => {}
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                    self.state.set_message("File is gone; C-x S to overwrite");
+                    self.state.set_message("File is gone; C-x s to overwrite");
                     return Ok(());
                 }
                 Err(e) => return Err(e),

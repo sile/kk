@@ -63,13 +63,12 @@ fn the_ext_legend_fills_a_frame_exactly_its_size() {
     let cols = frame.size().cols;
     kk::render_legend(kk::Mode::Ext, &mut frame);
     assert_eq!(row_text(&frame, 0, cols), "\u{2502}C-g cancel    ");
-    assert_eq!(row_text(&frame, 1, cols), "\u{2502}s   save      ");
-    assert_eq!(row_text(&frame, 2, cols), "\u{2502}S   force-save");
-    assert_eq!(row_text(&frame, 3, cols), "\u{2502}r   reload    ");
-    assert_eq!(row_text(&frame, 4, cols), "\u{2502}a   bof       ");
-    assert_eq!(row_text(&frame, 5, cols), "\u{2502}e   eof       ");
+    assert_eq!(row_text(&frame, 1, cols), "\u{2502}s   force-save");
+    assert_eq!(row_text(&frame, 2, cols), "\u{2502}r   reload    ");
+    assert_eq!(row_text(&frame, 3, cols), "\u{2502}a   bof       ");
+    assert_eq!(row_text(&frame, 4, cols), "\u{2502}e   eof       ");
     assert_eq!(
-        row_text(&frame, 6, cols),
+        row_text(&frame, 5, cols),
         "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}"
     );
 }
@@ -101,6 +100,7 @@ fn the_edit_legend_is_exactly_this_text() {
         "\u{2502}C-h \u{232b} bs    ",
         "\u{2502}C-d \u{2326} delete",
         "\u{2502}C-l recenter",
+        "\u{2502}Tab save    ",
         "\u{2514}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}",
     ];
 

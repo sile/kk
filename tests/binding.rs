@@ -84,9 +84,8 @@ fn built_in_keys() -> Vec<tuinix::KeyInput> {
         ctrl_key(' '),
         ctrl_key('`'),
         // The Ext mode drops the ctrl prefix, so its own chords are the bare
-        // letters; case is what separates save from force-save.
+        // letters. `s` is the deliberate one there and force-saves.
         char_key('s'),
-        char_key('S'),
         char_key('r'),
         char_key('a'),
         char_key('e'),
@@ -297,22 +296,41 @@ fn the_ext_mode_binds_its_chords_after_ctrl_x() {
 }
 
 #[test]
-fn the_ext_mode_binds_force_save_to_an_upper_case_s() {
+fn the_ext_mode_binds_force_save_to_s() {
     let resolved = kk::Mode::Ext
-        .resolve(&tuinix::Input::Key(char_key('S')))
-        .expect("S is bound in Ext");
+        .resolve(&tuinix::Input::Key(char_key('s')))
+        .expect("s is bound in Ext");
     assert_eq!(resolved.mode, Some(kk::Mode::Edit));
     assert!(
         matches!(resolved.action, Some(kk::Action::BufferForceSave)),
-        "S force-saves: {:?}",
+        "s force-saves inside Ext: {:?}",
         resolved.action
     );
 
-    // The lower-case letter must still be the checking save.
-    let plain = kk::Mode::Ext
-        .resolve(&tuinix::Input::Key(char_key('s')))
-        .expect("s is bound in Ext");
-    assert!(matches!(plain.action, Some(kk::Action::BufferSave)));
+    // The upper-case letter used to be the force-save and is now unbound, so a
+    // stray shift is no longer a destructive command.
+    assert!(
+        kk::Mode::Ext
+            .resolve(&tuinix::Input::Key(char_key('S')))
+            .is_none(),
+        "S must not be bound in Ext any more"
+    );
+}
+
+#[test]
+fn tab_saves_in_the_edit_mode_without_a_mode_switch() {
+    let resolved = kk::Mode::Edit
+        .resolve(&tuinix::Input::Key(code_key(tuinix::KeyCode::Tab)))
+        .expect("Tab is bound in Edit");
+    assert_eq!(
+        resolved.mode, None,
+        "Tab must not change mode; saving is not Ext's alone"
+    );
+    assert!(
+        matches!(resolved.action, Some(kk::Action::BufferSave)),
+        "Tab saves: {:?}",
+        resolved.action
+    );
 }
 
 #[test]
@@ -357,9 +375,20 @@ fn each_mode_resolves_its_own_chords() {
         Some(kk::Action::SearchCutQuery)
     ));
 
+    // Both modes bind `Tab`, but it means something different in each: saving
+    // in Edit and moving to the next hit in Search.
+    assert!(matches!(
+        action_of(kk::Mode::Edit, code_key(tuinix::KeyCode::Tab)),
+        Some(kk::Action::BufferSave)
+    ));
+    assert!(matches!(
+        action_of(kk::Mode::Search, code_key(tuinix::KeyCode::Tab)),
+        Some(kk::Action::SearchNextHit)
+    ));
+
     // Search has its own keys, which Edit does not.
-    assert!(action_of(kk::Mode::Search, code_key(tuinix::KeyCode::Tab)).is_some());
-    assert!(action_of(kk::Mode::Edit, code_key(tuinix::KeyCode::Tab)).is_none());
+    assert!(action_of(kk::Mode::Search, ctrl_key('r')).is_some());
+    assert!(action_of(kk::Mode::Edit, ctrl_key('r')).is_none());
 }
 
 #[test]
