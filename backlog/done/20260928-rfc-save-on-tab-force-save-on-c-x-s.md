@@ -1,6 +1,6 @@
 # RFC: Save on `Tab`, force-save on `C-x s`
 
-- Status: draft
+- Status: accepted
 
 ## Summary
 
@@ -185,3 +185,28 @@ that away, and this RFC is the place to revisit it.
 A confirmation prompt on force-save ("file changed on disk, overwrite?") would
 let the safe and destructive saves share more of the reachable key space, and
 would compose with this change rather than replace it.
+
+## Outcome
+
+Implemented in [#3](https://github.com/sile/kk/pull/3) (merged as `3c489c7`).
+
+Bindings moved as proposed: `Tab` saves from the edit mode without a mode switch,
+`C-x s` force-saves, and the capital-`S` arm is gone. Two details the RFC left
+open were resolved during the work.
+
+The saved-file-changed messages in `src/app.rs` (`Changed on disk; C-x S to
+overwrite` and `File is gone; C-x S to overwrite`) still named the removed
+binding, so both now point at `C-x s`. The RFC did not mention them.
+
+The `Mode::legend_size` doc example pinned the extension legend at 7 rows; with
+the `S` row removed it is 6, and the doctest caught the stale count. The `Tab`
+row also gained an icon, `\u{21e5}`, matching the arrows the search legend uses
+(`C-r \u{21e4} prev`, `C-s \u{21e5} next`), which settled the question of the
+row's exact wording and alignment left under "Unresolved questions".
+
+Tests cover the new arms in `tests/binding.rs` and `tests/e2e_save.rs`, and
+`tests/legend.rs` pins the new row text and the shrunk extension legend. No new
+`Action` was needed and the extension resolver's shape is unchanged apart from
+losing the capital-`S` arm. The search prompt's `Tab` still means "next hit".
+
+The scope is unchanged from what is described above.
