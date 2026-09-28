@@ -103,7 +103,7 @@ impl Mode {
     /// ```
     /// let room = tuinix::Size { rows: 40, cols: 100 };
     /// let ext = kk::Mode::Ext.legend_size(room);
-    /// assert_eq!(ext.rows, 7);
+    /// assert_eq!(ext.rows, 6);
     /// assert_eq!(ext.cols, 15);
     /// ```
     pub fn legend_size(self, limit: tuinix::Size) -> tuinix::Size {
