@@ -29,6 +29,7 @@ pub const EDIT_LEGEND: &[&str] = &[
     "\u{2502}C-h \u{232b} bs",
     "\u{2502}C-d \u{2326} delete",
     "\u{2502}C-l recenter",
+    "\u{2502}Tab \u{21e5} save",
     "\u{2514}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
@@ -53,8 +54,7 @@ pub const SEARCH_LEGEND: &[&str] = &[
 /// last.
 pub const EXT_LEGEND: &[&str] = &[
     "\u{2502}C-g cancel",
-    "\u{2502}s   save",
-    "\u{2502}S   force-save",
+    "\u{2502}s   force-save",
     "\u{2502}r   reload",
     "\u{2502}a   bof",
     "\u{2502}e   eof",
@@ -103,7 +103,7 @@ impl Mode {
     /// ```
     /// let room = tuinix::Size { rows: 40, cols: 100 };
     /// let ext = kk::Mode::Ext.legend_size(room);
-    /// assert_eq!(ext.rows, 7);
+    /// assert_eq!(ext.rows, 6);
     /// assert_eq!(ext.cols, 15);
     /// ```
     pub fn legend_size(self, limit: tuinix::Size) -> tuinix::Size {
@@ -200,6 +200,7 @@ fn resolve_edit(key: &tuinix::KeyInput) -> Option<Resolved> {
         (false, tuinix::KeyCode::Delete) => act(Action::CharDeleteForward),
         (false, tuinix::KeyCode::Backspace) => act(Action::CharDeleteBackward),
         (false, tuinix::KeyCode::Enter) => act(Action::NewlineInsert),
+        (false, tuinix::KeyCode::Tab) => act(Action::BufferSave),
         (false, tuinix::KeyCode::Up) => act(Action::CursorUp),
         (false, tuinix::KeyCode::Down) => act(Action::CursorDown),
         (false, tuinix::KeyCode::Left) => act(Action::CursorLeft),
@@ -245,12 +246,12 @@ fn resolve_ext(key: &tuinix::KeyInput) -> Option<Resolved> {
     let tuinix::KeyInput { ctrl, code, .. } = *key;
 
     // The extension mode is entered with `C-x`, so its own chords drop the
-    // ctrl prefix: a bare `s` saves. Only `C-g` keeps its ctrl, matching every
-    // other mode, and case is what separates save from force-save.
+    // ctrl prefix: a bare `s` is the whole chord. Only `C-g` keeps its ctrl,
+    // matching every other mode. Plain save lives in the edit mode on `Tab`,
+    // so the chord here is the deliberate one and `s` force-saves.
     Some(match (ctrl, code) {
         (true, tuinix::KeyCode::Char('g')) => cancel(),
-        (false, tuinix::KeyCode::Char('S')) => then(Action::BufferForceSave, Mode::Edit),
-        (false, tuinix::KeyCode::Char('s')) => then(Action::BufferSave, Mode::Edit),
+        (false, tuinix::KeyCode::Char('s')) => then(Action::BufferForceSave, Mode::Edit),
         (false, tuinix::KeyCode::Char('r')) => then(Action::BufferReload, Mode::Edit),
         (false, tuinix::KeyCode::Char('a')) => then(Action::CursorBufferStart, Mode::Edit),
         (false, tuinix::KeyCode::Char('e')) => then(Action::CursorBufferEnd, Mode::Edit),

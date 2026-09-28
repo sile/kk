@@ -20,9 +20,8 @@ fn typing_then_saving_writes_the_edited_content() {
     kk.send_ctrl('e');
     kk.send_key(termnix::KeyCode::Enter, termnix::Modifiers::new());
     kk.send_text("two");
-    // Save is in the Ext mode: `C-x` enters it, `s` saves.
-    kk.send_ctrl('x');
-    kk.send_char('s');
+    // Save is on `Tab`, with no mode switch: the edit mode binds it.
+    kk.send_key(termnix::KeyCode::Tab, termnix::Modifiers::new());
 
     kk.wait_until("save message", |h| h.screen_contains("Saved"));
 
@@ -41,8 +40,7 @@ fn saving_reports_the_character_count() {
     let mut kk = KkHarness::open(&path);
     kk.wait_for_text("Opened");
 
-    kk.send_ctrl('x');
-    kk.send_char('s');
+    kk.send_key(termnix::KeyCode::Tab, termnix::Modifiers::new());
     // "abc\n" is four characters; the status message names the count.
     kk.wait_for_text("Saved 4 chars");
 
@@ -62,19 +60,17 @@ fn a_save_refuses_when_the_file_changed_on_disk_and_force_save_overwrites() {
     std::fs::write(&path, "theirs\n").expect("write from the other writer");
 
     kk.send_text("mine");
-    kk.send_ctrl('x');
-    kk.send_char('s');
+    kk.send_key(termnix::KeyCode::Tab, termnix::Modifiers::new());
 
     // The plain save is refused and says how to save anyway.
-    kk.wait_for_text("C-x S");
+    kk.wait_for_text("C-x s");
     let unchanged = std::fs::read_to_string(&path).expect("read file after refusal");
     assert_eq!(unchanged, "theirs\n", "the refusal must not write");
 
-    // Force-save overwrites whatever is there. Inside Ext the ctrl prefix is
-    // dropped, so the upper-case `S` is the chord and the case is the whole
-    // difference from the plain save above.
+    // Force-save overwrites whatever is there. Plain save is on `Tab`, so the
+    // extension mode is free to give its one chord to the destructive write.
     kk.send_ctrl('x');
-    kk.send_char('S');
+    kk.send_char('s');
     kk.wait_until("force-save message", |h| h.screen_contains("Saved"));
 
     let written = std::fs::read_to_string(&path).expect("read force-saved file");
@@ -99,8 +95,7 @@ fn a_save_goes_through_after_reloading_the_other_writers_version() {
     kk.send_ctrl('x');
     kk.send_char('r');
     kk.wait_for_text("Reloaded");
-    kk.send_ctrl('x');
-    kk.send_char('s');
+    kk.send_key(termnix::KeyCode::Tab, termnix::Modifiers::new());
     kk.wait_until("save after reload", |h| h.screen_contains("Saved"));
 
     let written = std::fs::read_to_string(&path).expect("read saved file");
@@ -119,8 +114,7 @@ fn create_new_starts_empty_and_saves_what_is_typed() {
     kk.wait_for_text("Created");
 
     kk.send_text("fresh");
-    kk.send_ctrl('x');
-    kk.send_char('s');
+    kk.send_key(termnix::KeyCode::Tab, termnix::Modifiers::new());
     kk.wait_until("create-new save message", |h| h.screen_contains("Saved"));
 
     let written = std::fs::read_to_string(&path).expect("read created file");
