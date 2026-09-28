@@ -348,6 +348,11 @@ impl State {
 
     /// Deletes the character before the cursor.
     ///
+    /// At the buffer end there is no character to delete -- the buffer always
+    /// saves a trailing newline, so the row after the last line holds nothing
+    /// -- but the cursor is moved back to the end of the last line, which is
+    /// where the next press joins that line onto the previous one.
+    ///
     /// While a search prompt is open, this deletes from the query instead and
     /// re-runs it.
     pub fn handle_char_delete_backward(&mut self) {
@@ -361,6 +366,11 @@ impl State {
         self.start_editing();
         if let Some(new_pos) = self.buffer.delete_char_before(self.cursor) {
             self.cursor = new_pos;
+        } else if self.cursor.row == self.buffer.rows() {
+            // The buffer end: nothing to delete, but fall back to the last
+            // line so a repeated backspace can join it onto the previous one.
+            self.cursor.row = self.buffer.rows().saturating_sub(1);
+            self.cursor.col = self.buffer.cols(self.cursor.row);
         }
     }
 
