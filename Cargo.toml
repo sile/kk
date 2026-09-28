@@ -1,21 +1,22 @@
 [package]
 name = "kk"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.97"
-authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 license = "MIT"
 description = "A TUI text editor"
 homepage = "https://github.com/sile/kk"
 repository = "https://github.com/sile/kk"
 readme = "README.md"
+keywords = ["editor", "tui", "terminal"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 libc = "0.2"
-noargs = "0.4.1"
-tuinix = "0.7.0"
-unicode-width = "0.2.0"
+noargs = "0.4"
+tuinix = "0.7"
+unicode-width = "0.2"
 
 [dev-dependencies]
 noprop = "0.2"
-termnix = "0.4.1"
+termnix = "0.4"
