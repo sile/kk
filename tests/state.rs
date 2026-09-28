@@ -698,3 +698,34 @@ fn scrolling_down_stops_at_the_row_after_the_last_line() {
         "the clamp is `rows()`, not the last index"
     );
 }
+
+#[test]
+fn backspace_at_the_buffer_end_moves_the_cursor_to_the_last_line()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut state = state_of("abc\nxyz\n");
+
+    state.handle_cursor_buffer_end();
+    state.handle_char_delete_backward();
+
+    // The buffer always saves a trailing newline, so backspace there cannot
+    // delete one. It leaves the text alone and pulls the cursor back to the
+    // end of the last line instead.
+    assert_eq!(saved_text(&state), "abc\nxyz\n", "the text is unchanged");
+    assert_eq!(
+        state.cursor,
+        at(1, 3),
+        "the cursor is at the last line's end"
+    );
+
+    // A second press deletes from that line as usual now that the cursor is
+    // on it.
+    state.handle_char_delete_backward();
+    assert_eq!(
+        saved_text(&state),
+        "abc\nxy\n",
+        "the last character is deleted"
+    );
+    assert_eq!(state.cursor, at(1, 2), "the cursor follows the deletion");
+
+    Ok(())
+}
