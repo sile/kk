@@ -1,6 +1,6 @@
 # RFC: Keep the viewport when a search hit is already visible
 
-- Status: draft
+- Status: accepted
 
 ## Summary
 
@@ -200,3 +200,20 @@ somewhere both can read; the sibling RFC's `Option<Recenter>` is that place, and
 A follow-up could make the search prompt show whether the current hit is the
 first or last, which composes with keeping the viewport still: a reader who is
 not being recentered needs some other cue that the walk wrapped.
+
+## Outcome
+
+Implemented in [#4](https://github.com/sile/kk/pull/4) (merged as `da2a185`).
+
+The search steps no longer touch `recenter_viewport` at all. The earlier
+draft cleared it, which also cancelled a `C-l` recenter that had not been
+consumed yet; the landed change leaves the field alone so the step falls
+through to the keep-it-visible rule and any pending request survives. A hit
+already on screen now leaves the viewport still, and an off-screen hit scrolls
+by the minimum.
+
+One question stays open: whether an off-screen cursor should scroll the
+minimum or recenter. The landed change takes the minimum for every hit, and
+that is now a separate proposal.
+
+The scope is unchanged from what is described above.
