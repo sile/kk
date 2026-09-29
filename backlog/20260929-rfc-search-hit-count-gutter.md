@@ -33,7 +33,7 @@ say where the hits are inside the visible slice, and the totals above and below
 say how the visible slice sits in the file:
 
 ```
- 2 |                       <- 2 hits above the visible lines
+ 2 :                       <- 2 hits above the visible lines
    |
    |
  1 | foo bar
@@ -54,7 +54,8 @@ text area. It is always there in that mode, even before anything is typed or
 when nothing matches, so the mode is recognizable at a glance and the text does
 not jump around as the query changes.
 
-The gutter has a fixed width of five columns:
+The gutter has a fixed width of five columns. A buffer line reads
+`<count>| <line text>`:
 
 ```
 <count>| <line text>
@@ -80,7 +81,16 @@ So the widest row is `99+| ` and every row lines up:
 
 Above and below the visible lines, when there are hits outside them, the gutter
 shows one summary row each, in the same fixed width, rounded with the same
-`99+` when the total is past two digits:
+`99+` when the total is past two digits. A summary row reads `<total>:`, using
+`:` where a buffer line uses `|`, so a reader can tell at a glance that the row
+is a total and not a line of the text:
+
+```
+ 2 :                       <- 2 hits above the visible lines
+   |
+ 1 | foo bar
+ 5 :                       <- 5 hits below
+```
 
 - the top row shows the total number of hits in the lines *before* the first
   visible line, or is left out when that total is zero;
@@ -105,15 +115,20 @@ full width; nothing else about rendering changes.
 ### Where the width comes from
 
 The gutter is a constant, not derived from the buffer: five columns, of which
-two are the count, one is the `+` that may fill the third, one is the `|`, and
-one is the space after it. Keeping it constant is the whole point -- the text
-area's usable columns must not depend on how many hits the query found.
+two are the count, one is the `+` that may fill the third, one is the separator,
+and one is the space after it. Keeping it constant is the whole point -- the
+text area's usable columns must not depend on how many hits the query found.
 
 ```rust
 /// Columns reserved to the left of the text area while a search prompt is
-/// open: a two-column count, an overflow `+`, the `|`, and a trailing space.
+/// open: a two-column count, an overflow `+`, the separator, and a trailing
+/// space.
 const HIT_GUTTER_COLS: usize = 5;
 ```
+
+The separator is `|` on a buffer line and `:` on a summary row, so the two kinds
+of row can be told apart by shape alone. Both are otherwise the same width, and
+a summary row has no text after its separator.
 
 ### What counts as a hit on a line
 
@@ -131,14 +146,14 @@ same walk rather than a separate pass, so the two cannot disagree about which
 rows are visible:
 
 - for each visible row, compute the hit count for that row and write the count,
-  `|`, and a space at columns `0..HIT_GUTTER_COLS`, reversed on the cursor's
-  line to match the reversed line text;
+  the `|` separator, and a space at columns `0..HIT_GUTTER_COLS`, reversed on
+  the cursor's line to match the reversed line text;
 - write the line text starting at column `HIT_GUTTER_COLS` instead of `0`,
   subtracting the same constant from the width used for any column clamping;
 - for the top row, sum the counts of the rows before `start_row` and write it,
-  when non-zero, at the same columns;
+  when non-zero, as a count, a `:` separator, and a space, in the same columns;
 - for the bottom row, sum the counts of the rows at and after `end_row` and
-  write it, when non-zero.
+  write it, when non-zero, the same way.
 
 The renderer needs the query's hits, which are already on `state.highlight`, so
 no new state is required to draw it. Whether the gutter is shown at all is
@@ -175,7 +190,8 @@ The gutter is pure rendering, so `tests/render.rs` is the home for it:
 - a zero-hit line renders blank count columns;
 - the cursor's line renders its count cell reversed, and other lines do not;
 - the top total appears only when there are hits above the visible slice, and
-  likewise the bottom;
+  likewise the bottom, and each summary row uses `:` where a buffer line uses
+  `|`;
 - a total over 99 renders as `99+`, the same as a line count;
 - the gutter is absent when the prompt is closed and the text starts at column
   0.
@@ -238,6 +254,12 @@ The gutter is pure rendering, so `tests/render.rs` is the home for it:
   information the search was opened for, and its presence is also what makes
   the mode recognizable at a glance. Always on while the prompt is open is the
   point, not a default.
+- **Marking a summary row with `...` after the count** (as the original sketch
+  did) or with a direction arrow (`↑`/`↓`). Both say "not a line" too, but
+  `...` collides with text a line could really hold and the arrow needs its
+  meaning explained. Changing the seam instead (`:` for a summary, `|` for a
+  line) needs no legend: the shape differs, so the reader sees the distinction
+  without being taught it.
 
 ## Unresolved questions
 
