@@ -399,6 +399,34 @@ fn a_hit_below_the_text_area_scrolls_just_far_enough() {
 }
 
 #[test]
+fn a_cursor_near_the_right_edge_scrolls_against_the_width_the_gutter_leaves() {
+    let mut state = state_of("x = this line is long enough to need a scroll\n");
+    state.search_prompt = Some(SearchPrompt::new());
+    state.handle_char_insert('x');
+
+    // A column the area's full width reaches but the gutter's five columns do
+    // not: without the fix the viewport stays put and the cursor is drawn off
+    // the right edge.
+    state.cursor = kk::TextPosition { row: 0, col: 25 };
+    state.recenter_viewport = false;
+    let text_area = tuinix::Size { rows: 3, cols: 30 };
+    state.adjust_viewport(text_area);
+
+    assert!(state.text_cols(text_area.cols) < text_area.cols);
+    assert_eq!(
+        state.viewport.col,
+        25 - (state.text_cols(text_area.cols) - 1),
+        "the scroll leaves the cursor in the columns the text is drawn in"
+    );
+    assert!(
+        state.cursor.col >= state.viewport.col
+            && state.cursor.col < state.viewport.col + state.text_cols(text_area.cols),
+        "the cursor's column {} is inside the drawn text columns",
+        state.cursor.col
+    );
+}
+
+#[test]
 fn a_hit_above_the_text_area_keeps_the_cursor_in_the_drawn_rows() {
     let mut state = state_of_hits(10);
     let text_area = tuinix::Size { rows: 3, cols: 80 };

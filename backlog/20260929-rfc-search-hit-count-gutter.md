@@ -170,6 +170,11 @@ rows are visible:
   less one row per summary [`adjust_viewport()`] will draw -- repeating the
   scroll until the viewport and that height agree, so the cursor lands in a row
   the text occupies rather than one a summary covers;
+- scroll it against the width the text is drawn in as well -- the area's full
+  width less the gutter's columns -- so a cursor near the right edge is placed
+  in a column the text is drawn in rather than one the gutter covers. Unlike the
+  height this needs no repetition: the gutter is drawn whenever the prompt is
+  open, so the width does not depend on where the viewport settles;
 - for the top total, sum the counts of the rows before `start_row` and write it,
   when non-zero *and* `start_row` is not zero, on the frame's first row as a
   count, a `:` separator, and a space, in the gutter's columns, pushing the text
@@ -224,6 +229,10 @@ The gutter is pure rendering, so `tests/render.rs` is the home for it:
   covers -- checked end-to-end, since the bug it fixes is only visible on screen;
 - a scroll that lands the cursor at the edge keeps it inside the drawn text rows
   (a unit check on [`text_rows()`]);
+- a cursor near the right edge is scrolled into the columns the text is drawn
+  in, not left under the gutter -- a unit check on [`text_cols()`], since the
+  columns the gutter takes are as invisible to the cursor as the rows a summary
+  takes;
 - on a one-row frame with totals on both sides, the top total wins;
 - a total over 99 renders as `99+`, the same as a line count;
 - the gutter is absent when the prompt is closed and the text starts at column

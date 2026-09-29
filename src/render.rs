@@ -8,17 +8,9 @@
 use crate::{
     binding::Mode,
     buffer::{TextLine, TextPosition},
-    state::State,
+    state::{HIT_GUTTER_COLS, State},
     terminal::put_str,
 };
-
-/// Columns reserved on the left of the text area while a search prompt is open:
-/// a three-column count (two digits and the `+` that may overflow them), the
-/// separator, and a space after it.
-///
-/// It is a constant, not derived from the buffer: the text's left edge must not
-/// move as the query finds more or fewer hits.
-const HIT_GUTTER_COLS: usize = 5;
 
 /// Paints the visible slice of the buffer, with the mark and search highlight.
 ///

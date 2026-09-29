@@ -11,6 +11,16 @@ use crate::{
     search_prompt::{Highlight, SearchPrompt},
 };
 
+/// Columns reserved on the left of the text area while a search prompt is open:
+/// a three-column count (two digits and the `+` that may overflow them), the
+/// separator, and a space after it.
+///
+/// It is a constant, not derived from the buffer: the text's left edge must not
+/// move as the query finds more or fewer hits. The renderer draws the gutter
+/// over these columns and [`State::text_cols()`] keeps the viewport out of them,
+/// so both read the width from here.
+pub(crate) const HIT_GUTTER_COLS: usize = 5;
+
 /// Everything the editor knows: the buffer, the cursor, and the surrounding
 /// mode state.
 ///
@@ -183,6 +193,24 @@ impl State {
         available_rows.saturating_sub(self.summary_rows(available_rows))
     }
 
+    /// Returns the columns left for the text itself in a text area
+    /// `available_cols` wide, after the gutter has taken its share while a
+    /// search prompt is open.
+    ///
+    /// This is the width [`adjust_viewport()`](State::adjust_viewport) is
+    /// scrolled against. The gutter takes columns, not rows, so a cursor near
+    /// the right edge would otherwise be placed in a column the gutter is drawn
+    /// over and end up off screen. Unlike the height, no fixed point is needed:
+    /// the gutter is drawn whenever the prompt is open, so this width does not
+    /// depend on where the viewport ends up.
+    pub fn text_cols(&self, available_cols: usize) -> usize {
+        if self.search_prompt.is_some() {
+            available_cols.saturating_sub(HIT_GUTTER_COLS)
+        } else {
+            available_cols
+        }
+    }
+
     /// Returns how many hits start before `start_row` and how many start at or
     /// after `end_row`.
     ///
@@ -217,7 +245,7 @@ impl State {
     /// is centered instead and the flag is cleared.
     pub fn adjust_viewport(&mut self, text_area_size: tuinix::Size) {
         let cursor_pos = self.cursor_position();
-        let available_cols = text_area_size.cols;
+        let available_cols = self.text_cols(text_area_size.cols);
 
         if self.recenter_viewport {
             // Center the cursor in the viewport
