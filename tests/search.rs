@@ -307,10 +307,80 @@ fn the_next_hit_advances_and_wraps_around() {
 
     state.handle_search_next_hit();
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 8 });
-    assert!(state.recenter_viewport, "a hit recenters the view");
 
     state.handle_search_next_hit();
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 0 }, "wraps");
+}
+
+#[test]
+fn a_hit_step_leaves_a_pending_recenter_request_alone() {
+    let mut state = state_of("one two one\n");
+    state.search_prompt = Some(SearchPrompt::new());
+    for ch in "one".chars() {
+        state.handle_char_insert(ch);
+    }
+
+    // A recenter some earlier command asked for is still pending when the
+    // step runs, because the render path has not consumed it yet. The step
+    // must not cancel it: the request is about the cursor, not the search.
+    state.handle_view_recenter();
+    assert!(state.recenter_viewport);
+
+    state.handle_search_next_hit();
+    assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 8 });
+    assert!(
+        state.recenter_viewport,
+        "the step carries the request through instead of clearing it"
+    );
+}
+
+/// A buffer with a hit on every row, so a step always lands on a known row.
+fn state_of_hits(rows: usize) -> kk::State {
+    let mut text = String::new();
+    for _ in 0..rows {
+        text.push_str("hit x\n");
+    }
+    let mut state = state_of(&text);
+    state.search_prompt = Some(SearchPrompt::new());
+    for ch in "hit".chars() {
+        state.handle_char_insert(ch);
+    }
+    state
+}
+
+#[test]
+fn a_hit_already_on_screen_leaves_the_viewport_alone() {
+    let mut state = state_of_hits(10);
+    // The cursor starts on row 0 and the text area shows rows 0..3.
+    let text_area = tuinix::Size { rows: 3, cols: 80 };
+    state.adjust_viewport(text_area);
+    assert_eq!(state.viewport.row, 0, "the first row is at the top");
+
+    // The next hit, on row 1, is already visible.
+    state.handle_search_next_hit();
+    state.adjust_viewport(text_area);
+
+    assert_eq!(state.cursor.row, 1, "the cursor moved to the hit");
+    assert_eq!(state.viewport.row, 0, "the viewport did not move");
+}
+
+#[test]
+fn a_hit_below_the_text_area_scrolls_just_far_enough() {
+    let mut state = state_of_hits(10);
+    let text_area = tuinix::Size { rows: 3, cols: 80 };
+    state.adjust_viewport(text_area);
+
+    // Walk to the hit on row 4, past the last visible row (2).
+    for _ in 0..4 {
+        state.handle_search_next_hit();
+        state.adjust_viewport(text_area);
+    }
+
+    assert_eq!(state.cursor.row, 4, "the cursor moved to the hit");
+    assert_eq!(
+        state.viewport.row, 2,
+        "the hit is on the last visible row, not centered"
+    );
 }
 
 #[test]
