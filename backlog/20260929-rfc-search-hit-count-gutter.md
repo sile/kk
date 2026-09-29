@@ -233,16 +233,18 @@ The gutter is pure rendering, so `tests/render.rs` is the home for it:
   uniform width: the totals share the gutter's columns, so a wider total would
   shift every line below it, which is the jitter the `99+` rule exists to
   avoid. The status line still carries the exact total.
+- **A toggle for the gutter**, the way the legend has one. Rejected: the legend
+  is a hint and a reader may want it out of the way, but the gutter is the
+  information the search was opened for, and its presence is also what makes
+  the mode recognizable at a glance. Always on while the prompt is open is the
+  point, not a default.
 
 ## Unresolved questions
 
-- The exact column layout (` 1 | `, `99+| `) is fixed here but the count width
-  (two digits) is a judgment call; if searches of hundreds of hits become
-  common, four digits with `999+` may be worth the extra columns.
-- Whether the gutter should be toggleable, the way the legend is. An unresolved
-  question only because the legend set the precedent; the gutter is searched-for
-  information rather than a hint, so it is proposed to be always on while the
-  prompt is open.
+None. The count width (two digits) is settled even though it is a judgment
+call: searches of a hundred hits in one file are rare, `99+` says "many"
+without pretending to a number, and "many" is all the reader needs from a
+gutter -- the status line keeps the exact total for anyone who wants it.
 
 ## Future possibilities
 
