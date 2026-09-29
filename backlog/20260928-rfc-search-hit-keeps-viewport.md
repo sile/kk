@@ -10,6 +10,11 @@ the recenter only when the hit would otherwise land outside the text area, so a
 run of hits inside one screen no longer scrolls the text out from under the
 reader.
 
+The fix is small: the search steps stop asking for a recenter and let the
+ordinary keep-it-visible rule run. It shares the `recenter_viewport` field with
+`20260928-rfc-recenter-cycles-through-positions.md`, which owns the field's
+type.
+
 ## Motivation
 
 `handle_search_next_hit` and `handle_search_prev_hit` set
@@ -94,60 +99,23 @@ rather than for it to be centered:
 
 ```rust
 self.cursor = item.start_position;
-self.viewport_follow = ViewportFollow::KeepVisible;
+self.recenter_viewport = None;
 ```
 
-The name of the field and its variants is a placeholder (see the end of this
-section); what matters is that the search step stops asking for a recenter.
-
-The picture is made slightly awkward by where the size lives. `State::handle_search_next_hit`
-and `handle_search_prev_hit` take no arguments, and the only place a size
-reaches `State` is `adjust_viewport`, called later from the render path. `App`
-does have the size and computes it lazily in `text_area_region()`
-(`self.driver.size().to_region().drop_bottom(2)`). So two shapes are available:
-
-- **Pass the size in.** The `App` arm for `Action::SearchNextHit` (and
-  `SearchPrevHit`) computes `self.text_area_region().size` and calls
-  `self.state.handle_search_next_hit(size)`, and the handlers take
-  `text_area_size: tuinix::Size` and decide themselves. This is a signature
-  change to two public methods.
-- **Record the intent, not the size.** Replace the flag with a state that says
-  *how* the viewport should follow, so `adjust_viewport` -- which already has the
-  size -- makes the decision.
-
-**The second shape is the one chosen.** It keeps the handlers' signatures, keeps
-the size in the one place that already has it, and keeps the decision in
-`adjust_viewport`, where visibility is already a question about the viewport and
-the text area. The first shape would put a size argument on methods whose only
-job is to move the cursor, and would duplicate the visibility rule outside
-`adjust_viewport`.
-
-The field becomes a two-variant enum rather than a `bool`:
-
-```rust
-/// How the next viewport adjustment should move the viewport.
-enum ViewportFollow {
-    /// Scroll just far enough to keep the cursor visible.
-    KeepVisible,
-    /// Center the cursor, whether or not it is already visible.
-    Recenter,
-}
-```
-
-`adjust_viewport` matches on it: `Recenter` does what the `true` case does
-today and clears back to `KeepVisible`, and `KeepVisible` runs the existing
-scroll rule whether the cursor is visible or not -- a cursor already inside
-the viewport is left alone by that rule anyway, so a search hit that is already
-visible needs no separate branch. The startup position and `C-l` set
-`Recenter`; the search steps set `KeepVisible` explicitly rather than just
-leaving the field alone, so a `Recenter` that some earlier command asked for
-cannot ride along with a search step (the field is reset by every adjustment
-today, but relying on that couples the search steps to when the render path
-happens to run).
+This RFC does not introduce a type of its own. The sibling RFC
+`20260928-rfc-recenter-cycles-through-positions.md` replaces the
+`recenter_viewport: bool` flag with `recenter_viewport: Option<Recenter>`
+(`Recenter::{Center, Top, Bottom}`), where `None` is today's `false` -- no
+recenter request, so the ordinary keep-it-visible rule runs. The search steps
+want exactly that rule, so they write `None`; no new enum, no second field, and
+no invalid "center and keep-visible at once" state. The two RFCs share the one
+field, and the sibling one owns its type.
 
 What must not change is where the *decision* is made: whether a position is
 visible is a fact about the viewport and the text area, and both live where
-`adjust_viewport` already is.
+`adjust_viewport` already is. The search steps only say *which* follow they
+want; `adjust_viewport`, which has the size, decides whether that means
+scrolling.
 
 The request has two setters besides the search steps, which together account
 for all six places the field is written: the startup position
@@ -158,20 +126,19 @@ when the cursor is already visible, and the startup position is deliberately
 centered for the reason in the motivation. The mouse handlers do not write the
 field at all, so clicks are unaffected either way.
 
-The field is public, and two tests read it directly: `tests/search.rs` asserts
-a hit recenters the view, and `tests/state.rs` asserts the request is used once.
-The first assertion describes behavior this proposal changes, so it has to be
-rewritten; the second survives in spirit (the request is still consumed by the
-next adjustment) but may need its names updated. Either shape touches the
-public API -- the first changes two method signatures, the second changes the
-field's type -- so under the crate's 0.x rules both are allowed, but neither is
-invisible.
+The field is public, and a test reads it directly: `tests/search.rs` asserts a
+hit recenters the view. That assertion describes behavior this proposal
+changes, so it has to be rewritten to assert that a hit already in view leaves
+the viewport alone. With the sibling RFC in place the field's type is also
+changing from `bool` to `Option<Recenter>`, which alone touches `tests/state.rs`
+(the request-is-used-once assertion survives in spirit but its names change).
+Under the crate's 0.x rules both changes are allowed, but neither is invisible.
 
 `adjust_viewport`'s keep-it-visible rule already handles both axes: it scrolls
 up when the row is above the viewport, down when it is at or past
-`viewport.row + rows`, and the same for columns. The new state only decides
-whether that rule runs or the centering branch does, so no new scrolling logic
-is needed.
+`viewport.row + rows`, and the same for columns. The only question this RFC
+changes is which branch `adjust_viewport` runs, so no new scrolling logic is
+needed.
 
 ## Drawbacks
 
@@ -182,9 +149,11 @@ is needed.
 - **The viewport stops being predictable from the hit.** With centering, the hit
   was always a known distance from the edges; now it depends on where it was
   already. A reader who counted on centering to orient themselves loses that.
-- **More state than a `bool`.** The flag becomes a two-variant enum, which is a
-  concept more than `true`/`false` for a cosmetic improvement. It also changes a
-  public field's type.
+- **More state, indirectly.** This RFC by itself only changes the value two
+  handlers write. The type change that carries it (`bool` to
+  `Option<Recenter>`) is the sibling RFC's, and its own drawbacks (a public
+  enum, an `Option` field, cycle bookkeeping for `C-l`) apply to the shared
+  field once both land.
 - **The current behavior is defensible.** "The hit is always in the middle" is a
   simple rule to state and to rely on, and recentering is never *wrong*, only
   sometimes unwanted.
@@ -217,19 +186,17 @@ The startup position keeps its unconditional centering: it is a one-time
 "open here" rather than a step in a walk, and a file opened at a named position
 reads best with that position in the middle of the text area. That is settled.
 
-One point remains open for implementation:
-
-- The exact name of the enum and its variants (`ViewportFollow` with
-  `KeepVisible`/`Recenter` above is a placeholder). The crate's docs are the
-  authority on the public API, so the name has to read well in that doc comment
-  and in the two tests that mention it.
+With the type shared with the sibling RFC, there is no naming question left
+here: the field is the sibling's `recenter_viewport: Option<Recenter>`, and the
+search steps simply write `None`. What remains open is the sibling's own
+Unresolved questions, since they now decide how the shared field reads.
 
 ## Future possibilities
 
 If a `C-l`-like command ever wants "always recenter" and a hit-step wants
 "recenter only when needed", the flag's meaning will have to be spelled out
-somewhere both can read; the third-state shape above is the natural place, and
-this change is what would introduce it.
+somewhere both can read; the sibling RFC's `Option<Recenter>` is that place, and
+`None` (this RFC's value) is the keep-it-visible end of it.
 A follow-up could make the search prompt show whether the current hit is the
 first or last, which composes with keeping the viewport still: a reader who is
 not being recentered needs some other cue that the walk wrapped.

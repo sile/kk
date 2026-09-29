@@ -15,7 +15,10 @@ it.
 ## Motivation
 
 `State::recenter_viewport` is a boolean that asks the next `adjust_viewport` to
-center the cursor and clear itself:
+center the cursor and clear itself. (A sibling RFC,
+`20260928-rfc-search-hit-keeps-viewport.md`, wants the search steps to stop
+setting it, so this RFC turns the flag into `Option<Recenter>` and the search
+steps write `None` -- see "The flag is shared" below.)
 
 ```rust
 // src/state.rs
@@ -104,8 +107,11 @@ pub enum Recenter {
 ```
 
 The field becomes `recenter_viewport: Option<Recenter>`, where `None` means no
-request is pending (today's `false`). `adjust_viewport` matches on it instead of
-an `if`:
+recenter request is pending -- today's `false`, which runs the ordinary
+keep-it-visible rule (scroll by the minimum needed to show the cursor). The
+search steps land on exactly that behavior by setting `None`, so `None` carries
+both "nothing asked" and "follow with the minimum scroll". `adjust_viewport`
+matches on it instead of an `if`:
 
 ```rust
 if let Some(place) = self.recenter_viewport.take() {
@@ -159,10 +165,14 @@ Things that are subtle and easy to get wrong:
   which is simpler to reason about than re-deriving it. The explicit field is
   preferred: it removes the same ambiguity `mamediff` has when top and center
   coincide.
-- **The flag is shared.** Search hits (`handle_search_next_hit`,
-  `handle_search_prev_hit`) and the CLI-position RFC also set
-  `recenter_viewport`. Those want a one-shot *center*, never a cycle, so they
-  keep setting `Some(Recenter::Center)` and are unaffected by the cycle.
+- **The flag is shared.** The startup position (`handle_cursor_to_position`)
+  and the search steps (`handle_search_next_hit`, `handle_search_prev_hit`)
+  also write `recenter_viewport`. The startup position wants a one-shot
+  *center*, so it sets `Some(Recenter::Center)` and is unaffected by the cycle.
+  The search steps want the viewport to follow the hit with the minimum scroll,
+  not to center, so they set `None` -- the same value that means "no request"
+  today, and the sibling RFC's whole point. Neither caller participates in the
+  cycle.
 - **Horizontal centering.** Today `recenter` centers both axes. The proposal
   keeps the column centered for all three places, so only the vertical
   position changes across the cycle; a top/bottom request is about rows. If a
@@ -217,6 +227,10 @@ Things that are subtle and easy to get wrong:
   (proposed) or align to column 0 / the line's end.
 - Whether the message should name the place (`"Cursor at top"`) or stay the
   single `"View recentered"` string.
+- The search steps writing `None` is settled by the sibling RFC; what is not is
+  whether anything *else* should follow the hit instead of centering. If a
+  later command wants "put the hit at the top", that is a fourth place and the
+  enum grows rather than the search steps changing again.
 
 ## Future possibilities
 
