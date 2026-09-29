@@ -307,13 +307,31 @@ fn the_next_hit_advances_and_wraps_around() {
 
     state.handle_search_next_hit();
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 8 });
-    assert!(
-        !state.recenter_viewport,
-        "a hit asks the viewport to follow, not to recenter"
-    );
 
     state.handle_search_next_hit();
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 0 }, "wraps");
+}
+
+#[test]
+fn a_hit_step_leaves_a_pending_recenter_request_alone() {
+    let mut state = state_of("one two one\n");
+    state.search_prompt = Some(SearchPrompt::new());
+    for ch in "one".chars() {
+        state.handle_char_insert(ch);
+    }
+
+    // A recenter some earlier command asked for is still pending when the
+    // step runs, because the render path has not consumed it yet. The step
+    // must not cancel it: the request is about the cursor, not the search.
+    state.handle_view_recenter();
+    assert!(state.recenter_viewport);
+
+    state.handle_search_next_hit();
+    assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 8 });
+    assert!(
+        state.recenter_viewport,
+        "the step carries the request through instead of clearing it"
+    );
 }
 
 /// A buffer with a hit on every row, so a step always lands on a known row.
