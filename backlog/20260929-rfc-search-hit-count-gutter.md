@@ -105,7 +105,12 @@ lines whose text is blank, drawn as they are.)
 
 The two totals are measured against the slice the frame could hold at full
 height -- that is, before any summary is drawn -- so whether a summary is shown
-never changes the totals that decide it. On a frame of a single row the top and
+never changes the totals that decide it. The viewport is scrolled against that
+same full height: it is placed as if no summary were drawn, and the text is what
+gives way to the summaries. Were the viewport instead scrolled against the
+reduced height, a summary would hide a line at the edge, drop a hit out of the
+slice, grow the total that had just appeared, and so on -- a scroll that depends
+on how far it had already scrolled. On a frame of a single row the top and
 bottom totals would collide; the top wins, since one row cannot hold two
 summaries and the nearer edge is the more useful one.
 
@@ -160,9 +165,14 @@ rows are visible:
 - measure the totals against the full-height slice `[start_row, end_row)`
   first, then clip the text to the rows left after reserving one for each
   non-zero total;
+- scroll the viewport against that same full height, so the summary rows change
+  where the text is clipped but not where the viewport is placed (the edge hands
+  [`adjust_viewport()`] the text area's own height, not the height left after
+  the summaries);
 - for the top total, sum the counts of the rows before `start_row` and write it,
-  when non-zero, on the frame's first row as a count, a `:` separator, and a
-  space, in the gutter's columns, pushing the text down one row;
+  when non-zero *and* `start_row` is not zero, on the frame's first row as a
+  count, a `:` separator, and a space, in the gutter's columns, pushing the text
+  down one row;
 - for the bottom total, sum the counts of the rows at and after `end_row` and
   write it, when non-zero, the same way on the frame's last row, pulling the
   text's last row up one.
@@ -206,6 +216,10 @@ The gutter is pure rendering, so `tests/render.rs` is the home for it:
   uses `|`;
 - a summary row costs a row of text height, so the visible lines shrink by one
   at each edge that shows a total;
+- the top total is not drawn when the viewport is already on the first line,
+  since no hit can lie above row 0;
+- a jump to a hit past the edge leaves the cursor's line painted, the viewport
+  scrolled against the full height rather than the height the summaries left;
 - on a one-row frame with totals on both sides, the top total wins;
 - a total over 99 renders as `99+`, the same as a line count;
 - the gutter is absent when the prompt is closed and the text starts at column

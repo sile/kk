@@ -198,6 +198,79 @@ fn the_gutter_shows_the_hits_while_searching_and_leaves_with_the_prompt() {
 }
 
 #[test]
+fn a_jump_to_a_hit_past_the_edge_leaves_the_cursor_visible() {
+    // Nineteen lines, the last of which is the only hit. The terminal is short,
+    // so the hit starts below the visible text area and the search has to
+    // scroll to it -- with the gutter's total row taking a row of that area.
+    let mut text = String::new();
+    for _ in 0..18 {
+        text.push_str("plain\n");
+    }
+    text.push_str("needle\n");
+    let path = scratch_file("search_jump_past_edge.txt");
+    std::fs::write(&path, text).expect("write scratch file");
+
+    let mut kk = KkHarness::open(&path);
+    kk.resize(8, 200);
+    kk.wait_for_text("Opened");
+
+    kk.send_ctrl('s');
+    kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
+    kk.send_text("needle");
+    kk.send_ctrl('s');
+
+    // The cursor lands on the hit: the status line says so wherever the scroll
+    // left it, so the hit line itself must be on screen and carrying the cursor.
+    kk.wait_until("the cursor reached the hit", |h| {
+        h.screen_contains(":19:1]")
+    });
+    assert!(
+        kk.screen_text().contains("needle"),
+        "the cursor's line is on screen:\n{}",
+        kk.screen_text()
+    );
+
+    // `C-c` is not bound in the prompt, so leave it before asking kk to quit.
+    kk.send_ctrl('g');
+    kk.wait_until("the prompt is left", |h| !h.screen_contains("Search:"));
+
+    let status = kk.quit();
+    assert!(status.success(), "kk exited with {status:?}");
+}
+
+#[test]
+fn the_gutter_summary_row_is_gone_at_the_top_of_the_buffer() {
+    let path = scratch_file("search_gutter_top.txt");
+    std::fs::write(&path, "needle\nplain\nneedle\n").expect("write scratch file");
+
+    let mut kk = KkHarness::open(&path);
+    kk.resize(24, 200);
+    kk.wait_for_text("Opened");
+
+    kk.send_ctrl('s');
+    kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
+    kk.send_text("needle");
+
+    // The viewport is on the buffer's first row, where no hit can lie above it,
+    // so no top total is drawn and the first row stays a line: `1 | needle`,
+    // not `0 : needle`.
+    kk.wait_until("the first row is a line", |h| {
+        h.screen_text().contains("1 | needle")
+    });
+    assert!(
+        !kk.screen_text().contains("0 :"),
+        "no empty top total is drawn at the first row:\n{}",
+        kk.screen_text()
+    );
+
+    kk.send_ctrl('g');
+    kk.wait_until("the prompt is left", |h| !h.screen_contains("Search:"));
+
+    let status = kk.quit();
+    assert!(status.success(), "kk exited with {status:?}");
+}
+
+#[test]
 fn resizing_repaints_at_the_new_size() {
     let path = scratch_file("resize.txt");
     std::fs::write(&path, "hello\n").expect("write scratch file");

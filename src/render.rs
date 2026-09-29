@@ -29,17 +29,21 @@ const HIT_GUTTER_COLS: usize = 5;
 ///
 /// While a search prompt is open a gutter is reserved on the left, showing how
 /// many hits each visible line holds and, above and below, how many sit outside
-/// the visible slice; the text shifts right by [`HIT_GUTTER_COLS`] to make room.
+/// the visible slice; the text shifts right by the gutter's width to make room.
 /// The gutter is drawn from the same walk as the text, so the two cannot
 /// disagree about which rows are visible. When the prompt is closed the gutter
 /// is gone and the text starts at the frame's left edge as before.
 ///
 /// A summary row takes a row of its own, above the first visible line and below
-/// the last, so the text area loses that row's height while a summary is shown.
-/// The two totals are measured against the slice the frame could hold at full
-/// height -- that is, before any summary is drawn. Whether a summary is shown
-/// therefore never changes the totals that decide it, and a summary reads as
-/// saying what lies just past the edge a reader would have seen.
+/// the last, so the text loses that row's height while a summary is shown. The
+/// totals are measured over the text area's full height, before any summary is
+/// drawn, and the viewport is scrolled against that same height (see
+/// [`adjust_viewport()`](State::adjust_viewport) and the `text_area_region` it
+/// is handed). The scroll is therefore decided against the rows the frame could
+/// hold, not the two fewer it shows while totals are on it. Deciding against
+/// the reduced height instead would drop a row the moment a total appeared, push
+/// its last hit out of sight, grow the total, and so on -- a scroll that depends
+/// on how far it had already scrolled.
 pub fn render_text_area(state: &State, frame: &mut tuinix::Frame) {
     let available_rows = frame.size().rows;
 
@@ -59,8 +63,9 @@ pub fn render_text_area(state: &State, frame: &mut tuinix::Frame) {
 
     // A summary row costs a row of the text's height, so the text is clipped by
     // as many rows as are shown above and below it.
-    let text_top = usize::from(above > 0);
-    let text_height = available_rows.saturating_sub(text_top + usize::from(below > 0));
+    let text_height = available_rows
+        .saturating_sub(usize::from(above > 0))
+        .saturating_sub(usize::from(below > 0));
     let end_row = (start_row + text_height).min(state.buffer.rows());
 
     // The top summary claims row 0 and the bottom the last row. On a frame of a
@@ -78,20 +83,16 @@ pub fn render_text_area(state: &State, frame: &mut tuinix::Frame) {
 
     for (screen_row, buffer_row) in (start_row..end_row).enumerate() {
         if let Some(line) = state.buffer.line(buffer_row) {
+            // The top summary is drawn only when the viewport is not already at
+            // the first line: a total of the hits above row 0 would name none.
+            let top = usize::from(above > 0 && start_row > 0);
             let gutter = gutter_shown.then(|| GutterCell {
                 count: count_hits_on_row(state, buffer_row),
                 // The cursor's row is reversed, so the gutter marks the cursor
                 // as plainly as the reversed line text beside it does.
                 reversed: state.cursor.row == buffer_row,
             });
-            render_line(
-                line,
-                frame,
-                state,
-                buffer_row,
-                text_top + screen_row,
-                gutter,
-            );
+            render_line(line, frame, state, buffer_row, top + screen_row, gutter);
         }
     }
 }

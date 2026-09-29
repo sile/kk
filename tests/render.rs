@@ -334,6 +334,22 @@ fn the_gutter_is_absent_when_the_prompt_is_closed() {
 }
 
 #[test]
+fn the_top_summary_is_not_drawn_at_the_first_row() {
+    // The query hits row 0, and the viewport is on row 0, so there is no row
+    // above it to total: no hit lies before the first line.
+    let mut state = state_of("x\nplain\n");
+    state.search_prompt = Some(kk::SearchPrompt::new());
+    state.handle_char_insert('x');
+    let mut frame = frame_of(2, 10);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // Row 0 stays a buffer line -- its own count and a `|` -- rather than being
+    // given up to a total of zero.
+    assert_eq!(row_text(&frame, 0, 5), " 1 | ");
+}
+
+#[test]
 fn an_empty_buffer_paints_nothing() {
     let state = state_of("");
     let mut frame = frame_of(3, 5);
