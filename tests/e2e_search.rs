@@ -160,6 +160,44 @@ fn cutting_from_the_query_shortens_it_without_touching_the_buffer() {
 }
 
 #[test]
+fn the_gutter_shows_the_hits_while_searching_and_leaves_with_the_prompt() {
+    let path = scratch_file("search_gutter.txt");
+    std::fs::write(&path, "alpha\nbeta\ngamma\n").expect("write scratch file");
+
+    let mut kk = KkHarness::open(&path);
+    kk.resize(24, 200);
+    kk.wait_for_text("Opened");
+
+    // Before searching there is no gutter: the first line reads with no count
+    // cell or separator in front of it.
+    kk.wait_until("no gutter at rest", |h| {
+        let text = h.screen_text();
+        text.contains("alpha") && !text.contains("| alpha")
+    });
+
+    kk.send_ctrl('s');
+    kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
+    kk.send_text("gamma");
+
+    // The gutter appears with the prompt: the line holding the one hit reads
+    // `1 | gamma`, and the lines without a hit keep a blank count cell.
+    kk.wait_until("gutter with the hit count", |h| {
+        h.screen_text().contains("1 | gamma")
+    });
+
+    kk.send_ctrl('g');
+
+    // Cancelling takes the gutter away again.
+    kk.wait_until("gutter gone", |h| {
+        let text = h.screen_text();
+        !text.contains("Search:") && text.contains("gamma") && !text.contains("| gamma")
+    });
+
+    let status = kk.quit();
+    assert!(status.success(), "kk exited with {status:?}");
+}
+
+#[test]
 fn resizing_repaints_at_the_new_size() {
     let path = scratch_file("resize.txt");
     std::fs::write(&path, "hello\n").expect("write scratch file");

@@ -12,41 +12,199 @@ use crate::{
     terminal::put_str,
 };
 
+/// Columns reserved on the left of the text area while a search prompt is open:
+/// a three-column count (two digits and the `+` that may overflow them), the
+/// separator, and a space after it.
+///
+/// It is a constant, not derived from the buffer: the text's left edge must not
+/// move as the query finds more or fewer hits.
+const HIT_GUTTER_COLS: usize = 5;
+
 /// Paints the visible slice of the buffer, with the mark and search highlight.
 ///
 /// A marked range and the character the cursor sits on while a search prompt is
 /// open are both reversed, so the cursor stands out as plainly as a mark. A
 /// matched range is bold and underlined instead, so a hit and a mark cannot be
 /// taken for one another.
+///
+/// While a search prompt is open a gutter is reserved on the left, showing how
+/// many hits each visible line holds and, above and below, how many sit outside
+/// the visible slice; the text shifts right by [`HIT_GUTTER_COLS`] to make room.
+/// The gutter is drawn from the same walk as the text, so the two cannot
+/// disagree about which rows are visible. When the prompt is closed the gutter
+/// is gone and the text starts at the frame's left edge as before.
+///
+/// A summary row takes a row of its own, above the first visible line and below
+/// the last, so the text area loses that row's height while a summary is shown.
+/// The two totals are measured against the slice the frame could hold at full
+/// height -- that is, before any summary is drawn. Whether a summary is shown
+/// therefore never changes the totals that decide it, and a summary reads as
+/// saying what lies just past the edge a reader would have seen.
 pub fn render_text_area(state: &State, frame: &mut tuinix::Frame) {
     let available_rows = frame.size().rows;
 
-    // Render visible lines from the buffer starting at viewport position
     let start_row = state.viewport.row;
-    let end_row = (start_row + available_rows).min(state.buffer.rows());
+
+    // The gutter is drawn only while a search prompt is open, and its totals
+    // come from the same hit set the text is highlighted from. Measuring against
+    // the full-height slice makes the totals independent of which summaries are
+    // drawn -- no summary is ever the reason another is needed.
+    let gutter_shown = state.search_prompt.is_some();
+    let full_end_row = (start_row + available_rows).min(state.buffer.rows());
+    let (above, below) = if gutter_shown {
+        total_hits_outside(state, start_row, full_end_row)
+    } else {
+        (0, 0)
+    };
+
+    // A summary row costs a row of the text's height, so the text is clipped by
+    // as many rows as are shown above and below it.
+    let text_top = usize::from(above > 0);
+    let text_height = available_rows.saturating_sub(text_top + usize::from(below > 0));
+    let end_row = (start_row + text_height).min(state.buffer.rows());
+
+    // The top summary claims row 0 and the bottom the last row. On a frame of a
+    // single row they would collide, so the top wins: a one-row frame has no
+    // room for two summaries, and the nearer edge is the more useful one.
+    if above > 0 {
+        render_gutter_row(frame, 0, above, GUTTER_SEPARATOR_TOTAL, false);
+    }
+    if below > 0 {
+        let last = available_rows.saturating_sub(1);
+        if last > 0 {
+            render_gutter_row(frame, last, below, GUTTER_SEPARATOR_TOTAL, false);
+        }
+    }
 
     for (screen_row, buffer_row) in (start_row..end_row).enumerate() {
         if let Some(line) = state.buffer.line(buffer_row) {
+            let gutter = gutter_shown.then(|| GutterCell {
+                count: count_hits_on_row(state, buffer_row),
+                // The cursor's row is reversed, so the gutter marks the cursor
+                // as plainly as the reversed line text beside it does.
+                reversed: state.cursor.row == buffer_row,
+            });
             render_line(
                 line,
-                state.viewport.col,
                 frame,
                 state,
                 buffer_row,
-                screen_row,
+                text_top + screen_row,
+                gutter,
             );
         }
     }
 }
 
+/// The gutter cell of one buffer line.
+struct GutterCell {
+    /// How many hits start on the line.
+    count: usize,
+
+    /// Whether to reverse the cell because the cursor is on the line.
+    reversed: bool,
+}
+
+/// Returns how many hits start before `start_row` and how many start at or
+/// after `end_row`.
+fn total_hits_outside(state: &State, start_row: usize, end_row: usize) -> (usize, usize) {
+    let mut above = 0;
+    let mut below = 0;
+    for item in &state.highlight.items {
+        let row = item.start_position.row;
+        if row < start_row {
+            above += 1;
+        } else if row >= end_row {
+            below += 1;
+        }
+    }
+    (above, below)
+}
+
+/// Returns how many hits start on `row`.
+///
+/// A hit is counted on the row it starts on, matching how the text is
+/// highlighted, so a hit that wraps is counted once.
+fn count_hits_on_row(state: &State, row: usize) -> usize {
+    state
+        .highlight
+        .items
+        .iter()
+        .filter(|item| item.start_position.row == row)
+        .count()
+}
+
+/// The separator drawn on a buffer line's gutter row.
+const GUTTER_SEPARATOR_LINE: char = '|';
+
+/// The separator drawn on a summary row, which a reader can tell from a buffer
+/// line by its shape alone: the two kinds of row are otherwise the same width.
+const GUTTER_SEPARATOR_TOTAL: char = ':';
+
+/// Writes a gutter row -- the count cell and the separator -- at `screen_row`,
+/// columns `0..HIT_GUTTER_COLS`, reversing the count cell when `reverse` is set.
+///
+/// The count cell is three columns wide: two digits and the `+` that fills the
+/// third only when they overflow, so a count past `99` reads `99+` and the cell
+/// never grows. A zero count leaves the cell blank, the way a line-number gutter
+/// says zero with no digits at all. A space follows the separator; it is part of
+/// the gutter's columns but nothing has to be written to it.
+fn render_gutter_row(
+    frame: &mut tuinix::Frame,
+    screen_row: usize,
+    count: usize,
+    separator: char,
+    reverse: bool,
+) {
+    let cell = if count == 0 {
+        "   ".to_string()
+    } else if count > 99 {
+        "99+".to_string()
+    } else {
+        format!("{count:>2} ")
+    };
+    let cell_style = if reverse {
+        tuinix::Style::new().reverse()
+    } else {
+        tuinix::Style::new()
+    };
+    let at = tuinix::Position {
+        row: screen_row,
+        col: 0,
+    };
+    put_str(frame, at, &cell, cell_style);
+
+    let sep_at = tuinix::Position {
+        row: screen_row,
+        col: 3,
+    };
+    put_str(frame, sep_at, &separator.to_string(), tuinix::Style::new());
+}
+
 fn render_line(
     line: &TextLine,
-    start_col: usize,
     frame: &mut tuinix::Frame,
     state: &State,
     line_row: usize,
     screen_row: usize,
+    gutter: Option<GutterCell>,
 ) {
+    // The gutter, when drawn, takes the left of the row, and the text starts
+    // just past it: the text's left edge is the gutter's width or nothing.
+    let text_offset = if let Some(cell) = gutter {
+        render_gutter_row(
+            frame,
+            screen_row,
+            cell.count,
+            GUTTER_SEPARATOR_LINE,
+            cell.reversed,
+        );
+        HIT_GUTTER_COLS
+    } else {
+        0
+    };
+    let start_col = state.viewport.col;
+
     // Calculate marked region for this line if mark is active
     let marked_region = if let Some(mark_pos) = state.mark {
         let cursor_pos = state.cursor_position();
@@ -78,7 +236,7 @@ fn render_line(
             };
             let at = tuinix::Position {
                 row: screen_row,
-                col: current_col - start_col,
+                col: text_offset + (current_col - start_col),
             };
             put_str(frame, at, &ch.to_string(), style);
         }

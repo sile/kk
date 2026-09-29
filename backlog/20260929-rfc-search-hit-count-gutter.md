@@ -1,6 +1,6 @@
 # RFC: Show a per-line hit count gutter while searching
 
-- Status: draft
+- Status: implemented
 
 ## Summary
 
@@ -97,10 +97,17 @@ is a total and not a line of the text:
 - the bottom row shows the total in the lines *after* the last visible line, or
   is left out when that total is zero.
 
-The two rows are not buffer lines: they replace nothing and consume no line of
-the text area's height, they only occupy the gutter beside the top and bottom
-visible line's own row. (In the sketch above, the blank `|`-rows between them
-and the hits are just buffer lines whose text is blank, drawn as they are.)
+The two rows are not buffer lines: each takes a row of its own, the top total
+above the first visible line and the bottom total below the last, so the text
+area loses a row of height at each edge while a summary is shown. (In the
+sketch above, the blank `|`-rows between them and the hits are just buffer
+lines whose text is blank, drawn as they are.)
+
+The two totals are measured against the slice the frame could hold at full
+height -- that is, before any summary is drawn -- so whether a summary is shown
+never changes the totals that decide it. On a frame of a single row the top and
+bottom totals would collide; the top wins, since one row cannot hold two
+summaries and the nearer edge is the more useful one.
 
 Only the rows that are actually painted are counted. A hit is counted on the
 line it starts on, matching the highlight. The totals are about the lines
@@ -150,10 +157,15 @@ rows are visible:
   the cursor's line to match the reversed line text;
 - write the line text starting at column `HIT_GUTTER_COLS` instead of `0`,
   subtracting the same constant from the width used for any column clamping;
-- for the top row, sum the counts of the rows before `start_row` and write it,
-  when non-zero, as a count, a `:` separator, and a space, in the same columns;
-- for the bottom row, sum the counts of the rows at and after `end_row` and
-  write it, when non-zero, the same way.
+- measure the totals against the full-height slice `[start_row, end_row)`
+  first, then clip the text to the rows left after reserving one for each
+  non-zero total;
+- for the top total, sum the counts of the rows before `start_row` and write it,
+  when non-zero, on the frame's first row as a count, a `:` separator, and a
+  space, in the gutter's columns, pushing the text down one row;
+- for the bottom total, sum the counts of the rows at and after `end_row` and
+  write it, when non-zero, the same way on the frame's last row, pulling the
+  text's last row up one.
 
 The renderer needs the query's hits, which are already on `state.highlight`, so
 no new state is required to draw it. Whether the gutter is shown at all is
@@ -189,9 +201,12 @@ The gutter is pure rendering, so `tests/render.rs` is the home for it:
 - a count of 100 or more renders `99+`;
 - a zero-hit line renders blank count columns;
 - the cursor's line renders its count cell reversed, and other lines do not;
-- the top total appears only when there are hits above the visible slice, and
-  likewise the bottom, and each summary row uses `:` where a buffer line uses
-  `|`;
+- the top total appears only when there are hits above the full-height slice,
+  and likewise the bottom, and each summary row uses `:` where a buffer line
+  uses `|`;
+- a summary row costs a row of text height, so the visible lines shrink by one
+  at each edge that shows a total;
+- on a one-row frame with totals on both sides, the top total wins;
 - a total over 99 renders as `99+`, the same as a line count;
 - the gutter is absent when the prompt is closed and the text starts at column
   0.
