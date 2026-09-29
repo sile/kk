@@ -826,6 +826,13 @@ impl State {
     /// Moves the cursor to the next match after it, wrapping to the first.
     ///
     /// Does nothing when no search prompt is open.
+    ///
+    /// The cursor is moved with the ordinary keep-it-visible rule rather than
+    /// centered: a hit already on screen must not scroll the text out from
+    /// under the reader, so the step leaves
+    /// [`recenter_viewport`](State::recenter_viewport) clear instead of setting
+    /// it. It clears the flag rather than leaving it alone so a recenter some
+    /// earlier command asked for cannot ride along with the step.
     pub fn handle_search_next_hit(&mut self) {
         if self.search_prompt.is_none() {
             return;
@@ -843,17 +850,22 @@ impl State {
             .find(|item| item.start_position > current_pos)
         {
             self.cursor = next_item.start_position;
-            self.recenter_viewport = true;
+            self.recenter_viewport = false;
         } else if let Some(first_item) = self.highlight.items.first() {
             // Wrap around to the first item
             self.cursor = first_item.start_position;
-            self.recenter_viewport = true;
+            self.recenter_viewport = false;
         }
     }
 
     /// Moves the cursor to the previous match before it, wrapping to the last.
     ///
     /// Does nothing when no search prompt is open.
+    ///
+    /// Like [`handle_search_next_hit()`](State::handle_search_next_hit), the
+    /// cursor follows the ordinary keep-it-visible rule rather than centering,
+    /// so stepping back through hits the reader just passed does not shuffle
+    /// the text each time.
     pub fn handle_search_prev_hit(&mut self) {
         if self.search_prompt.is_none() {
             return;
@@ -872,11 +884,11 @@ impl State {
             .find(|item| item.start_position < current_pos)
         {
             self.cursor = prev_item.start_position;
-            self.recenter_viewport = true;
+            self.recenter_viewport = false;
         } else if let Some(last_item) = self.highlight.items.last() {
             // Wrap around to the last item
             self.cursor = last_item.start_position;
-            self.recenter_viewport = true;
+            self.recenter_viewport = false;
         }
     }
 }
