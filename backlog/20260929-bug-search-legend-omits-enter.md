@@ -74,15 +74,16 @@ where it started, the other accepts the search on the hit the cursor sits on:
 
 ```text
 │C-g cancel
-│Enter ⏎ ent
+│Enter ⏎ Ent
 │C-r ⇤ prev
 │C-s ⇥ next
 ```
 
-The label `ent` keeps the chord short enough that the box width does not
-change, but the chord spelling, the glyph, and the label are the fix's to
-choose; the requirement is that the `Enter` binding appears in the table, next
-to `C-g`.
+The label `Ent` is three characters, and three characters fit: it is short
+enough that the box width does not change. `Ent` is the settled label and
+`Enter` the settled chord spelling for this row; the glyph beside the chord
+follows the house style used by ⌫, ⌦, and ⇥ elsewhere in the table. The
+requirement is that the `Enter` binding appears in the table, next to `C-g`.
 
 ## Impact
 
@@ -95,11 +96,12 @@ completeness. No resource effect.
 
 ## Notes
 
-The fix is one row in `SEARCH_LEGEND` in `src/binding.rs`, plus the matching
-update to `the_search_legend_is_exactly_this_text` in `tests/legend.rs` and any
-padding change if the new row is the widest (it is not: `C-r ⇤ prev` and
-`C-s ⇥ next` are already 12 columns before the border, the same as `Enter`
-plus its glyph and label is likely to be, so the box width should hold). The
+The fix is one row, `│Enter ⏎ Ent`, in `SEARCH_LEGEND` in `src/binding.rs`,
+plus the matching update to `the_search_legend_is_exactly_this_text` in
+`tests/legend.rs` and any padding change if the new row is the widest. The row
+is `Enter ⏎ Ent`: 5 columns of chord, a space, the glyph, a space, and the
+3-column label, 12 columns before the border -- the same as `C-r ⇤ prev` and
+`C-s ⇥ next`, so the box width holds and the existing padding survives. The
 same omission exists for `Enter` in the edit legend, which the RFC
 `20260929-rfc-bind-c-j-to-newline.md` raises as an open question rather than
 deciding; that one is not fixed here.
