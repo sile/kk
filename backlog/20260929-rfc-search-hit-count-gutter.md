@@ -104,13 +104,14 @@ sketch above, the blank `|`-rows between them and the hits are just buffer
 lines whose text is blank, drawn as they are.)
 
 The two totals are measured against the slice the frame could hold at full
-height -- that is, before any summary is drawn -- so whether a summary is shown
-never changes the totals that decide it. The viewport is scrolled against that
-same full height: it is placed as if no summary were drawn, and the text is what
-gives way to the summaries. Were the viewport instead scrolled against the
-reduced height, a summary would hide a line at the edge, drop a hit out of the
-slice, grow the total that had just appeared, and so on -- a scroll that depends
-on how far it had already scrolled. On a frame of a single row the top and
+height -- that is, before any summary is drawn -- so the totals themselves do
+not depend on which summaries are shown. The viewport, though, is scrolled
+against the height the text is *actually drawn in* once the summaries have taken
+their rows: placing it against the full height would put the cursor on a row a
+summary then covers, and the cursor would vanish exactly when a hit lies at the
+edge. Since that height depends on which summaries appear, which in turn depends
+on the viewport, the two are settled together: the scroll is repeated until the
+viewport and the height it implies agree. On a frame of a single row the top and
 bottom totals would collide; the top wins, since one row cannot hold two
 summaries and the nearer edge is the more useful one.
 
@@ -165,10 +166,10 @@ rows are visible:
 - measure the totals against the full-height slice `[start_row, end_row)`
   first, then clip the text to the rows left after reserving one for each
   non-zero total;
-- scroll the viewport against that same full height, so the summary rows change
-  where the text is clipped but not where the viewport is placed (the edge hands
-  [`adjust_viewport()`] the text area's own height, not the height left after
-  the summaries);
+- scroll the viewport against the height the text is drawn in -- the full height
+  less one row per summary [`adjust_viewport()`] will draw -- repeating the
+  scroll until the viewport and that height agree, so the cursor lands in a row
+  the text occupies rather than one a summary covers;
 - for the top total, sum the counts of the rows before `start_row` and write it,
   when non-zero *and* `start_row` is not zero, on the frame's first row as a
   count, a `:` separator, and a space, in the gutter's columns, pushing the text
@@ -219,7 +220,10 @@ The gutter is pure rendering, so `tests/render.rs` is the home for it:
 - the top total is not drawn when the viewport is already on the first line,
   since no hit can lie above row 0;
 - a jump to a hit past the edge leaves the cursor's line painted, the viewport
-  scrolled against the full height rather than the height the summaries left;
+  scrolled so the cursor is in a row the text occupies rather than one a summary
+  covers -- checked end-to-end, since the bug it fixes is only visible on screen;
+- a scroll that lands the cursor at the edge keeps it inside the drawn text rows
+  (a unit check on [`text_rows()`]);
 - on a one-row frame with totals on both sides, the top total wins;
 - a total over 99 renders as `99+`, the same as a line count;
 - the gutter is absent when the prompt is closed and the text starts at column

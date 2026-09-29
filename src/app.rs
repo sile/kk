@@ -359,10 +359,9 @@ impl App {
         let mut frame = tuinix::Frame::new(self.driver.size());
 
         let region = self.text_area_region();
-        // The viewport is scrolled against the text area's own height, out of
-        // which the gutter's summary rows are taken when the text is drawn:
-        // were it scrolled against the reduced height, a summary would hide a
-        // line, change the totals, and so decide whether it belonged there.
+        // The area's full size is handed over: `adjust_viewport` measures the
+        // gutter's summary rows itself and scrolls against the rows the text is
+        // actually drawn in, so the two cannot disagree about the height.
         self.state.adjust_viewport(region.size);
         self.render_region(&mut frame, region, |frame| {
             kk::render_text_area(&self.state, frame)

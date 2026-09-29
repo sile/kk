@@ -137,33 +137,120 @@ impl State {
         self.buffer.adjust_to_char_boundary(self.cursor, true)
     }
 
+    /// Returns how many rows the gutter's summary rows take from a text area
+    /// `available_rows` tall: zero, one, or two -- one for a total above the
+    /// visible slice and one for a total below it.
+    ///
+    /// The two totals are measured the same way here as they are when the
+    /// gutter is drawn: over the slice of `available_rows` rows starting at the
+    /// viewport. This is the one place that decides, so [`text_rows()`](State::text_rows)
+    /// here and
+    /// [`render_text_area()`](crate::render_text_area) cannot disagree about how
+    /// many rows the text is drawn in.
+    ///
+    /// A total above is only drawn when the viewport is not already at the
+    /// buffer's first row, since no hit can lie above row 0; a total below only
+    /// when there is a row past the slice to hold one. A one-row area keeps the
+    /// top total and lets the bottom go, matching the drawing.
+    pub fn summary_rows(&self, available_rows: usize) -> usize {
+        if self.search_prompt.is_none() {
+            return 0;
+        }
+        let start_row = self.viewport.row;
+        let end_row = (start_row + available_rows).min(self.buffer.rows());
+        let mut rows = 0;
+        if start_row > 0 && self.hits_outside(start_row, end_row).0 > 0 {
+            rows += 1;
+        }
+        // The bottom total needs a row of its own, which a one-row area does not
+        // have once the top total has claimed it.
+        if available_rows > rows && self.hits_outside(start_row, end_row).1 > 0 {
+            rows += 1;
+        }
+        rows
+    }
+
+    /// Returns the rows left for the text itself in a text area `available_rows`
+    /// tall, after the gutter's summary rows have taken theirs.
+    ///
+    /// This is the height [`adjust_viewport()`](State::adjust_viewport) is
+    /// scrolled against while a search prompt is open: the viewport is placed so
+    /// the cursor lands in the rows the text is actually drawn in, not the rows
+    /// the summaries are drawn over. Handing it the area's full height instead
+    /// would place the cursor on a row a summary then covers, and the cursor
+    /// would be hidden exactly when a hit lies at the edge.
+    pub fn text_rows(&self, available_rows: usize) -> usize {
+        available_rows.saturating_sub(self.summary_rows(available_rows))
+    }
+
+    /// Returns how many hits start before `start_row` and how many start at or
+    /// after `end_row`.
+    ///
+    /// The same two totals decide how many rows the gutter's summaries take
+    /// (see [`summary_rows()`](State::summary_rows)) and what they read, so the
+    /// count and the space reserved for it come from one place.
+    pub fn hits_outside(&self, start_row: usize, end_row: usize) -> (usize, usize) {
+        let mut above = 0;
+        let mut below = 0;
+        for item in &self.highlight.items {
+            let row = item.start_position.row;
+            if row < start_row {
+                above += 1;
+            } else if row >= end_row {
+                below += 1;
+            }
+        }
+        (above, below)
+    }
+
     /// Scrolls the viewport just far enough to keep the cursor visible.
+    ///
+    /// `text_area_size` is the text area's own size, before the gutter's summary
+    /// rows take theirs. The rows scrolled against are
+    /// [`text_rows()`](State::text_rows) of it, so the cursor is placed in the
+    /// rows the text is actually drawn in, not the rows a summary then covers --
+    /// a search that lands the cursor at the edge would otherwise hide it. The
+    /// horizontal scroll is against the area's full width; the gutter takes
+    /// columns, not rows, and does not scroll with the text.
     ///
     /// When [`recenter_viewport`](State::recenter_viewport) is set, the cursor
     /// is centered instead and the flag is cleared.
     pub fn adjust_viewport(&mut self, text_area_size: tuinix::Size) {
         let cursor_pos = self.cursor_position();
-        let available_rows = text_area_size.rows;
         let available_cols = text_area_size.cols;
 
         if self.recenter_viewport {
             // Center the cursor in the viewport
-            self.viewport.row = cursor_pos.row.saturating_sub(available_rows / 2);
+            let rows = self.text_rows(text_area_size.rows);
+            self.viewport.row = cursor_pos.row.saturating_sub(rows / 2);
             self.viewport.col = cursor_pos.col.saturating_sub(available_cols / 2);
             self.recenter_viewport = false;
             return;
         }
 
-        // Existing viewport adjustment logic
-        // Adjust vertical viewport
-        if cursor_pos.row < self.viewport.row {
-            // Cursor is above viewport, scroll up
-            self.viewport.row = cursor_pos.row;
-        } else if cursor_pos.row >= self.viewport.row + available_rows {
-            // Cursor is below viewport, scroll down
-            self.viewport.row = cursor_pos
-                .row
-                .saturating_sub(available_rows.saturating_sub(1));
+        // The height the text is drawn in depends on which summary rows are
+        // shown, and those depend on the viewport -- so the two are settled
+        // together rather than one from the other. Each pass scrolls against the
+        // height the previous pass's viewport calls for, which is the fixed
+        // point the renderer then draws; a couple of passes cover every case.
+        for _ in 0..3 {
+            let available_rows = self.text_rows(text_area_size.rows);
+            let before = self.viewport.row;
+
+            // Adjust vertical viewport
+            if cursor_pos.row < self.viewport.row {
+                // Cursor is above viewport, scroll up
+                self.viewport.row = cursor_pos.row;
+            } else if cursor_pos.row >= self.viewport.row + available_rows {
+                // Cursor is below viewport, scroll down
+                self.viewport.row = cursor_pos
+                    .row
+                    .saturating_sub(available_rows.saturating_sub(1));
+            }
+
+            if self.viewport.row == before {
+                break;
+            }
         }
 
         // Adjust horizontal viewport

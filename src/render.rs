@@ -37,13 +37,12 @@ const HIT_GUTTER_COLS: usize = 5;
 /// A summary row takes a row of its own, above the first visible line and below
 /// the last, so the text loses that row's height while a summary is shown. The
 /// totals are measured over the text area's full height, before any summary is
-/// drawn, and the viewport is scrolled against that same height (see
-/// [`adjust_viewport()`](State::adjust_viewport) and the `text_area_region` it
-/// is handed). The scroll is therefore decided against the rows the frame could
-/// hold, not the two fewer it shows while totals are on it. Deciding against
-/// the reduced height instead would drop a row the moment a total appeared, push
-/// its last hit out of sight, grow the total, and so on -- a scroll that depends
-/// on how far it had already scrolled.
+/// drawn, so a summary's presence never changes the totals. The viewport, though,
+/// is scrolled against the rows the text is *drawn* in -- the full height less
+/// one row per summary -- so the cursor lands in a row a summary cannot cover;
+/// [`State::text_rows()`] gives both this renderer and
+/// [`adjust_viewport()`](State::adjust_viewport) that height, so the two cannot
+/// disagree about it.
 pub fn render_text_area(state: &State, frame: &mut tuinix::Frame) {
     let available_rows = frame.size().rows;
 
@@ -56,36 +55,32 @@ pub fn render_text_area(state: &State, frame: &mut tuinix::Frame) {
     let gutter_shown = state.search_prompt.is_some();
     let full_end_row = (start_row + available_rows).min(state.buffer.rows());
     let (above, below) = if gutter_shown {
-        total_hits_outside(state, start_row, full_end_row)
+        state.hits_outside(start_row, full_end_row)
     } else {
         (0, 0)
     };
 
     // A summary row costs a row of the text's height, so the text is clipped by
-    // as many rows as are shown above and below it.
-    let text_height = available_rows
-        .saturating_sub(usize::from(above > 0))
-        .saturating_sub(usize::from(below > 0));
+    // as many rows as are shown above and below it. `State::text_rows()` decides
+    // the same thing for the viewport, from the same two totals.
+    let text_height = state.text_rows(available_rows);
     let end_row = (start_row + text_height).min(state.buffer.rows());
 
     // The top summary claims row 0 and the bottom the last row. On a frame of a
     // single row they would collide, so the top wins: a one-row frame has no
     // room for two summaries, and the nearer edge is the more useful one.
-    if above > 0 {
+    let top_summary = above > 0 && start_row > 0;
+    if top_summary {
         render_gutter_row(frame, 0, above, GUTTER_SEPARATOR_TOTAL, false);
     }
-    if below > 0 {
-        let last = available_rows.saturating_sub(1);
-        if last > 0 {
-            render_gutter_row(frame, last, below, GUTTER_SEPARATOR_TOTAL, false);
-        }
+    if below > 0 && available_rows.saturating_sub(1) > 0 {
+        let last = available_rows - 1;
+        render_gutter_row(frame, last, below, GUTTER_SEPARATOR_TOTAL, false);
     }
 
     for (screen_row, buffer_row) in (start_row..end_row).enumerate() {
         if let Some(line) = state.buffer.line(buffer_row) {
-            // The top summary is drawn only when the viewport is not already at
-            // the first line: a total of the hits above row 0 would name none.
-            let top = usize::from(above > 0 && start_row > 0);
+            let top = usize::from(top_summary);
             let gutter = gutter_shown.then(|| GutterCell {
                 count: count_hits_on_row(state, buffer_row),
                 // The cursor's row is reversed, so the gutter marks the cursor
@@ -104,22 +99,6 @@ struct GutterCell {
 
     /// Whether to reverse the cell because the cursor is on the line.
     reversed: bool,
-}
-
-/// Returns how many hits start before `start_row` and how many start at or
-/// after `end_row`.
-fn total_hits_outside(state: &State, start_row: usize, end_row: usize) -> (usize, usize) {
-    let mut above = 0;
-    let mut below = 0;
-    for item in &state.highlight.items {
-        let row = item.start_position.row;
-        if row < start_row {
-            above += 1;
-        } else if row >= end_row {
-            below += 1;
-        }
-    }
-    (above, below)
 }
 
 /// Returns how many hits start on `row`.

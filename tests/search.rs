@@ -377,9 +377,54 @@ fn a_hit_below_the_text_area_scrolls_just_far_enough() {
     }
 
     assert_eq!(state.cursor.row, 4, "the cursor moved to the hit");
+    // The prompt is open, so the gutter's two summary rows take two of the
+    // three rows the text area has, leaving the hit alone in the one left. The
+    // scroll is just enough for that: the viewport sits on the hit's row, the
+    // row the summary above leaves blank, not the row it would need with no
+    // gutter.
     assert_eq!(
-        state.viewport.row, 2,
-        "the hit is on the last visible row, not centered"
+        state.viewport.row, 4,
+        "the hit is the one row the summaries leave"
+    );
+
+    // The point of the fix: wherever the scroll settles, the cursor's row is
+    // one the text is drawn in, so it cannot land on a summary's row.
+    let start = state.viewport.row;
+    let end = start + state.text_rows(text_area.rows);
+    assert!(
+        state.cursor.row >= start && state.cursor.row < end,
+        "the cursor's row {} is inside the drawn text rows {start}..{end}",
+        state.cursor.row
+    );
+}
+
+#[test]
+fn a_hit_above_the_text_area_keeps_the_cursor_in_the_drawn_rows() {
+    let mut state = state_of_hits(10);
+    let text_area = tuinix::Size { rows: 3, cols: 80 };
+    state.adjust_viewport(text_area);
+
+    // Walk down to row 6, then back up to row 2: the scroll follows, with the
+    // top summary appearing above the viewport.
+    for _ in 0..6 {
+        state.handle_search_next_hit();
+        state.adjust_viewport(text_area);
+    }
+    for _ in 0..4 {
+        state.handle_search_prev_hit();
+        state.adjust_viewport(text_area);
+    }
+
+    assert_eq!(
+        state.cursor.row, 2,
+        "the cursor went back to the earlier hit"
+    );
+    let start = state.viewport.row;
+    let end = start + state.text_rows(text_area.rows);
+    assert!(
+        state.cursor.row >= start && state.cursor.row < end,
+        "the cursor's row {} is inside the drawn text rows {start}..{end}",
+        state.cursor.row
     );
 }
 

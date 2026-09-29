@@ -239,6 +239,59 @@ fn a_jump_to_a_hit_past_the_edge_leaves_the_cursor_visible() {
 }
 
 #[test]
+fn a_jump_to_a_hit_at_the_edges_keeps_the_cursor_visible_with_totals() {
+    // A hit above the viewport, a run of plain lines the jump lands past, and a
+    // hit below -- so the frame shows a top total, a bottom total, and the text
+    // between them. The jump must leave the cursor in a row the text actually
+    // occupies, not one a summary covers.
+    let mut text = String::new();
+    text.push_str("needle\n"); // row 1: above the viewport once we scroll
+    for _ in 0..20 {
+        text.push_str("plain\n");
+    }
+    text.push_str("needle\n"); // row 22: the line the jump lands on
+    for _ in 0..20 {
+        text.push_str("plain\n");
+    }
+    text.push_str("needle\n"); // row 43: below the viewport
+    let path = scratch_file("search_jump_totals.txt");
+    std::fs::write(&path, text).expect("write scratch file");
+
+    let mut kk = KkHarness::open(&path);
+    kk.resize(8, 200);
+    kk.wait_for_text("Opened");
+
+    kk.send_ctrl('s');
+    kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
+    kk.send_text("needle");
+    // `C-s` steps to the next hit each time: row 1, then row 22, then row 43.
+    kk.send_ctrl('s');
+    kk.wait_until("on the first hit", |h| h.screen_contains(":1:1]"));
+    kk.send_ctrl('s');
+    kk.wait_until("on the middle hit", |h| h.screen_contains(":22:1]"));
+
+    // The cursor is on row 22 and both totals are on screen; the hit line must
+    // still be painted, which is what a scroll against the full height would
+    // lose once a summary covers the row the cursor was placed on.
+    assert!(
+        kk.screen_text().contains("| needle"),
+        "the cursor's line is drawn as a buffer line while both totals are shown:\n{}",
+        kk.screen_text()
+    );
+    assert!(
+        kk.screen_text().contains(": ") || kk.screen_text().contains(":\n"),
+        "a total row is shown, making the height matter:\n{}",
+        kk.screen_text()
+    );
+
+    kk.send_ctrl('g');
+    kk.wait_until("the prompt is left", |h| !h.screen_contains("Search:"));
+
+    let status = kk.quit();
+    assert!(status.success(), "kk exited with {status:?}");
+}
+
+#[test]
 fn the_gutter_summary_row_is_gone_at_the_top_of_the_buffer() {
     let path = scratch_file("search_gutter_top.txt");
     std::fs::write(&path, "needle\nplain\nneedle\n").expect("write scratch file");
