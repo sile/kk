@@ -1,6 +1,6 @@
 # RFC: Show a per-line hit count gutter while searching
 
-- Status: draft
+- Status: implemented
 
 ## Summary
 
@@ -97,10 +97,23 @@ is a total and not a line of the text:
 - the bottom row shows the total in the lines *after* the last visible line, or
   is left out when that total is zero.
 
-The two rows are not buffer lines: they replace nothing and consume no line of
-the text area's height, they only occupy the gutter beside the top and bottom
-visible line's own row. (In the sketch above, the blank `|`-rows between them
-and the hits are just buffer lines whose text is blank, drawn as they are.)
+The two rows are not buffer lines: each takes a row of its own, the top total
+above the first visible line and the bottom total below the last, so the text
+area loses a row of height at each edge while a summary is shown. (In the
+sketch above, the blank `|`-rows between them and the hits are just buffer
+lines whose text is blank, drawn as they are.)
+
+The two totals are measured against the slice the frame could hold at full
+height -- that is, before any summary is drawn -- so the totals themselves do
+not depend on which summaries are shown. The viewport, though, is scrolled
+against the height the text is *actually drawn in* once the summaries have taken
+their rows: placing it against the full height would put the cursor on a row a
+summary then covers, and the cursor would vanish exactly when a hit lies at the
+edge. Since that height depends on which summaries appear, which in turn depends
+on the viewport, the two are settled together: the scroll is repeated until the
+viewport and the height it implies agree. On a frame of a single row the top and
+bottom totals would collide; the top wins, since one row cannot hold two
+summaries and the nearer edge is the more useful one.
 
 Only the rows that are actually painted are counted. A hit is counted on the
 line it starts on, matching the highlight. The totals are about the lines
@@ -132,11 +145,11 @@ a summary row has no text after its separator.
 
 ### What counts as a hit on a line
 
-The count is `line.hit_count(query)`-shaped: the number of `HighlightItem`s in
+The count is `Highlight::count_on_row()`: the number of `HighlightItem`s in
 `state.highlight` whose `start_position.row` is that line. Counting by start row
 matches how `render_line` decides `is_highlighted`, so a hit that wraps is
-counted once, on the row it starts. The same predicate is what the top and
-bottom totals sum over the rows outside the visible slice.
+counted once, on the row it starts. The same predicate is what
+`Highlight::count_outside()` sums over the rows outside the visible slice.
 
 ### Drawing the gutter
 
@@ -150,10 +163,25 @@ rows are visible:
   the cursor's line to match the reversed line text;
 - write the line text starting at column `HIT_GUTTER_COLS` instead of `0`,
   subtracting the same constant from the width used for any column clamping;
-- for the top row, sum the counts of the rows before `start_row` and write it,
-  when non-zero, as a count, a `:` separator, and a space, in the same columns;
-- for the bottom row, sum the counts of the rows at and after `end_row` and
-  write it, when non-zero, the same way.
+- measure the totals against the full-height slice `[start_row, end_row)`
+  first, then clip the text to the rows left after reserving one for each
+  non-zero total;
+- scroll the viewport against the height the text is drawn in -- the full height
+  less one row per summary [`adjust_viewport()`] will draw -- repeating the
+  scroll until the viewport and that height agree, so the cursor lands in a row
+  the text occupies rather than one a summary covers;
+- scroll it against the width the text is drawn in as well -- the area's full
+  width less the gutter's columns -- so a cursor near the right edge is placed
+  in a column the text is drawn in rather than one the gutter covers. Unlike the
+  height this needs no repetition: the gutter is drawn whenever the prompt is
+  open, so the width does not depend on where the viewport settles;
+- for the top total, sum the counts of the rows before `start_row` and write it,
+  when non-zero *and* `start_row` is not zero, on the frame's first row as a
+  count, a `:` separator, and a space, in the gutter's columns, pushing the text
+  down one row;
+- for the bottom total, sum the counts of the rows at and after `end_row` and
+  write it, when non-zero, the same way on the frame's last row, pulling the
+  text's last row up one.
 
 The renderer needs the query's hits, which are already on `state.highlight`, so
 no new state is required to draw it. Whether the gutter is shown at all is
@@ -171,14 +199,25 @@ line text is drawn, which is the same as today's "line clipped to zero width".
 
 ### Counting cost
 
-Today the highlight lookup is `state.highlight.contains(pos)` per character.
-Per-line counts can be precomputed once per render by walking
-`state.highlight.items` and bucketing by `start_position.row`, which is linear
-in the number of hits, not the buffer size. The top and bottom totals are the
-same walk with a comparison against the visible range. If `Highlight::items` is
-kept sorted by position -- it is built from a forward scan of the buffer -- the
-totals are a prefix sum and a binary search, but a per-render bucketing pass is
-simpler and enough.
+The gutter asks for a row's count and for the totals on either side of the
+visible slice once per render, and the viewport is scrolled by repeating that
+ask until it settles. Walking `Highlight::items` for each ask would make every
+one of them linear in the number of hits, and there are several per frame.
+
+`Highlight::items` is built by a forward scan of the buffer, so it is already
+in row order. `Highlight` therefore keeps, beside the items, one run per row
+that holds a hit and a prefix sum of their counts, both built once when the
+search runs. A row's count is then the one run that names it, found by a binary
+search, and a total is the difference of two prefix sums. The per-render work
+becomes a logarithm per ask instead of a walk, and the search itself pays for
+the runs once.
+
+The rendering lookup `state.highlight.contains(pos)` stays as it is: it is per
+visible character, but the visible slice is bounded by the screen, not the
+buffer, so it is not the term that grows with the hits.
+
+The items stay private to `Highlight` and are read through accessors, so the
+runs and the items cannot drift apart.
 
 ### Tests
 
@@ -189,12 +228,37 @@ The gutter is pure rendering, so `tests/render.rs` is the home for it:
 - a count of 100 or more renders `99+`;
 - a zero-hit line renders blank count columns;
 - the cursor's line renders its count cell reversed, and other lines do not;
-- the top total appears only when there are hits above the visible slice, and
-  likewise the bottom, and each summary row uses `:` where a buffer line uses
-  `|`;
+- the top total appears only when there are hits above the full-height slice,
+  and likewise the bottom, and each summary row uses `:` where a buffer line
+  uses `|`;
+- a summary row costs a row of text height, so the visible lines shrink by one
+  at each edge that shows a total;
+- the top total is not drawn when the viewport is already on the first line,
+  since no hit can lie above row 0;
+- a jump to a hit past the edge leaves the cursor's line painted, the viewport
+  scrolled so the cursor is in a row the text occupies rather than one a summary
+  covers -- checked end-to-end, since the bug it fixes is only visible on screen;
+- a scroll that lands the cursor at the edge keeps it inside the drawn text rows
+  (a unit check on [`text_rows()`]);
+- a cursor near the right edge is scrolled into the columns the text is drawn
+  in, not left under the gutter -- a unit check on [`text_cols()`], since the
+  columns the gutter takes are as invisible to the cursor as the rows a summary
+  takes;
+- on a one-row frame with totals on both sides, the top total wins;
 - a total over 99 renders as `99+`, the same as a line count;
 - the gutter is absent when the prompt is closed and the text starts at column
   0.
+
+`Highlight::count_on_row()` and `Highlight::count_outside()` are the counts
+themselves, so their checks live beside the search's rather than the renderer's:
+
+- a row that holds hits counts them, and a row that holds none counts zero,
+  with the rows either side of it answered correctly too (the binary search, not
+  just the easy bucket);
+- a slice with hits on both sides of it splits them into the right totals, and a
+  slice at either end of the buffer keeps them all on one side;
+- both answer zero when the query matched nothing, which is the empty-runs case
+  a derived `Default` highlight also lands in.
 
 ## Drawbacks
 

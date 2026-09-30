@@ -327,7 +327,9 @@ impl App {
     ///
     /// The bottom two rows are the status line and the message line. A search
     /// prompt shares the message line rather than taking a row of its own, so
-    /// the text area is the same height whether or not a search is open.
+    /// the text area is the same height whether or not a search is open. The
+    /// gutter's summary rows are a row of the text area's own height, so the
+    /// region does not grow for them: they are painted inside it.
     fn text_area_region(&self) -> tuinix::Region {
         self.driver.size().to_region().drop_bottom(2)
     }
@@ -357,6 +359,9 @@ impl App {
         let mut frame = tuinix::Frame::new(self.driver.size());
 
         let region = self.text_area_region();
+        // The area's full size is handed over: `adjust_viewport` measures the
+        // gutter's summary rows itself and scrolls against the rows the text is
+        // actually drawn in, so the two cannot disagree about the height.
         self.state.adjust_viewport(region.size);
         self.render_region(&mut frame, region, |frame| {
             kk::render_text_area(&self.state, frame)

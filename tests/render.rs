@@ -95,19 +95,21 @@ fn a_search_bolds_and_underlines_the_matches() {
     // The cursor is put away from the match so that no hit column is also the
     // cursor, which would be reversed instead.
     state.cursor = kk::TextPosition { row: 0, col: 0 };
-    let mut frame = frame_of(1, 7);
+    let mut frame = frame_of(1, 12);
 
     kk::render_text_area(&state, &mut frame);
 
-    // `two` starts at column 4; its three columns are marked as a hit, `one` is
-    // not. A hit is bold and underlined rather than reversed, since the reverse
-    // is what the cursor and the mark use.
-    for col in 4..7 {
+    // The prompt is open, so the text starts past the gutter and `two` -- which
+    // begins at buffer column 4 -- lands at screen column `GUTTER + 4`. Its
+    // three columns are bold and underlined; `one` is not. A hit is bold and
+    // underlined rather than reversed, since the reverse is what the cursor and
+    // the mark use.
+    for col in 9..12 {
         let style = style_at(&frame, 0, col);
         assert!(style.bold, "column {col} is a match: {style:?}");
         assert!(style.underline, "column {col} is a match: {style:?}");
     }
-    let plain = style_at(&frame, 0, 0);
+    let plain = style_at(&frame, 0, 5);
     assert!(!plain.bold && !plain.underline, "`one` is not a match");
 }
 
@@ -118,14 +120,15 @@ fn a_match_is_not_reversed() {
     state.handle_char_insert('o');
     state.handle_char_insert('n');
     state.handle_char_insert('e');
-    let mut frame = frame_of(1, 3);
+    let mut frame = frame_of(1, 8);
 
     kk::render_text_area(&state, &mut frame);
 
-    // The cursor sits on the first match, so that one column is reversed; the
-    // rest of the match stays bold and underlined.
+    // The cursor sits on the first match at buffer column 0, which the gutter
+    // shifts to screen column 5, so that one column is reversed; the rest of
+    // the match stays bold and underlined.
     assert!(
-        !style_at(&frame, 0, 1).reverse,
+        !style_at(&frame, 0, 6).reverse,
         "a hit other than the cursor is not reversed"
     );
 }
@@ -135,13 +138,15 @@ fn an_empty_query_leaves_the_text_area_plain_apart_from_the_cursor() {
     let mut state = state_of("one\n");
     state.search_prompt = Some(kk::SearchPrompt::new());
     state.cursor = kk::TextPosition { row: 0, col: 1 };
-    let mut frame = frame_of(2, 3);
+    let mut frame = frame_of(2, 8);
 
     kk::render_text_area(&state, &mut frame);
 
     // The empty query matches nothing, so the text away from the cursor is
-    // plainly styled: a search neither dims nor underlines it.
-    for col in [0, 2] {
+    // plainly styled: a search neither dims nor underlines it. The text starts
+    // past the gutter, at column 5, so `one` is columns 5..8 and the cursor
+    // sits on column 6.
+    for col in [5, 7] {
         assert_eq!(
             style_at(&frame, 0, col),
             tuinix::Style::new(),
@@ -155,16 +160,18 @@ fn a_search_reverses_the_character_under_the_cursor() {
     let mut state = state_of("one\n");
     state.search_prompt = Some(kk::SearchPrompt::new());
     state.cursor = kk::TextPosition { row: 0, col: 1 };
-    let mut frame = frame_of(1, 3);
+    let mut frame = frame_of(1, 8);
 
     kk::render_text_area(&state, &mut frame);
 
+    // The prompt is open, so the text starts past the gutter; the cursor's
+    // column 1 is at screen column 6, and it alone is reversed.
     assert!(
-        style_at(&frame, 0, 1).reverse,
+        style_at(&frame, 0, 6).reverse,
         "the character under the cursor is reversed"
     );
     assert!(
-        !style_at(&frame, 0, 0).reverse,
+        !style_at(&frame, 0, 5).reverse,
         "the characters beside it are not"
     );
 }
@@ -183,6 +190,163 @@ fn the_cursor_is_not_reversed_outside_a_search() {
         !style_at(&frame, 0, 1).reverse,
         "the cursor carries no style of its own"
     );
+}
+
+#[test]
+fn the_gutter_shows_a_count_beside_each_line_and_shifts_the_text() {
+    let mut state = state_of("one\ntwo two\n");
+    state.search_prompt = Some(kk::SearchPrompt::new());
+    for ch in "two".chars() {
+        state.handle_char_insert(ch);
+    }
+    let mut frame = frame_of(2, 12);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // Row 0 has no hit, so its count cell is blank; row 1 holds two hits. The
+    // text starts at column 5 in both rows.
+    assert_eq!(row_text(&frame, 0, 5), "   | ");
+    assert_eq!(row_text(&frame, 1, 5), " 2 | ");
+    assert_eq!(row_text(&frame, 0, 12), "   | one    ");
+    assert_eq!(row_text(&frame, 1, 12), " 2 | two two");
+}
+
+#[test]
+fn a_line_with_more_than_ninety_nine_hits_renders_99_plus() {
+    // One line holding a hundred hits: a hundred `a`s searched for `a`.
+    let text = format!("{}\n", "a".repeat(100));
+    let mut state = state_of(&text);
+    state.search_prompt = Some(kk::SearchPrompt::new());
+    state.handle_char_insert('a');
+    let mut frame = frame_of(1, 10);
+
+    kk::render_text_area(&state, &mut frame);
+
+    assert_eq!(row_text(&frame, 0, 4), "99+|");
+}
+
+#[test]
+fn a_line_with_no_hits_leaves_the_count_columns_blank() {
+    let mut state = state_of("one\ntwo\n");
+    state.search_prompt = Some(kk::SearchPrompt::new());
+    state.handle_char_insert('t');
+    state.handle_char_insert('w');
+    let mut frame = frame_of(2, 10);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // Row 0 has no hit, so its count cell is three blanks; the separator is
+    // still drawn so the two kinds of row line up.
+    assert_eq!(row_text(&frame, 0, 5), "   | ");
+}
+
+#[test]
+fn the_cursors_line_reverses_its_count_cell() {
+    let mut state = state_of("one\ntwo\n");
+    state.search_prompt = Some(kk::SearchPrompt::new());
+    state.handle_char_insert('o');
+    state.cursor = kk::TextPosition { row: 0, col: 0 };
+    let mut frame = frame_of(2, 10);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // The cursor is on row 0, so its count cell is reversed; row 1's is not.
+    assert!(
+        style_at(&frame, 0, 1).reverse,
+        "the cursor's row is reversed"
+    );
+    assert!(
+        !style_at(&frame, 1, 1).reverse,
+        "the other row is not reversed"
+    );
+}
+
+#[test]
+fn the_gutter_totals_the_hits_above_and_below_the_visible_slice() {
+    // Eight lines; the query `x` hits rows 0, 1, and 7. With a four-row frame
+    // on viewport row 2, the full-height slice is rows 2..6, so two hits lie
+    // above and one below.
+    let mut state = state_of("x\nx\nplain\nplain\nplain\nplain\nplain\nx\n");
+    state.search_prompt = Some(kk::SearchPrompt::new());
+    state.handle_char_insert('x');
+    state.viewport = kk::TextPosition { row: 2, col: 0 };
+    let mut frame = frame_of(4, 10);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // A summary row takes a row of its own: the top total on row 0, the bottom
+    // on row 3, and two of the visible buffer lines squeezed into rows 1 and 2.
+    // The `:` marks each summary as a total, not a line.
+    assert_eq!(row_text(&frame, 0, 5), " 2 : ", "two hits above");
+    assert_eq!(row_text(&frame, 1, 5), "   | ", "a line with no hit");
+    assert_eq!(row_text(&frame, 2, 5), "   | ", "another with no hit");
+    assert_eq!(row_text(&frame, 3, 5), " 1 : ", "one hit below");
+}
+
+#[test]
+fn the_gutter_keeps_the_top_total_when_a_one_row_frame_has_both() {
+    // The query hits row 0 and row 3; the frame shows only row 1, so two hits
+    // are above and one below -- but there is only one gutter row to show them.
+    let mut state = state_of("x\nplain\nplain\nx\n");
+    state.search_prompt = Some(kk::SearchPrompt::new());
+    state.handle_char_insert('x');
+    state.viewport = kk::TextPosition { row: 1, col: 0 };
+    let mut frame = frame_of(1, 10);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // The two summaries cannot both fit on one row, so the top one wins and
+    // the row reads `1 :` -- its own hit count gives way to the total.
+    assert_eq!(row_text(&frame, 0, 5), " 1 : ");
+}
+
+#[test]
+fn the_gutter_paints_no_summary_row_when_no_hits_lie_outside() {
+    let mut state = state_of("one\ntwo\n");
+    state.search_prompt = Some(kk::SearchPrompt::new());
+    state.handle_char_insert('o');
+    state.handle_char_insert('n');
+    state.handle_char_insert('e');
+    // Only row 0 has a hit; the frame shows both rows, so nothing is outside.
+    let mut frame = frame_of(2, 10);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // Row 0 is a buffer line, so its separator is `|`, not `:`; the top summary
+    // row was not drawn.
+    assert_eq!(
+        row_text(&frame, 0, 5),
+        " 1 | ",
+        "row 0 is a buffer line, not a total"
+    );
+}
+
+#[test]
+fn the_gutter_is_absent_when_the_prompt_is_closed() {
+    let state = state_of("one\n");
+    let mut frame = frame_of(1, 8);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // Without a search prompt the text starts at column 0: no gutter, no
+    // separator, no count.
+    assert_eq!(row_text(&frame, 0, 8), "one     ");
+}
+
+#[test]
+fn the_top_summary_is_not_drawn_at_the_first_row() {
+    // The query hits row 0, and the viewport is on row 0, so there is no row
+    // above it to total: no hit lies before the first line.
+    let mut state = state_of("x\nplain\n");
+    state.search_prompt = Some(kk::SearchPrompt::new());
+    state.handle_char_insert('x');
+    let mut frame = frame_of(2, 10);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // Row 0 stays a buffer line -- its own count and a `|` -- rather than being
+    // given up to a total of zero.
+    assert_eq!(row_text(&frame, 0, 5), " 1 | ");
 }
 
 #[test]

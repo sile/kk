@@ -21,7 +21,7 @@ fn run(query: &str, state: &kk::State) -> Highlight {
 /// The columns of the match starts in row 0.
 fn hit_cols(highlight: &Highlight) -> Vec<usize> {
     highlight
-        .items
+        .items()
         .iter()
         .map(|item| item.start_position.col)
         .collect()
@@ -34,7 +34,7 @@ fn a_search_finds_it_again_in_each_run() {
         let highlight = run(needle, &state);
 
         assert_eq!(
-            highlight.items.len(),
+            highlight.len(),
             3 - (needle.len() - 1),
             "overlapping matches for {needle:?}"
         );
@@ -49,11 +49,11 @@ fn a_search_reports_where_each_match_starts_and_ends() {
 
     assert_eq!(hit_cols(&highlight), vec![0, 8]);
     assert_eq!(
-        highlight.items[0].start_position,
+        highlight.items()[0].start_position,
         kk::TextPosition { row: 0, col: 0 }
     );
     assert_eq!(
-        highlight.items[0].end_position,
+        highlight.items()[0].end_position,
         kk::TextPosition { row: 0, col: 3 }
     );
 }
@@ -86,11 +86,11 @@ fn a_search_counts_matches_across_lines() -> noprop::TestResult {
         let highlight = run(token, &state);
 
         assert_eq!(
-            highlight.items.len(),
+            highlight.len(),
             rows * per_row,
             "matches for {token:?} in {text:?}"
         );
-        for item in &highlight.items {
+        for item in highlight.items() {
             assert_eq!(item.end_position.row, item.start_position.row);
             assert_eq!(
                 item.end_position.col - item.start_position.col,
@@ -107,7 +107,7 @@ fn a_search_counts_matches_across_lines() -> noprop::TestResult {
             );
         }
 
-        if highlight.items.is_empty() {
+        if highlight.is_empty() {
             absent.set(absent.get() + 1);
         } else {
             found.set(found.get() + 1);
@@ -165,9 +165,9 @@ fn a_count_of_the_matches_up_to_a_position_is_zero_before_the_first() {
 fn a_search_is_case_insensitive() {
     let state = state_of("Alpha BETA\n");
 
-    assert_eq!(run("alpha", &state).items.len(), 1);
-    assert_eq!(run("beta", &state).items.len(), 1);
-    assert_eq!(run("ALPHA", &state).items.len(), 1);
+    assert_eq!(run("alpha", &state).len(), 1);
+    assert_eq!(run("beta", &state).len(), 1);
+    assert_eq!(run("ALPHA", &state).len(), 1);
 }
 
 #[test]
@@ -176,7 +176,7 @@ fn an_empty_query_matches_nothing() {
 
     let highlight = run("", &state);
 
-    assert!(highlight.items.is_empty());
+    assert!(highlight.is_empty());
     assert!(!highlight.contains(kk::TextPosition { row: 0, col: 0 }));
 }
 
@@ -184,7 +184,57 @@ fn an_empty_query_matches_nothing() {
 fn a_query_longer_than_the_line_matches_nothing() {
     let state = state_of("ab\n");
 
-    assert!(run("abc", &state).items.is_empty());
+    assert!(run("abc", &state).is_empty());
+}
+
+#[test]
+fn a_row_count_is_the_matches_that_start_on_it() {
+    // Rows 0 and 2 hold hits, row 1 does not, so the count must tell the two
+    // kinds apart rather than answer "some" or "none".
+    let state = state_of("one one\nplain\none\n");
+    let highlight = run("one", &state);
+
+    assert_eq!(highlight.count_on_row(0), 2);
+    assert_eq!(highlight.count_on_row(1), 0);
+    assert_eq!(highlight.count_on_row(2), 1);
+    // Past the last row that holds a hit, which the binary search brackets too.
+    assert_eq!(highlight.count_on_row(3), 0);
+}
+
+#[test]
+fn a_row_count_is_zero_with_no_matches_at_all() {
+    let state = state_of("abc\n");
+
+    let highlight = run("z", &state);
+
+    assert!(highlight.is_empty());
+    assert_eq!(highlight.count_on_row(0), 0);
+}
+
+#[test]
+fn the_totals_outside_a_slice_split_the_hits_at_its_edges() {
+    // Row 0 holds two hits, rows 1 and 2 hold none, row 3 holds one.
+    let state = state_of("x x\nplain\nplain\nx\n");
+    let highlight = run("x", &state);
+
+    // A slice over the blank rows has one hit above it and one below.
+    assert_eq!(highlight.count_outside(1, 3), (2, 1));
+    // A slice over everything has nothing outside it.
+    assert_eq!(highlight.count_outside(0, 4), (0, 0));
+    // A slice at the very start keeps every hit below it.
+    assert_eq!(highlight.count_outside(0, 0), (0, 3));
+    // A slice past the end keeps every hit above it.
+    assert_eq!(highlight.count_outside(4, 9), (3, 0));
+}
+
+#[test]
+fn the_totals_outside_a_slice_are_zero_with_no_matches_at_all() {
+    let state = state_of("abc\ndef\n");
+
+    let highlight = run("z", &state);
+
+    assert_eq!(highlight.count_outside(0, 1), (0, 0));
+    assert_eq!(highlight.count_outside(1, 2), (0, 0));
 }
 
 #[test]
@@ -256,7 +306,7 @@ fn the_query_cursor_is_edited_independently_of_the_buffer_cursor() {
     );
 
     // The query re-runs as it is edited, so the highlight tracks it.
-    assert_eq!(state.highlight.items.len(), 0, "'y' is not in the buffer");
+    assert_eq!(state.highlight.len(), 0, "'y' is not in the buffer");
     assert_eq!(state.cursor, buffer_cursor);
 }
 
@@ -269,7 +319,7 @@ fn typing_a_query_fills_in_the_highlight() {
         state.handle_char_insert(ch);
     }
 
-    assert_eq!(state.highlight.items.len(), 2);
+    assert_eq!(state.highlight.len(), 2);
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 0 });
 }
 
@@ -285,7 +335,7 @@ fn typing_a_query_leaves_the_cursor_alone_even_when_it_matches() {
         state.handle_char_insert(ch);
     }
 
-    assert_eq!(state.highlight.items.len(), 2, "the matches are found");
+    assert_eq!(state.highlight.len(), 2, "the matches are found");
     assert_eq!(
         state.cursor,
         kk::TextPosition { row: 0, col: 4 },
@@ -377,9 +427,82 @@ fn a_hit_below_the_text_area_scrolls_just_far_enough() {
     }
 
     assert_eq!(state.cursor.row, 4, "the cursor moved to the hit");
+    // The prompt is open, so the gutter's two summary rows take two of the
+    // three rows the text area has, leaving the hit alone in the one left. The
+    // scroll is just enough for that: the viewport sits on the hit's row, the
+    // row the summary above leaves blank, not the row it would need with no
+    // gutter.
     assert_eq!(
-        state.viewport.row, 2,
-        "the hit is on the last visible row, not centered"
+        state.viewport.row, 4,
+        "the hit is the one row the summaries leave"
+    );
+
+    // The point of the fix: wherever the scroll settles, the cursor's row is
+    // one the text is drawn in, so it cannot land on a summary's row.
+    let start = state.viewport.row;
+    let end = start + state.text_rows(text_area.rows);
+    assert!(
+        state.cursor.row >= start && state.cursor.row < end,
+        "the cursor's row {} is inside the drawn text rows {start}..{end}",
+        state.cursor.row
+    );
+}
+
+#[test]
+fn a_cursor_near_the_right_edge_scrolls_against_the_width_the_gutter_leaves() {
+    let mut state = state_of("x = this line is long enough to need a scroll\n");
+    state.search_prompt = Some(SearchPrompt::new());
+    state.handle_char_insert('x');
+
+    // A column the area's full width reaches but the gutter's five columns do
+    // not: without the fix the viewport stays put and the cursor is drawn off
+    // the right edge.
+    state.cursor = kk::TextPosition { row: 0, col: 25 };
+    state.recenter_viewport = false;
+    let text_area = tuinix::Size { rows: 3, cols: 30 };
+    state.adjust_viewport(text_area);
+
+    assert!(state.text_cols(text_area.cols) < text_area.cols);
+    assert_eq!(
+        state.viewport.col,
+        25 - (state.text_cols(text_area.cols) - 1),
+        "the scroll leaves the cursor in the columns the text is drawn in"
+    );
+    assert!(
+        state.cursor.col >= state.viewport.col
+            && state.cursor.col < state.viewport.col + state.text_cols(text_area.cols),
+        "the cursor's column {} is inside the drawn text columns",
+        state.cursor.col
+    );
+}
+
+#[test]
+fn a_hit_above_the_text_area_keeps_the_cursor_in_the_drawn_rows() {
+    let mut state = state_of_hits(10);
+    let text_area = tuinix::Size { rows: 3, cols: 80 };
+    state.adjust_viewport(text_area);
+
+    // Walk down to row 6, then back up to row 2: the scroll follows, with the
+    // top summary appearing above the viewport.
+    for _ in 0..6 {
+        state.handle_search_next_hit();
+        state.adjust_viewport(text_area);
+    }
+    for _ in 0..4 {
+        state.handle_search_prev_hit();
+        state.adjust_viewport(text_area);
+    }
+
+    assert_eq!(
+        state.cursor.row, 2,
+        "the cursor went back to the earlier hit"
+    );
+    let start = state.viewport.row;
+    let end = start + state.text_rows(text_area.rows);
+    assert!(
+        state.cursor.row >= start && state.cursor.row < end,
+        "the cursor's row {} is inside the drawn text rows {start}..{end}",
+        state.cursor.row
     );
 }
 
@@ -431,7 +554,7 @@ fn cancelling_a_search_puts_the_cursor_and_viewport_back() {
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 4 });
     assert_eq!(state.viewport, kk::TextPosition { row: 0, col: 2 });
     assert!(state.search_prompt.is_none(), "the prompt is gone");
-    assert!(state.highlight.items.is_empty(), "the highlight is gone");
+    assert!(state.highlight.is_empty(), "the highlight is gone");
 }
 
 #[test]
@@ -453,7 +576,7 @@ fn accepting_a_search_keeps_the_cursor_on_the_hit() {
         "the hit is where editing resumes"
     );
     assert!(state.search_prompt.is_none(), "the prompt is gone");
-    assert!(state.highlight.items.is_empty(), "the highlight is gone");
+    assert!(state.highlight.is_empty(), "the highlight is gone");
 }
 
 #[test]
