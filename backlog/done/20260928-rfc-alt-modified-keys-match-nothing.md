@@ -1,6 +1,6 @@
 # RFC: Alt-modified keys match nothing
 
-- Status: implemented
+- Status: accepted
 
 ## Summary
 
@@ -141,3 +141,26 @@ every mode takes, and out of the resolver functions that only select an arm.
 If `M-` chords are bound later, the guard is removed and replaced by `alt`
 terms in the `match` arms, and the legend gains `M-` rows. Until then an Alt
 chord is a no-op.
+
+## Outcome
+
+Implemented in [#6](https://github.com/sile/kk/pull/6) (merged as `e4430cc`).
+
+`Mode::resolve` now returns `None` for a key whose `alt` is set, after it has
+checked that the input is a key and before it dispatches on the mode. The guard
+sits there rather than in each resolver so that a mode added later cannot
+forget it, and so the resolver functions only select an arm.
+
+Because the guard is on the `alt` field alone, it also drops the chords that
+used to fall through a `ctrl`-free arm by accident: `M-<UP>` and the other Alt
+arrows no longer move the cursor. That is the intended reach of the rule, and
+the tests pin it rather than special-case it.
+
+The change reached one place the proposal did not predict. `display_input`
+folds Alt away, which was defensible while an Alt chord fell through to the
+unmodified chord, since the spelling then named what was run. Once the chord is
+inert it is not: folding makes `M-C-a` render as `C-a`, a chord that is bound.
+`display_input` now spells Alt as `M-`, the way Emacs does, so `M-C-a` renders
+as `C-M-a` and the label names the key that was pressed.
+
+The scope is unchanged from what is described above.
