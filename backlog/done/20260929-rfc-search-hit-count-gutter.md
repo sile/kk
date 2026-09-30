@@ -1,6 +1,6 @@
 # RFC: Show a per-line hit count gutter while searching
 
-- Status: implemented
+- Status: accepted
 
 ## Summary
 
@@ -342,3 +342,23 @@ or beside the same gutter.
 Showing the count only while searching also leaves room for a "marks in this
 file" gutter later, which is the same shape: per-line state summarized in a
 fixed left column.
+
+## Outcome
+
+Implemented in [#5](https://github.com/sile/kk/pull/5) (merged as `68dd8b3`).
+
+While a search prompt is open, the text area now reserves a five-column gutter
+on the left: a three-column hit count, a `|` separating buffer lines from the
+running totals above and below, and a space. The count is bucketed per row from
+the highlight items and capped at `99+`, and the row holding the cursor is
+reversed. The totals rows cost one row of text height each, so the viewport is
+adjusted against the height and width the gutter leaves rather than the full
+text area.
+
+Counts come from runs built once when the highlight is created and looked up by
+binary search, so a redraw does not walk the match list. The viewport scroll
+that keeps the cursor visible has to agree with the gutter the renderer leaves,
+which is a fixed point when a totals row changes the text height; scrolling
+against the full text area instead left the cursor hidden at the edges.
+
+The scope is unchanged from what is described above.
