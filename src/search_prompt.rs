@@ -141,11 +141,36 @@ pub struct HighlightItem {
     pub end_position: TextPosition,
 }
 
+/// One buffer row that holds hits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct HitRun {
+    /// The row the hits start on.
+    row: usize,
+
+    /// How many hits start on that row.
+    count: usize,
+}
+
 /// Every match of a query.
 #[derive(Debug, Default)]
 pub struct Highlight {
     /// The matched ranges, in buffer order.
-    pub items: Vec<HighlightItem>,
+    items: Vec<HighlightItem>,
+
+    /// The same matches collapsed to one entry per row, in row order, plus the
+    /// running total of every count before it.
+    ///
+    /// The gutter asks for a row's count and for the totals on either side of
+    /// the visible slice once per render, and the viewport is scrolled by
+    /// repeating that ask until it settles. Walking `items` each time would make
+    /// every one of those asks linear in the number of hits, so the runs are
+    /// built once here instead and read by binary search: a row's count is the
+    /// one run that names it, and a total is a difference of prefix sums.
+    runs: Vec<HitRun>,
+
+    /// `prefix[i]` is the number of hits in `runs[..i]`, so `prefix.len()` is
+    /// `runs.len() + 1` and `prefix.last()` is the total.
+    prefix: Vec<usize>,
 }
 
 impl Highlight {
@@ -193,7 +218,71 @@ impl Highlight {
             }
         }
 
-        Self { items }
+        Self::new(items)
+    }
+
+    /// Builds a highlight from matches in buffer order.
+    ///
+    /// The matches are in row order -- `search` walks the buffer's lines in
+    /// order -- which is what lets [`count_on_row()`](Highlight::count_on_row)
+    /// and [`count_outside()`](Highlight::count_outside) binary-search the runs.
+    fn new(items: Vec<HighlightItem>) -> Self {
+        let mut runs: Vec<HitRun> = Vec::new();
+        for item in &items {
+            let row = item.start_position.row;
+            match runs.last_mut() {
+                Some(run) if run.row == row => run.count += 1,
+                _ => runs.push(HitRun { row, count: 1 }),
+            }
+        }
+
+        let mut prefix = Vec::with_capacity(runs.len() + 1);
+        prefix.push(0);
+        for run in &runs {
+            prefix.push(prefix.last().copied().unwrap_or(0) + run.count);
+        }
+
+        Self {
+            items,
+            runs,
+            prefix,
+        }
+    }
+
+    /// The matches, in buffer order.
+    pub fn items(&self) -> &[HighlightItem] {
+        &self.items
+    }
+
+    /// Returns how many matches there are.
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    /// Returns `true` if the query matched nothing.
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
+    /// Returns the first match, if any.
+    pub fn first(&self) -> Option<&HighlightItem> {
+        self.items.first()
+    }
+
+    /// Returns the last match, if any.
+    pub fn last(&self) -> Option<&HighlightItem> {
+        self.items.last()
+    }
+
+    /// Returns how many hits start on `row`.
+    ///
+    /// The runs are in row order, so the row's run -- and no other -- is found
+    /// by one binary search.
+    pub fn count_on_row(&self, row: usize) -> usize {
+        match self.runs.binary_search_by_key(&row, |run| run.row) {
+            Ok(i) => self.runs[i].count,
+            Err(_) => 0,
+        }
     }
 
     /// Returns `true` if `pos` falls inside one of the matches.
@@ -213,6 +302,20 @@ impl Highlight {
             .iter()
             .take_while(|item| item.start_position <= pos)
             .count()
+    }
+
+    /// Returns how many hits start before `start_row` and how many start at or
+    /// after `end_row`.
+    ///
+    /// The two boundaries are found by binary search and the counts between
+    /// them read off the prefix sums, so this costs a logarithm, not a walk.
+    pub fn count_outside(&self, start_row: usize, end_row: usize) -> (usize, usize) {
+        let before = self.runs.partition_point(|run| run.row < start_row);
+        let at_or_after = self.runs.partition_point(|run| run.row < end_row);
+        let above = self.prefix.get(before).copied().unwrap_or(0);
+        let total = self.prefix.last().copied().unwrap_or(0);
+        let below = total - self.prefix.get(at_or_after).copied().unwrap_or(total);
+        (above, below)
     }
 }
 

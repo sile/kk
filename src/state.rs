@@ -218,17 +218,7 @@ impl State {
     /// (see [`summary_rows()`](State::summary_rows)) and what they read, so the
     /// count and the space reserved for it come from one place.
     pub fn hits_outside(&self, start_row: usize, end_row: usize) -> (usize, usize) {
-        let mut above = 0;
-        let mut below = 0;
-        for item in &self.highlight.items {
-            let row = item.start_position.row;
-            if row < start_row {
-                above += 1;
-            } else if row >= end_row {
-                below += 1;
-            }
-        }
-        (above, below)
+        self.highlight.count_outside(start_row, end_row)
     }
 
     /// Scrolls the viewport just far enough to keep the cursor visible.
@@ -957,12 +947,12 @@ impl State {
         // Find the next highlight item after the current cursor position
         if let Some(next_item) = self
             .highlight
-            .items
+            .items()
             .iter()
             .find(|item| item.start_position > current_pos)
         {
             self.cursor = next_item.start_position;
-        } else if let Some(first_item) = self.highlight.items.first() {
+        } else if let Some(first_item) = self.highlight.first() {
             // Wrap around to the first item
             self.cursor = first_item.start_position;
         }
@@ -988,13 +978,13 @@ impl State {
         // Find the previous highlight item before the current cursor position
         if let Some(prev_item) = self
             .highlight
-            .items
+            .items()
             .iter()
             .rev()
             .find(|item| item.start_position < current_pos)
         {
             self.cursor = prev_item.start_position;
-        } else if let Some(last_item) = self.highlight.items.last() {
+        } else if let Some(last_item) = self.highlight.last() {
             // Wrap around to the last item
             self.cursor = last_item.start_position;
         }

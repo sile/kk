@@ -145,11 +145,11 @@ a summary row has no text after its separator.
 
 ### What counts as a hit on a line
 
-The count is `line.hit_count(query)`-shaped: the number of `HighlightItem`s in
+The count is `Highlight::count_on_row()`: the number of `HighlightItem`s in
 `state.highlight` whose `start_position.row` is that line. Counting by start row
 matches how `render_line` decides `is_highlighted`, so a hit that wraps is
-counted once, on the row it starts. The same predicate is what the top and
-bottom totals sum over the rows outside the visible slice.
+counted once, on the row it starts. The same predicate is what
+`Highlight::count_outside()` sums over the rows outside the visible slice.
 
 ### Drawing the gutter
 
@@ -199,14 +199,25 @@ line text is drawn, which is the same as today's "line clipped to zero width".
 
 ### Counting cost
 
-Today the highlight lookup is `state.highlight.contains(pos)` per character.
-Per-line counts can be precomputed once per render by walking
-`state.highlight.items` and bucketing by `start_position.row`, which is linear
-in the number of hits, not the buffer size. The top and bottom totals are the
-same walk with a comparison against the visible range. If `Highlight::items` is
-kept sorted by position -- it is built from a forward scan of the buffer -- the
-totals are a prefix sum and a binary search, but a per-render bucketing pass is
-simpler and enough.
+The gutter asks for a row's count and for the totals on either side of the
+visible slice once per render, and the viewport is scrolled by repeating that
+ask until it settles. Walking `Highlight::items` for each ask would make every
+one of them linear in the number of hits, and there are several per frame.
+
+`Highlight::items` is built by a forward scan of the buffer, so it is already
+in row order. `Highlight` therefore keeps, beside the items, one run per row
+that holds a hit and a prefix sum of their counts, both built once when the
+search runs. A row's count is then the one run that names it, found by a binary
+search, and a total is the difference of two prefix sums. The per-render work
+becomes a logarithm per ask instead of a walk, and the search itself pays for
+the runs once.
+
+The rendering lookup `state.highlight.contains(pos)` stays as it is: it is per
+visible character, but the visible slice is bounded by the screen, not the
+buffer, so it is not the term that grows with the hits.
+
+The items stay private to `Highlight` and are read through accessors, so the
+runs and the items cannot drift apart.
 
 ### Tests
 
@@ -237,6 +248,17 @@ The gutter is pure rendering, so `tests/render.rs` is the home for it:
 - a total over 99 renders as `99+`, the same as a line count;
 - the gutter is absent when the prompt is closed and the text starts at column
   0.
+
+`Highlight::count_on_row()` and `Highlight::count_outside()` are the counts
+themselves, so their checks live beside the search's rather than the renderer's:
+
+- a row that holds hits counts them, and a row that holds none counts zero,
+  with the rows either side of it answered correctly too (the binary search, not
+  just the easy bucket);
+- a slice with hits on both sides of it splits them into the right totals, and a
+  slice at either end of the buffer keeps them all on one side;
+- both answer zero when the query matched nothing, which is the empty-runs case
+  a derived `Default` highlight also lands in.
 
 ## Drawbacks
 

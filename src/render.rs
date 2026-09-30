@@ -98,12 +98,7 @@ struct GutterCell {
 /// A hit is counted on the row it starts on, matching how the text is
 /// highlighted, so a hit that wraps is counted once.
 fn count_hits_on_row(state: &State, row: usize) -> usize {
-    state
-        .highlight
-        .items
-        .iter()
-        .filter(|item| item.start_position.row == row)
-        .count()
+    state.highlight.count_on_row(row)
 }
 
 /// The separator drawn on a buffer line's gutter row.
@@ -333,7 +328,7 @@ pub fn render_status_line(state: &State, path: &str, frame: &mut tuinix::Frame) 
         format!(
             " 🔍{}/{}",
             state.highlight.count_up_to(cursor),
-            state.highlight.items.len()
+            state.highlight.len()
         )
     };
     let text = format!(" [{path}:{row}:{col}]{hits} 📋{summary}");
