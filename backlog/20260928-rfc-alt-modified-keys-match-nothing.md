@@ -91,12 +91,18 @@ like every other Alt chord. That is the intended reach of the rule — an
 unbound chord does nothing — but it is broader than the accidental `M-a` edit
 that motivates it, and is listed in Drawbacks.
 
-`fmt::display_input` already renders an Alt chord as the chord without Alt
+`fmt::display_input` renders an Alt chord as the same chord without Alt
 (`src/fmt.rs`: "Alt is a modifier `kk` does not act on, so it is not part of the
-spelling"). With this change the rendering and the resolution agree: an Alt
-chord both looks and resolves like nothing. The `src/fmt.rs` comment should say
-so: it currently explains the rendering alone, and reads as if an Alt chord were
-handled, rather than inert.
+spelling"). That was a reasonable rule while an Alt chord fell through to the
+unmodified chord, because the spelling matched what was run. Once the chord is
+inert it stops being reasonable: folding the modifier makes `M-C-a` render as
+`C-a`, which names a chord that is bound, so the label points at a key that was
+not pressed.
+
+`fmt::display_input` therefore has to change with the resolver: it spells Alt
+as `M-`, as Emacs does, and only then does the rendering agree with the
+resolution (`M-C-a` renders as `C-M-a` and resolves to nothing). The
+`src/fmt.rs` comment goes with it, since it explains the old folding rule.
 
 ## Drawbacks
 
@@ -117,10 +123,12 @@ handled, rather than inert.
   this proposal needs, because no Alt binding is planned; the guard can be
   replaced by real `M-` arms when one is. Doing nothing but the guard keeps the
   door open without committing to a spelling or a legend entry yet.
-- **Do nothing.** The current behavior is documented in `src/fmt.rs`, so it is
-  defensible as a rendering rule, but the resolver behavior it implies (an Alt
-  chord acts as its base chord) is not documented anywhere and is the part that
-  is wrong.
+- **Do nothing.** `src/fmt.rs` documents the folding rule, so it is defensible
+  as a rendering rule by itself. But the resolver behavior it implies (an Alt
+  chord acts as its base chord) is documented nowhere and is the part that is
+  wrong, and the rendering only lines up with it by accident: it names the
+  unmodified chord that the resolver happens to run. Fixing the resolver forces
+  the rendering to change too, so "do nothing" is not a stable resting point.
 
 ## Unresolved questions
 

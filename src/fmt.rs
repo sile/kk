@@ -10,17 +10,20 @@ pub fn display_input(input: &tuinix::Input) -> String {
     }
 }
 
-/// Renders a key chord as its `C-` spelling, with special keys in angle
-/// brackets and control characters in hex.
+/// Renders a key chord as its `C-` and `M-` spelling, with special keys in
+/// angle brackets and control characters in hex.
 ///
-/// Alt is a modifier `kk` does not act on, so it is not part of the spelling:
-/// an Alt chord renders as the same chord without Alt. Such a chord is also
-/// unbound (see [`Mode::resolve`](crate::Mode::resolve)), so the spelling is a
-/// label for a key that does nothing.
+/// Alt is spelled `M-`, as in Emacs, rather than folded away: kk binds no `M-`
+/// chord (see [`Mode::resolve`](crate::Mode::resolve)), and folding the
+/// modifier would render `M-C-a` as `C-a`, which is a bindable chord. Showing
+/// it is what keeps the label honest about the key that was pressed.
 fn key_input(key: &tuinix::KeyInput) -> String {
     let mut out = String::new();
     if key.ctrl {
         out.push_str("C-");
+    }
+    if key.alt {
+        out.push_str("M-");
     }
 
     match key.code {

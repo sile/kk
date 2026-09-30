@@ -459,6 +459,13 @@ fn input_display_renders_keys_and_mouse() {
         })),
         "C-a"
     );
+    // Alt is spelled rather than folded away: `M-a` must not render as the
+    // unbindable-looking `a`, and `M-C-a` must not render as the bound `C-a`.
+    assert_eq!(kk::display_input(&tuinix::Input::Key(alt_key('a'))), "M-a");
+    assert_eq!(
+        kk::display_input(&tuinix::Input::Key(alt_ctrl_key('a'))),
+        "C-M-a"
+    );
     assert_eq!(
         kk::display_input(&tuinix::Input::Mouse(left_press())),
         "<LEFTCLICK>"
