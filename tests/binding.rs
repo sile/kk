@@ -45,6 +45,15 @@ fn code_key(code: tuinix::KeyCode) -> tuinix::KeyInput {
     }
 }
 
+/// An alt chord on a special key.
+fn alt_code_key(code: tuinix::KeyCode) -> tuinix::KeyInput {
+    tuinix::KeyInput {
+        ctrl: false,
+        alt: true,
+        code,
+    }
+}
+
 /// A left press at the origin, with no modifier keys held.
 fn left_press() -> tuinix::MouseInput {
     tuinix::MouseInput {
@@ -334,32 +343,48 @@ fn tab_saves_in_the_edit_mode_without_a_mode_switch() {
 }
 
 #[test]
-fn alt_is_ignored_in_every_mode() {
-    // Alt is not a modifier `kk` acts on, so an alt chord resolves exactly as
-    // the same chord without alt: `M-r` is plain `r`, and `M-C-r` is `C-r`.
+fn alt_matches_nothing_in_every_mode() {
+    // kk binds no `M-` chord, so an Alt chord is unbound: it must not fall
+    // back to the same chord without Alt (`M-r` is not plain `r`, and `M-C-r`
+    // is not `C-r`).
     for &mode in &MODES {
         for ch in ['r', '<', '>', 'm', 'l', 'w', 'g', 'z', 'c'] {
-            assert_eq!(
-                format!("{:?}", action_of(mode, alt_key(ch))),
-                format!("{:?}", action_of(mode, char_key(ch))),
-                "M-{ch} does not resolve as {ch} in {mode:?}"
+            assert!(
+                action_of(mode, alt_key(ch)).is_none(),
+                "M-{ch} resolves to something in {mode:?}"
             );
-            assert_eq!(
-                format!("{:?}", action_of(mode, alt_ctrl_key(ch))),
-                format!("{:?}", action_of(mode, ctrl_key(ch))),
-                "M-C-{ch} does not resolve as C-{ch} in {mode:?}"
+            assert!(
+                action_of(mode, alt_ctrl_key(ch)).is_none(),
+                "M-C-{ch} resolves to something in {mode:?}"
             );
         }
     }
 }
 
 #[test]
-fn edit_accepts_an_alt_chord_as_text() {
-    // The flip side of ignoring alt: `M-z` is `z`, which inserts.
-    assert!(matches!(
-        action_of(kk::Mode::Edit, alt_key('z')),
-        Some(kk::Action::CharInsert)
-    ));
+fn an_alt_chord_is_not_inserted_as_text() {
+    // The guard is on Alt alone, so `M-z` is inert rather than inserting `z`.
+    assert!(action_of(kk::Mode::Edit, alt_key('z')).is_none());
+}
+
+#[test]
+fn an_alt_arrow_matches_nothing() {
+    // Alt arrows today fall through to the ctrl-free arrow arm and move the
+    // cursor. The guard drops them like every other Alt chord; the reach is
+    // deliberate, not a side effect to be special-cased away.
+    for code in [
+        tuinix::KeyCode::Up,
+        tuinix::KeyCode::Down,
+        tuinix::KeyCode::Left,
+        tuinix::KeyCode::Right,
+    ] {
+        assert!(
+            kk::Mode::Edit
+                .resolve(&tuinix::Input::Key(alt_code_key(code)))
+                .is_none(),
+            "M-{code:?} resolves to something in Edit"
+        );
+    }
 }
 
 #[test]

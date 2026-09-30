@@ -1,6 +1,6 @@
 # RFC: Alt-modified keys match nothing
 
-- Status: draft
+- Status: implemented
 
 ## Summary
 

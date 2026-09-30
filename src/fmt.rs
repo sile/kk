@@ -14,7 +14,9 @@ pub fn display_input(input: &tuinix::Input) -> String {
 /// brackets and control characters in hex.
 ///
 /// Alt is a modifier `kk` does not act on, so it is not part of the spelling:
-/// an Alt chord renders as the same chord without Alt.
+/// an Alt chord renders as the same chord without Alt. Such a chord is also
+/// unbound (see [`Mode::resolve`](crate::Mode::resolve)), so the spelling is a
+/// label for a key that does nothing.
 fn key_input(key: &tuinix::KeyInput) -> String {
     let mut out = String::new();
     if key.ctrl {

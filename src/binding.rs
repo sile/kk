@@ -126,11 +126,18 @@ impl Mode {
     /// report that to the user.
     ///
     /// The input has to be a key: no mouse, paste, or unrecognized input is bound.
+    ///
+    /// An Alt-modified key resolves to nothing. kk binds no `M-` chord, so an
+    /// Alt chord is unbound and has to be inert rather than fall back to the
+    /// chord without Alt.
     pub fn resolve(self, input: &tuinix::Input) -> Option<Resolved> {
         let key = match input {
             tuinix::Input::Key(key) => key,
             _ => return None,
         };
+        if key.alt {
+            return None;
+        }
 
         match self {
             Mode::Edit => resolve_edit(key),
