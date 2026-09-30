@@ -264,25 +264,33 @@ fn a_jump_to_a_hit_at_the_edges_keeps_the_cursor_visible_with_totals() {
     kk.send_ctrl('s');
     kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
     kk.send_text("needle");
+
+    // The cursor starts on row 1, which holds a hit, so the status line reads
+    // `🔍1/3` as soon as the query is typed -- the hit under the cursor counts
+    // as reached. No key is sent before that is on screen, so a `C-s` is never
+    // delivered while the query is still being inserted.
+    kk.wait_until("the first hit counted", |h| h.screen_contains("🔍1/3"));
+
     // `C-s` steps to the next hit each time: row 1, then row 22, then row 43.
+    // Each send waits for the status line to name the hit it reached before
+    // the next one goes out, so a key is never delivered while the previous
+    // jump is still being handled -- the two `C-s` events would otherwise race
+    // and step twice, landing on row 43 instead of row 22.
     kk.send_ctrl('s');
-    kk.wait_until("on the first hit", |h| h.screen_contains(":1:1]"));
-    kk.send_ctrl('s');
-    kk.wait_until("on the middle hit", |h| h.screen_contains(":22:1]"));
+    kk.wait_until("on the middle hit", |h| h.screen_contains("🔍2/3"));
 
     // The cursor is on row 22 and both totals are on screen; the hit line must
     // still be painted, which is what a scroll against the full height would
-    // lose once a summary covers the row the cursor was placed on.
-    assert!(
-        kk.screen_text().contains("| needle"),
-        "the cursor's line is drawn as a buffer line while both totals are shown:\n{}",
-        kk.screen_text()
-    );
-    assert!(
-        kk.screen_text().contains(": ") || kk.screen_text().contains(":\n"),
-        "a total row is shown, making the height matter:\n{}",
-        kk.screen_text()
-    );
+    // lose once a summary covers the row the cursor was placed on. The check is
+    // repeated as the poll loop repaints, so a frame caught mid-repaint -- with
+    // the cursor row scrolled but not yet redrawn -- cannot fail it.
+    kk.wait_until("the cursor's line beside both totals", |h| {
+        let text = h.screen_text();
+        text.contains("| needle")
+            && text.contains(": ")
+            && text.contains("🔍2/3")
+            && text.contains(":22:1]")
+    });
 
     kk.send_ctrl('g');
     kk.wait_until("the prompt is left", |h| !h.screen_contains("Search:"));
