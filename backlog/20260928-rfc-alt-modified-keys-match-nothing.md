@@ -56,32 +56,55 @@ is a no-op.
 
 ## Reference-level explanation
 
-Every resolver returns `None` for a key whose `alt` is true, before the `match`:
+`Mode::resolve` returns `None` for a key whose `alt` is true, after it has
+checked that the input is a key and before it dispatches on the mode:
 
 ```rust
-fn resolve_edit(key: &tuinix::KeyInput) -> Option<Resolved> {
-    let tuinix::KeyInput { alt, ctrl, code } = *key;
-    if alt {
+pub fn resolve(self, input: &tuinix::Input) -> Option<Resolved> {
+    let key = match input {
+        tuinix::Input::Key(key) => key,
+        _ => return None,
+    };
+    if key.alt {
         return None;
     }
-    ...
+
+    match self {
+        Mode::Edit => resolve_edit(key),
+        Mode::Search => resolve_search(key),
+        Mode::Ext => resolve_ext(key),
+    }
 }
 ```
 
-The same guard is added to `resolve_search` and `resolve_ext`. Nothing else
-changes: `ctrl` and `code` still select the arm, and a key with `alt == false`
-resolves exactly as it does today.
+The guard goes here rather than in each of `resolve_edit`, `resolve_search`,
+and `resolve_ext` because it is one place instead of three, and because a mode
+added later cannot forget it: every mode reaches `resolve`, while a new
+`resolve_*` is only reached through this dispatch. Nothing else changes:
+`ctrl` and `code` still select the arm, and a key with `alt == false` resolves
+exactly as it does today.
+
+Since the guard is on the `alt` field alone, it also drops the chords that
+today resolve through a `ctrl`-free arm by accident. `M-<UP>` currently matches
+`(false, KeyCode::Up)` and moves the cursor; after this change it is a no-op
+like every other Alt chord. That is the intended reach of the rule — an
+unbound chord does nothing — but it is broader than the accidental `M-a` edit
+that motivates it, and is listed in Drawbacks.
 
 `fmt::display_input` already renders an Alt chord as the chord without Alt
 (`src/fmt.rs`: "Alt is a modifier `kk` does not act on, so it is not part of the
 spelling"). With this change the rendering and the resolution agree: an Alt
-chord both looks and resolves like nothing.
+chord both looks and resolves like nothing. The `src/fmt.rs` comment should say
+so: it currently explains the rendering alone, and reads as if an Alt chord were
+handled, rather than inert.
 
 ## Drawbacks
 
-- The guard is three lines in each of the three resolvers, which is a small
-  amount of repetition. It could instead be a shared helper at the top of
-  `Mode::resolve`, before the mode dispatch, which may be preferable.
+- The guard is behavior-visible for every Alt chord, not only the accidental
+  ones. `M-<UP>` and the other Alt-modified keys that today fall through to a
+  `ctrl`-free arm stop working. No such chord is documented or bound on purpose,
+  so nothing a user was told to do is lost, but the change reaches further than
+  the `M-a` edit that motivates it and should be called out.
 - The change is behavior-visible only for key combinations no user is expected
   to press on purpose, so it is cheap to adopt and cheap to reverse.
 
@@ -101,10 +124,9 @@ chord both looks and resolves like nothing.
 
 ## Unresolved questions
 
-- Whether the guard belongs in each resolver or once in `Mode::resolve` before
-  the mode dispatch. The latter is one place instead of three and cannot be
-  forgotten for a future mode, which argues for it; it can be settled during
-  implementation.
+None. The guard belongs in `Mode::resolve`, before the mode dispatch, as shown
+in the reference-level explanation: one place instead of three, on the path
+every mode takes, and out of the resolver functions that only select an arm.
 
 ## Future possibilities
 
