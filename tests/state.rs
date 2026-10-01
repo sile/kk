@@ -716,6 +716,82 @@ fn scrolling_down_moves_the_cursor_and_the_viewport_together() {
 }
 
 #[test]
+fn a_cursor_a_screen_and_a_row_out_is_centered() {
+    // A 5-row area showing rows 0..5, with the cursor moved straight to row 11
+    // -- six rows past the last visible row (4), one more than a whole text
+    // area -- so it centers rather than landing against the bottom edge.
+    let mut state = state_of(&"a\n".repeat(20));
+    state.viewport = at(0, 0);
+
+    state.handle_cursor_to_position(11, 0);
+    state.recenter_viewport = false;
+    state.adjust_viewport(area(5, 10));
+
+    assert_eq!(
+        state.viewport.row, 9,
+        "11 - 5 / 2: row 11 sits in the middle of the five visible rows"
+    );
+}
+
+#[test]
+fn a_cursor_exactly_a_screen_out_is_not_centered() {
+    // Same area, but the cursor is exactly five rows past the last visible row
+    // (4), so it touches the threshold without crossing it and keeps the slide.
+    let mut state = state_of(&"a\n".repeat(20));
+    state.viewport = at(0, 0);
+
+    state.handle_cursor_to_position(10, 0);
+    state.recenter_viewport = false;
+    state.adjust_viewport(area(5, 10));
+
+    assert_eq!(
+        state.viewport.row, 6,
+        "10 - (5 - 1): the cursor lands on the last visible row"
+    );
+}
+
+#[test]
+fn a_cursor_above_the_viewport_a_screen_out_is_centered() {
+    let mut state = state_of(&"a\n".repeat(20));
+    state.viewport = at(12, 0);
+
+    // Row 6 is 6 rows above the viewport's row 12, more than the 5-row area.
+    state.handle_cursor_to_position(6, 0);
+    state.recenter_viewport = false;
+    state.adjust_viewport(area(5, 10));
+
+    assert_eq!(
+        state.viewport.row, 4,
+        "6 - 5 / 2: the cursor is centered, not pinned to the top"
+    );
+}
+
+#[test]
+fn an_explicit_recenter_beats_the_far_jump_rule() {
+    let mut state = state_of(&"a\n".repeat(20));
+    state.viewport = at(12, 0);
+
+    // The request is set and the cursor is a whole screen out, but the explicit
+    // `C-l` still wins: it centers by its own rule.
+    state.handle_cursor_to_position(0, 0);
+    state.adjust_viewport(area(5, 10));
+
+    assert_eq!(state.viewport.row, 0, "row 0 centers as far as it can");
+}
+
+#[test]
+fn a_far_jump_in_a_zero_height_area_does_not_underflow() {
+    let mut state = state_of(&"a\n".repeat(20));
+    state.cursor = at(19, 0);
+
+    // An area with no text rows has no threshold to cross, and the arithmetic
+    // must stay saturating rather than panicking.
+    state.adjust_viewport(area(0, 10));
+
+    assert_eq!(state.viewport.row, 19, "the cursor is at the top");
+}
+
+#[test]
 fn scrolling_up_stops_at_the_first_line() {
     let mut state = state_of("a\nb\n");
 
