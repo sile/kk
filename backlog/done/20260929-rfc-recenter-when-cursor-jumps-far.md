@@ -1,6 +1,6 @@
 # RFC: Recenter when the cursor jumps far off screen
 
-- Status: implemented
+- Status: accepted
 
 ## Summary
 
@@ -313,3 +313,36 @@ before the cursor reaches the edge) is the natural generalization: it is this
 proposal's small-move side applied all the time, and it would also stop a walk
 from pinning the cursor to the edge. It is a bigger change to the same rule and
 is not proposed here.
+
+## Outcome
+
+Implemented in [#10](https://github.com/sile/kk/pull/10) (merged as `e882800`).
+
+## Outcome
+
+Implemented in PR #10, merged as `e882800`.
+
+`adjust_viewport` now centers the cursor on its row when the jump leaves more
+than one text area of rows outside the viewport (that is, when the cursor's
+surroundings no longer overlap what was on screen). Shorter jumps keep the
+minimal scroll, which is what every ordinary one-row walk still does. The
+threshold needs no configuration and no state: it is a single comparison
+against `available_rows` inside the existing vertical branch.
+
+The rule is documented on `adjust_viewport` rather than as a named constant,
+because "one text area" is the definition and a constant would only restate
+it. Horizontal scrolling intentionally stays minimal at any distance, and `C-l`
+remains the way to center on demand.
+
+The note's open question about the distance metric was settled in favor of
+"rows outside the viewport" rather than "rows moved", so no new argument or
+field was needed. The candidate half-screen threshold from the draft was
+dropped: at a one-row text area it degenerates to zero and would recenter on
+every step, changing how fast walks scroll.
+
+Coverage: `tests/state.rs` pins both sides of the boundary (exactly one text
+area of rows out stays minimal, one row beyond centers) plus the upward jump,
+`C-l`, and a zero-height guard; `tests/search.rs` shows a search hit a screen
+away landing centered while the existing near hits keep scrolling minimally.
+
+The scope is unchanged from what is described above.
