@@ -11,6 +11,44 @@ use crate::{
     search_prompt::{Highlight, SearchPrompt},
 };
 
+/// Where a recenter request puts the cursor's row in the text area.
+///
+/// The three are the places [`C-l`](crate::Action::ViewRecenter) cycles
+/// through. Which one a press asks for is read off the viewport it is pressed
+/// on; see [`State::recenter_place()`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RecenterPlace {
+    /// The cursor's row in the middle of the drawn rows.
+    Center,
+
+    /// The cursor's row on the first drawn row.
+    Top,
+
+    /// The cursor's row on the last drawn row.
+    Bottom,
+}
+
+impl RecenterPlace {
+    /// The viewport row that puts the cursor's row at this place, in a text
+    /// area `available_rows` tall.
+    fn row(self, cursor_row: usize, available_rows: usize) -> usize {
+        match self {
+            Self::Center => cursor_row.saturating_sub(available_rows / 2),
+            Self::Top => cursor_row,
+            Self::Bottom => cursor_row.saturating_sub(available_rows.saturating_sub(1)),
+        }
+    }
+
+    /// The one-line message naming this place, shown as the request is applied.
+    fn message(self) -> &'static str {
+        match self {
+            Self::Center => "Cursor centered",
+            Self::Top => "Cursor at top",
+            Self::Bottom => "Cursor at bottom",
+        }
+    }
+}
+
 /// Columns reserved on the left of the text area while a search prompt is open:
 /// a three-column count (two digits and the `+` that may overflow them), the
 /// separator, and a space after it.
@@ -20,36 +58,6 @@ use crate::{
 /// over these columns and [`State::text_cols()`] keeps the viewport out of them,
 /// so both read the width from here.
 pub(crate) const HIT_GUTTER_COLS: usize = 5;
-
-/// The place a recenter request will put the cursor on the next viewport
-/// adjustment.
-///
-/// [`C-l`](crate::Action::ViewRecenter) walks these in order -- center, top,
-/// bottom, and back to center -- so the key is never a dead end once the cursor
-/// is already in the middle. The column is centered for every place; the three
-/// differ only in where the cursor's row sits in the text area.
-///
-/// A place is a request, not a promise: the viewport cannot scroll above the
-/// buffer's first row, so [`Bottom`](Recenter::Bottom) clamps there when fewer
-/// than a text area of rows lie above the cursor, leaving the cursor somewhere
-/// other than the last drawn row.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Recenter {
-    /// The cursor's row in the middle of the text area.
-    Center,
-
-    /// The cursor's row on the first drawn row.
-    Top,
-
-    /// The cursor's row on the last drawn row.
-    ///
-    /// The viewport is put a text area's worth of rows above the cursor, which
-    /// is what places the cursor on the last drawn row when the buffer has that
-    /// many rows above it. With fewer -- a short file, or a cursor near the
-    /// start -- the viewport stops at the buffer's first row and the cursor
-    /// stays where it is.
-    Bottom,
-}
 
 /// Everything the editor knows: the buffer, the cursor, and the surrounding
 /// mode state.
@@ -65,14 +73,31 @@ pub struct State {
     /// The top-left position of the visible text area.
     pub viewport: TextPosition,
 
-    /// The place the next viewport adjustment should put the cursor, if a
-    /// recenter has been asked for.
+    /// Whether the next viewport adjustment should recenter the cursor where
+    /// [`C-l`](crate::Action::ViewRecenter) puts it next.
     ///
-    /// `None` means no request is pending: the adjustment runs the ordinary
+    /// `false` means no request is pending: the adjustment runs the ordinary
     /// keep-it-visible rule, scrolling by the minimum that shows the cursor.
-    /// A search step leaves it `None`, which is why stepping to a hit already
+    /// A search step leaves it `false`, which is why stepping to a hit already
     /// on screen does not move the text.
-    pub recenter_viewport: Option<Recenter>,
+    ///
+    /// Which place that is, the adjustment works out from the viewport -- it
+    /// cycles rather than centering every time, so the request cannot say where
+    /// to go without knowing where the reader is. A request that does name a
+    /// place, the startup position, uses
+    /// [`center_viewport`](State::center_viewport) instead, so it does not
+    /// disturb the cycle.
+    pub recenter_viewport: bool,
+
+    /// Whether the next viewport adjustment should center the cursor without
+    /// stepping the [`C-l`](crate::Action::ViewRecenter) cycle.
+    ///
+    /// The startup position is the request this exists for: the named position
+    /// belongs in the middle of the text area, and it is not a press of `C-l`,
+    /// so the reader's first press should still center rather than move on to
+    /// the next place. It does not name the place in a message either -- the
+    /// reader did not ask for it -- which is the other reason it is kept apart.
+    pub center_viewport: bool,
 
     /// The text being edited.
     pub buffer: TextBuffer,
@@ -105,22 +130,6 @@ pub struct State {
     /// both `start_editing` and `finish_editing` clear it, so any edit or
     /// cursor move breaks the run.
     cut_chained: bool,
-
-    /// The place the last `C-l` asked for, or `None` before the first press.
-    ///
-    /// The place that was applied is gone from
-    /// [`recenter_viewport`](State::recenter_viewport) by the time `C-l` runs
-    /// again, and the text area's height is only known at render time, so the
-    /// cycle cannot read where the cursor ended up. It remembers the request
-    /// instead, which also keeps the cycle advancing when two places would
-    /// look the same on screen (a text area one row tall).
-    ///
-    /// `None` is what makes the first press center: the cycle is entered at
-    /// [`Recenter::Center`], and a press advances from there. Anything that
-    /// asks for a recenter without being `C-l` -- the startup position --
-    /// resets this to `None`, so the reader's next press still centers rather
-    /// than continuing a cycle they never started.
-    last_recenter: Option<Recenter>,
 
     /// Undo snapshots, oldest first.
     ///
@@ -161,8 +170,8 @@ impl State {
         Self {
             cursor: TextPosition::default(),
             viewport: TextPosition::default(),
-            recenter_viewport: None,
-            last_recenter: None,
+            recenter_viewport: false,
+            center_viewport: false,
             buffer,
             message: None,
             mark: None,
@@ -284,13 +293,15 @@ impl State {
     /// horizontal scroll is against the area's full width; the gutter takes
     /// columns, not rows, and does not scroll with the text.
     ///
-    /// When [`recenter_viewport`](State::recenter_viewport) holds a place, the
-    /// cursor is put there instead and the request is taken. The column is
-    /// centered for every place; they differ only in the cursor's row, which is
-    /// the middle of the drawn rows, the first, or the last. The place is sized
-    /// inside the height-settling loop below, so it lands against the drawn
-    /// height the summary rows leave rather than one computed before they are
-    /// known.
+    /// When [`recenter_viewport`](State::recenter_viewport) is set, the
+    /// requested place replaces the vertical rule and the request is taken. The
+    /// place is worked out here from the viewport the last adjustment left: the
+    /// row is centered when the viewport is already centered on the cursor, and
+    /// otherwise moved on from there -- see
+    /// [`handle_view_recenter()`](State::handle_view_recenter) for the cycle.
+    /// The column is centered for every place. The row is sized inside the
+    /// height-settling loop below, so it lands against the drawn height the
+    /// summary rows leave rather than one computed before they are known.
     ///
     /// A cursor that is more than a whole text area outside the viewport is
     /// centered too, rather than pinned to the edge it came in through: the
@@ -309,7 +320,25 @@ impl State {
         // against a height the new viewport then changes -- a `Bottom` request
         // makes a summary row appear, which costs a drawn row, which leaves the
         // cursor one row past the last one.
-        let place = self.recenter_viewport.take();
+        //
+        // The place the request asks for is read from the viewport as the last
+        // adjustment left it -- the viewport the reader is looking at, before
+        // any of this runs. That choice is made once, here, not inside the
+        // loop: the loop overwrites the viewport on its first pass, and a
+        // second pass branching on the new value would step the cycle on a
+        // second time. Only the row the chosen place works out to is left for
+        // the loop, which re-evaluates it against each pass's height.
+        let recenter = self.recenter_viewport;
+        self.recenter_viewport = false;
+        let center_request = std::mem::take(&mut self.center_viewport);
+        let recenter_place = if center_request {
+            Some(RecenterPlace::Center)
+        } else if recenter {
+            let available_rows = self.text_rows(text_area_size.rows);
+            Some(self.recenter_place(available_rows))
+        } else {
+            None
+        };
 
         // The height the text is drawn in depends on which summary rows are
         // shown, and those depend on the viewport -- so the two are settled
@@ -320,14 +349,8 @@ impl State {
             let available_rows = self.text_rows(text_area_size.rows);
             let before = self.viewport.row;
 
-            if let Some(place) = place {
-                self.viewport.row = match place {
-                    Recenter::Center => cursor_pos.row.saturating_sub(available_rows / 2),
-                    Recenter::Top => cursor_pos.row,
-                    Recenter::Bottom => cursor_pos
-                        .row
-                        .saturating_sub(available_rows.saturating_sub(1)),
-                };
+            if let Some(place) = recenter_place {
+                self.viewport.row = place.row(cursor_pos.row, available_rows);
             } else {
                 // The distance from the cursor to the edge of the viewport, in
                 // the rows the text is drawn in. A cursor on the row just past
@@ -363,12 +386,20 @@ impl State {
             }
         }
 
+        // Only a `C-l` press says what it did: the reader asked for the place,
+        // and the message is how the cycle is legible without counting presses.
+        // The startup position is placed just as deliberately, but it was not
+        // asked for and its message would be noise.
+        if recenter && let Some(place) = recenter_place {
+            self.set_message(place.message());
+        }
+
         // A pending request centers the column as well as placing the row: the
         // place is about where the cursor sits in the text area, and a hit near
         // the right edge of a long line belongs in the middle of the width the
         // same way. Without a request, the horizontal rule is the minimum-scroll
         // one, symmetric with the vertical rule above.
-        if place.is_some() {
+        if recenter_place.is_some() {
             self.viewport.col = cursor_pos.col.saturating_sub(available_cols / 2);
         } else if cursor_pos.col < self.viewport.col {
             // Cursor is left of viewport, scroll left
@@ -431,15 +462,14 @@ impl State {
     /// is the reason the file was opened and belongs in the middle of the text
     /// area rather than against an edge.
     ///
-    /// The request is a one-shot [`Recenter::Center`], not a `C-l` press, so
-    /// the cycle is rewound: the reader's first `C-l` after this centers again
-    /// rather than jumping to the top.
+    /// The request is a plain center, not a `C-l` press: the next adjustment
+    /// centers the cursor, and the `C-l` after that reads the centered viewport
+    /// and moves on to the top, as a first press would.
     pub fn handle_cursor_to_position(&mut self, row: usize, col: usize) {
         self.cursor.row = row.min(self.buffer.rows());
         self.cursor.col = self.buffer.cols(self.cursor.row).min(col);
         self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
-        self.recenter_viewport = Some(Recenter::Center);
-        self.last_recenter = None;
+        self.center_viewport = true;
         self.finish_editing();
     }
 
@@ -845,38 +875,71 @@ impl State {
         self.finish_editing();
     }
 
-    /// Asks the next viewport adjustment to put the cursor somewhere, walking
-    /// the places [`C-l`](crate::Action::ViewRecenter) cycles through.
+    /// Asks the next viewport adjustment to put the cursor somewhere, cycling
+    /// `C-l` through the places there are to put it.
     ///
-    /// The first press asks for [`Recenter::Center`], the second
-    /// [`Recenter::Top`], the third [`Recenter::Bottom`], and the fourth starts
-    /// over. That order is what makes the key worth pressing more than once:
-    /// centering alone is idempotent, so a second press would otherwise do
-    /// nothing observable.
+    /// The cycle is center, top, bottom, center, and the next place is worked
+    /// out when the request is applied, from where the viewport already is --
+    /// not from a place remembered here. Pressing the key repeatedly therefore
+    /// visits the three places in turn: a viewport that is already centered is
+    /// moved to the top, one on the top row to the bottom, and anything else is
+    /// centered. Centering alone is idempotent, so without the cycle a second
+    /// press would do nothing observable.
     ///
-    /// The message names the place the request will land on, so a press that
-    /// only moved the view a little still says what it asked for -- which
-    /// matters when the buffer's end clamps the request.
+    /// Working the place out from the viewport also keeps the cycle honest
+    /// about what the reader is looking at: a search step or a cut between two
+    /// presses moves the view, and the next press continues from there rather
+    /// than from a place that is no longer on screen.
+    ///
+    /// This does not place anything itself, because the text area's height is
+    /// not known until render time: the request is what
+    /// [`adjust_viewport()`](State::adjust_viewport) reads, and that is where
+    /// the place -- and the message naming it -- is worked out.
     pub fn handle_view_recenter(&mut self) {
         self.finish_editing();
-        // `None` means no press has run yet, and the cycle opens at its first
-        // place: `Center` is where the first press lands, and each stored
-        // place steps on to the next. That is what makes the sequence center,
-        // top, bottom, center -- and the first press still centers, as it
-        // always did.
-        let place = match self.last_recenter {
-            None => Recenter::Center,
-            Some(Recenter::Center) => Recenter::Top,
-            Some(Recenter::Top) => Recenter::Bottom,
-            Some(Recenter::Bottom) => Recenter::Center,
-        };
-        self.last_recenter = Some(place);
-        self.recenter_viewport = Some(place);
-        self.set_message(match place {
-            Recenter::Center => "Cursor centered",
-            Recenter::Top => "Cursor at top",
-            Recenter::Bottom => "Cursor at bottom",
-        });
+        self.recenter_viewport = true;
+    }
+
+    /// The place the next recenter should land on, read off where the viewport
+    /// is now.
+    ///
+    /// The cycle turns on which of the three places the viewport is already at,
+    /// and the three are told apart by the row the viewport sits on:
+    ///
+    /// - on the top row already -- the viewport's row is the one
+    ///   [`RecenterPlace::Top`] would use -- so the request moves on to
+    ///   [`RecenterPlace::Bottom`];
+    /// - centered already, so it moves on to [`RecenterPlace::Top`];
+    /// - anywhere else, including a viewport the buffer's first row clamped, so
+    ///   it centers.
+    ///
+    /// The top is tested first because the places overlap: a cursor in the
+    /// middle of the drawn rows sits on the top row *and* is centered at the
+    /// same time when the area's height has not changed since the last
+    /// adjustment. Testing the center first would leave the cycle there, and the
+    /// third press would never reach the bottom.
+    ///
+    /// That makes the order center, top, bottom, center whenever the three
+    /// differ, which they do for any text area taller than one row. A one-row
+    /// area collapses them onto the cursor's own row, and the key then does
+    /// nothing -- there is nowhere else for the cursor to be drawn.
+    ///
+    /// Reading the place off the viewport rather than remembering it keeps the
+    /// cycle honest about what the reader is looking at: a search step or a cut
+    /// between two presses moves the view, and the next press continues from
+    /// there rather than from a place that is no longer on screen.
+    fn recenter_place(&self, available_rows: usize) -> RecenterPlace {
+        let cursor_row = self.cursor.row;
+        let center_row = RecenterPlace::Center.row(cursor_row, available_rows);
+        let top_row = RecenterPlace::Top.row(cursor_row, available_rows);
+
+        if self.viewport.row == top_row {
+            RecenterPlace::Bottom
+        } else if self.viewport.row == center_row {
+            RecenterPlace::Top
+        } else {
+            RecenterPlace::Center
+        }
     }
 
     /// Deletes from the cursor to the end of the line, or joins the next line

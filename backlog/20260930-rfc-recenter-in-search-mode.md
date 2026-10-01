@@ -15,12 +15,10 @@ while the prompt is open.
 The row goes next to `C-s next`, the key the reader just pressed to get to the
 hit.
 
-It also grows the recenter request from a boolean into a place, so a single key
-can ask for the cursor at the top or the bottom of the text area as well as in
-the middle. That is what makes the search-mode binding worth having (a second
-`C-l` in a row is otherwise a no-op) and it is the same cycle the sibling RFC
-`20260928-rfc-recenter-cycles-through-positions.md` proposes for the edit mode;
-the two should land together, and that RFC owns the type.
+The key is worth having in the search mode because it cycles there too, so a
+second `C-l` in a row is not a no-op -- it is the same cycle the sibling RFC
+`20260928-rfc-recenter-cycles-through-positions.md` gives the edit mode. The two
+should land together, and that RFC owns the place type and the cycle.
 
 ## Motivation
 
@@ -138,66 +136,31 @@ one-line change rather than a new action: the search mode already routes every
 key through the same `State`, and the viewport arithmetic does not know a
 prompt exists.
 
-The request itself has to grow, though, or the binding is only useful once.
-Today it is a flag:
-
-```rust
-pub recenter_viewport: bool,
-```
-
-and `handle_view_recenter` sets it to `true`, so a second press re-centers an
-already-centered cursor and the cycle has nowhere to go. The sibling RFC
-`20260928-rfc-recenter-cycles-through-positions.md` replaces the flag with
-`Option<Recenter>`:
-
-```rust
-/// The place a recenter request will put the cursor on the next viewport
-/// adjustment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Recenter {
-    /// Cursor in the middle of the text area.
-    Center,
-    /// Cursor on the first visible row.
-    Top,
-    /// Cursor on the last visible row.
-    Bottom,
-}
-```
-
-and `handle_view_recenter` becomes the place that advances the cycle. This RFC
-does not restate that design; it depends on it and adds the one thing the
-sibling does not decide -- that the cycle is the same in the search mode.
+The request has to know which place it is on, though, or the binding is only
+useful once. The sibling RFC
+`20260928-rfc-recenter-cycles-through-positions.md` settles that: the flag stays
+a `bool`, and `adjust_viewport` reads the place off the viewport it is about to
+replace. This RFC does not restate that design; it depends on it and adds the
+one thing the sibling does not decide -- that the cycle is the same in the
+search mode.
 
 Things that are subtle and easy to get wrong:
 
-- **Where the cycle state lives.** `handle_view_recenter` runs before any
-  `adjust_viewport`, so it has to decide the next place from what is
-  observable. Two of the three places are readable from the viewport and the
-  cursor (`viewport.row == cursor.row` is `Top`, and
-  `viewport.row == cursor.row - (text_rows - 1)` is `Bottom`), but the text
-  area's rows are only known at render time. The sibling RFC's preference -- an
-  explicit "place last asked for" field -- is the one to take, because it also
-  removes the ambiguity when two places coincide (a text area one row tall
-  makes `Center` and `Top` the same viewport; a field still advances, a
-  derivation cannot tell them apart). It landed as
-  `last_recenter: Option<Recenter>`, where `None` opens the cycle at `Center`
-  so the first press does what it always did.
 - **Coincident places in a search.** A search hit at row 0 of a file, in a text
   area shorter than the file, makes `Center` and `Top` the same viewport: the
-  first press appears to do nothing, the second lands on `Bottom`. With a
-  "last place asked for" field this is only a cosmetic oddity; the shared field
-  is what makes it possible to decide at all, and the sibling RFC's unresolved
-  question about skipping coincident places applies here unchanged.
-- **The gutter changes `text_rows`, so a place must be sized after the height
-  settles.** While a search prompt is open the summary rows take rows from the
-  text area, and which summary rows are shown depends on the viewport -- so the
-  two are settled together by the fixed-point loop `adjust_viewport` already
-  runs. Sizing the place once, before that loop, computes the row against a
-  height the new viewport then changes: a `Bottom` request makes a summary row
-  appear, which costs a drawn row, which leaves the cursor one row past the
-  last one -- the exact opposite of what the press asked for. The landed code
-  folds the place into the loop and recomputes it each pass against the height
-  that pass ends up with.
+  first press appears to do nothing, the second lands on `Bottom`. That is the
+  sibling RFC's clamp case, unchanged by the prompt, and the sibling RFC's
+  `Unresolved questions` covers it.
+- **The gutter changes `text_rows`, so a place must be sized with the height
+  the viewport settles on.** While a search prompt is open the summary rows
+take rows from the text area, and which summary rows are shown depends on the
+  viewport -- so the two are settled together by the fixed-point loop
+  `adjust_viewport` already runs. Sizing the place once, before that loop,
+  computes the row against a height the new viewport then changes: a `Bottom`
+  request makes a summary row appear, which costs a drawn row, which leaves the
+  cursor one row past the last one -- the exact opposite of what the press
+  asked for. The landed code folds the place into the loop and recomputes the
+  row each pass against the height that pass ends up with.
 - **Horizontal centering.** The proposed cycle centers the column on every
   place, so `Top` and `Bottom` differ from `Center` in rows only. A hit near
   the right edge of a long line is centered horizontally by the same press,
@@ -205,10 +168,11 @@ Things that are subtle and easy to get wrong:
 - **Empty text area.** The arithmetic stays `saturating_sub`-based, so
   `rows == 0` cannot underflow (the current `Center` branch already relies on
   this).
-- **The message.** `handle_view_recenter` reports `"View recentered"`. With
-  three places the message names the place (`"Cursor centered"`,
-  `"Cursor at top"`, `"Cursor at bottom"`), shared with the edit mode rather
-  than decided here.
+- **The message.** The place is named once the adjustment has picked it
+  (`"Cursor centered"`, `"Cursor at top"`, `"Cursor at bottom"`), written by
+  `adjust_viewport` and shared with the edit mode rather than decided here. The
+  search mode needs no wording of its own; the prompt is drawn whatever the
+  message says.
 
 ## Tests
 
@@ -219,7 +183,8 @@ Things that are subtle and easy to get wrong:
   columns wide.
 - `tests/state.rs`: the cycle visits center, top, and bottom and wraps; a `Top`
   request puts the cursor on the first drawn row and a `Bottom` request on the
-  last; a startup position rewinds the cycle so a later `C-l` centers again.
+  last; a startup position leaves the cycle at its start, so a later `C-l`
+  moves to the top rather than continuing a cycle the reader never began.
 - `tests/search.rs`: the third press puts a hit, reached by stepping with the
   gutter open, on the last drawn row -- the case that fails if the place is
   sized before the summary rows settle.
@@ -289,14 +254,17 @@ rather than skipping it, the column is centered on every place, and a place the
 buffer cannot show -- a `Bottom` with fewer than a text area of rows above the
 cursor -- clamps at the buffer's first row instead of scrolling past it. All
 three match the edit mode, which is the point of the shared key. The two that
-were open when this was drafted, whether the message names the place and where
-the cycle state lives, are settled above.
+were open when this was drafted -- whether the message names the place, and
+where the place is decided -- are settled by the sibling RFC and restated
+above.
 
 ## Future possibilities
 
 Once the binding exists, a search-mode key that jumps straight to a place rather
 than cycling (one key for `Top`, another for `Bottom`) becomes possible without
-touching the cycle, because the places are already values in `Recenter` rather
-than a flag. If a later command wants "put the hit at the top" as a *step*
-behavior rather than a manual press, that is a fourth place in the enum and a
-second pending request -- not a change to this binding.
+touching the cycle: it would write the place directly instead of having
+`adjust_viewport` read one off the viewport. That needs the place to carry a
+value in the request, which the sibling RFC deliberately kept out -- it is a
+change to that design, not to this binding. If a later command wants "put the
+hit at the top" as a *step* behavior rather than a manual press, that is a place
+in the enum and a second pending request, on the same terms.
