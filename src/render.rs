@@ -221,10 +221,14 @@ fn render_line(
     // reversed blank there instead, the way an editor shows a block cursor
     // past the last character. A mark already covers this column: its end is
     // `usize::MAX` for a range that runs to the line's end.
+    //
+    // No left-edge test is needed: the viewport's column never scrolls past a
+    // line's width, so a column at or past the width is at or past the edge
+    // too.
     if state.search_prompt.is_some() && state.cursor.row == line_row {
         let cursor_col = state.cursor.col;
         let line_width = line.width();
-        if cursor_col >= line_width && cursor_col >= start_col {
+        if cursor_col >= line_width {
             let at = tuinix::Position {
                 row: screen_row,
                 col: text_offset + (cursor_col - start_col),
