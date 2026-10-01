@@ -6,15 +6,15 @@
 
 When the cursor leaves the text area, `adjust_viewport` scrolls by the minimum
 needed to bring it back -- one row if it moved one row out, fifty if it jumped
-fifty. That is right for a cursor that walked off the edge: the reader is
-following a move they just made, and the least disruption is to slide the
-screen by the same amount. It is wrong for a cursor that jumped somewhere far
-away: the cursor lands one row inside the edge, with almost none of its
-surroundings visible, and the reader has to scroll by hand to see where they
-are.
+fifty. That is right while the destination still overlaps the screen the reader
+is looking at: the reader is following a move they just made, and the least
+disruption is to slide the screen by the same amount. It is wrong once the
+destination and the screen share nothing: the cursor lands one row inside the
+edge, with almost none of its surroundings visible, and the reader has to
+scroll by hand to see where they are.
 
-This proposal keeps the minimum scroll for small excursions and recenters
-instead once the cursor is far enough off screen. The threshold is a single
+This proposal keeps the minimum scroll while the destination overlaps what is
+already visible and centers instead once it does not. The threshold is a single
 number compared against how far the cursor is outside the viewport, so it
 applies to every cursor move at once -- `C-p`/`C-n`, `C-b`/`C-f` word and
 buffer moves, the search steps, and clicks -- rather than adding a rule per
@@ -43,25 +43,33 @@ For a small move that is what the reader wants. Holding `C-n` to walk down a
 screen should slide the text up one row at a time, not re-frame the window on
 every row. The same holds for a search step to a hit just below the last
 visible row: the reader is walking through hits, and a screen that jumps around
-them makes the walk hard to follow. The recent change to the search steps took
+them makes the walk hard to follow. The landed change to the search steps took
 the minimum scroll side of this for granted, for exactly that reason.
 
-The same rule misfires when the cursor *jumps*. `C-x C-e` (buffer end) can move
-the cursor thousands of rows at once. So can `C-v`-style paging, a search step
-to a hit far down the file, and a click far from the cursor. In each case the
-cursor lands on the last visible row (or the first), its surrounding lines are
-just past the edge, and the reader's next action is almost always to scroll
-toward what they jumped to. Centering at the moment of the jump would have put
-the destination in the middle of the screen, which is the most useful place for
-a position the reader did not already have in view.
+What makes the small slide right is not the size of the move on its own but
+what the reader can still see of it: while the destination is within a screen
+of the viewport, the lines around the destination are lines the reader was
+looking at a moment ago. The screen keeps its meaning, and sliding it by a row
+or two preserves the connection the reader is following.
 
-So the two moves want opposite things, and the amount of scroll they ask for is
-what tells them apart:
+The same rule misfires when the destination and the screen stop overlapping.
+`C-x e` (buffer end) can move the cursor thousands of rows at once. So can a
+search step to a hit far down the file and a click far from the cursor. In each
+case the cursor lands on the last visible row (or the first), its surrounding
+lines are just past the edge, and the reader's next action is almost always to
+scroll toward what they jumped to. Nothing of the screen they left is near the
+destination, so the slide buys no continuity at all: the reader gets a window
+whose whole visible content is unfamiliar. Centering at the moment of the jump
+would have put the destination in the middle, which maximizes the surroundings
+of a position the reader did not already have in view.
 
-- a cursor a row or two outside the viewport is *arriving* from inside it; the
-  reader has the context on screen and a small slide preserves it;
-- a cursor far outside it was *not* on screen at all; the reader has no context
-  for it, and pinning it to an edge shows the least of it.
+So the two moves want opposite things, and whether the destination still
+overlaps the screen is what tells them apart:
+
+- a cursor within a screen of the viewport shares rows with it; the reader has
+  context on screen and a small slide preserves it;
+- a cursor more than a screen out shares nothing with it; the reader has no
+  context, and pinning the destination to an edge shows the least of it.
 
 The rule below draws the line at a single threshold, so both cases keep coming
 from the one place that already decides scrolling, and no caller needs to say
@@ -79,14 +87,14 @@ today. The cursor ends up against the edge it came in through.
 
 "Near" is measured in how far the cursor is *outside* the viewport, not in how
 far it moved: a cursor one row below the last visible row is one row out and
-takes the small slide, however it got there; a cursor a screen-height below is
-far out and centers. Walking off the edge with `C-n` therefore keeps the
+takes the small slide, however it got there; a cursor more than a screen below
+is far out and centers. Walking off the edge with `C-n` therefore keeps the
 one-row slide, and so does a search step to a hit just past the last row.
 
-A jump that lands more than half a text area away from the viewport centers:
+A jump that lands more than a whole text area away from the viewport centers:
 
 ```text
-before:                              after C-x C-e (jump far down):
+before:                              after C-x e (jump far down):
 
    1  alpha                            90  ...
    2  beta                             91  eta    <- centered
@@ -121,19 +129,21 @@ from a caller:
 
 ```rust
 // after the `if self.recenter_viewport` block
-let too_far = ROW_THRESHOLD; // see below
+let overlapped = available_rows; // one whole text area; see below
 
 if cursor_pos.row < self.viewport.row {
     let rows_out = self.viewport.row - cursor_pos.row;
-    if rows_out > too_far {
+    if rows_out > overlapped {
         self.viewport.row = cursor_pos.row.saturating_sub(available_rows / 2);
     } else {
         self.viewport.row = cursor_pos.row;
     }
 } else if cursor_pos.row >= self.viewport.row + available_rows {
     let rows_out = cursor_pos.row - (self.viewport.row + available_rows).saturating_sub(1);
-    if rows_out > too_far {
-        self.viewport.row = cursor_pos.row.saturating_sub(available_rows.saturating_sub(available_rows / 2));
+    if rows_out > overlapped {
+        self.viewport.row = cursor_pos
+            .row
+            .saturating_sub(available_rows.saturating_sub(available_rows / 2));
     } else {
         self.viewport.row = cursor_pos
             .row
@@ -142,28 +152,40 @@ if cursor_pos.row < self.viewport.row {
 }
 ```
 
-Centering is the same arithmetic the recenter branch already uses
+`rows_out` counts how far the cursor is *past* the edge, not how far it moved:
+a cursor on the first row outside the viewport is one row out. Centering is the
+same arithmetic the recenter branch already uses
 (`cursor_pos.row.saturating_sub(available_rows / 2)`), recomputed against the
 *new* cursor rather than the old one, so the plain-recenter and
 threshold-recenter paths land on the same viewport when they fire.
 
 ### The threshold value
 
-The threshold is a property of the text area, not a fixed row count, so it
-keeps its meaning as the terminal resizes. Two candidates:
+One whole text area: a cursor centers when it is more than `available_rows`
+rows outside the viewport, and slides by the minimum otherwise. The threshold is
+a property of the text area, not a fixed row count, so it keeps its meaning as
+the terminal resizes, and it is a named constant beside the rule rather than a
+literal at the comparison.
 
-- **Half a text area.** Centering then replaces a scroll of more than half a
-  screen. A cursor just past the middle of the screen is `avail/2` out and still
-  near, because centering it would move the text about as far as pinning it
-  would; only past that does centering clearly win.
-- **One whole text area.** The cursor centers only when it was not on screen at
-  all *and* is roughly a screen away, which matches "the reader had no context
-  for it". Nearer than that is treated as a walk.
+One screen is exactly the point where the overlap runs out, which is what the
+motivation rests on. The viewport covers `available_rows` rows, so a cursor that
+is `available_rows` rows out has a line that touches the edge row, and only
+past that does the destination's neighbourhood -- the `available_rows` rows a
+centered scroll would show, half above the cursor and half below -- share no row
+with the screen being left. Nearer than that, some of what would be revealed is
+also what the reader is looking at, so the slide keeps its connection.
 
-This RFC proposes **half a text area**: it is the smallest threshold that still
-captures the jump-far case, and it is the point where centering stops being the
-larger move. Whichever value is picked, it should be a named constant beside the
-rule, not a literal at the comparison.
+Half a text area was the alternative, on the theory that centering only replaces
+a scroll of more than half a screen and so a cursor just past the middle is
+still near. That reads the amount of movement as the signal, but the movement
+is not what decides the case: a cursor half a screen out is drawn from lines
+half of which are still on screen, so centering it would throw away a
+connection that a slide would have kept. It is also degenerate on short text
+areas. With the gutter's summaries taking their rows, a three-row area leaves
+one text row, so half of it is zero and *every* off-screen cursor would center
+-- exactly the one-row walk through adjacent hits that the guide-level examples
+call out as the behavior to keep. One screen has no such degenerate case: a
+cursor one row out is one row out whatever the area's height.
 
 ### Horizontal
 
@@ -186,29 +208,37 @@ from the cursor centers under this rule without any mouse-specific code.
 
 ### Tests
 
-The existing minimal-scroll tests assert the behavior this changes for a *far*
-cursor, so those cases move to asserting centering, and a new pair is needed:
+The rule only fires on a cursor that is more than a whole screen outside the
+viewport, so the tests that walk one row at a time keep their current
+expectations and a new set covers the far case:
 
 - a cursor one row outside the viewport still scrolls by one row (the walk
   case must not regress);
-- a cursor more than half a screen outside scrolls so it is centered;
-- the boundary: exactly `avail/2` rows out stays minimal, `avail/2 + 1`
-  centers;
+- a cursor more than a text area outside scrolls so it is centered;
+- the boundary: exactly `available_rows` rows out stays minimal,
+  `available_rows + 1` centers;
 - an explicit `C-l` still centers even when the cursor is one row out
   (the threshold branch must not run).
+
+The existing search tests already exercise the small side: with a three-row
+area and the gutter's summaries, `handle_search_next_hit` followed by
+`adjust_viewport` moves the cursor one row past the edge at a time, so the
+threshold stays out of the way and the assertions about the viewport holding
+still are unchanged.
 
 ## Drawbacks
 
 - **A second scrolling mode.** Today "the cursor is visible and the viewport
   follows" is one rule with one exception (the explicit request). This adds a
   second automatic mode whose boundary is a number the reader has to feel out.
-  A cursor 5 rows out does something different from a cursor 6 rows out, and
-  neither is obvious from the key that moved it.
-- **The threshold may be the wrong shape for some moves.** Paging commands are
-  a jump *by intent*: `C-v` moves the cursor about a screen, so it lands near
-  or past the threshold depending on the text area, and the same key can center
-  on one terminal size and slide on another.
-- **Centering on a jump can still surprise.** A reader who jumps with `C-x C-e`
+  A cursor one screen out does something different from a cursor a screen and a
+  row out, and neither is obvious from the key that moved it.
+- **The same move can take either branch as the terminal resizes.** The
+  threshold is a screen, so a jump of a fixed number of rows slides on a tall
+  terminal and centers on a short one. That is the price of keeping the rule
+  meaningful at every size, and the alternative (a fixed row count) has the same
+  problem in the other direction.
+- **Centering on a jump can still surprise.** A reader who jumps with `C-x e`
   to read the end of a file may want the cursor at the edge (so the text above
   is visible) rather than centered. The rule cannot tell "read from here" apart
   from "go look at here".
@@ -228,10 +258,11 @@ cursor, so those cases move to asserting centering, and a new pair is needed:
   the search-step change was meant to protect jump on every row. Rejected for
   that reason.
 
-- **Per-caller choice** (the search steps recenter, plain moves do not, paging
-  does). This is what kk has today in spirit, since every caller writes the
-  flag. Rejected because it multiplies rules per command and gives no answer for
-  a new command: the reader has no model to predict from.
+- **Per-caller choice** (the search steps recenter, plain moves do not, some
+  future paging command does). Rejected because it multiplies rules per command
+  and gives no answer for a new command: the reader has no model to predict
+  from. The search steps in particular already say "keep it visible" and should
+  say it once, not encode a size-dependent decision.
 
 - **A fixed row count instead of a fraction of the screen.** Easier to state
   ("more than 5 rows out centers") but it means different things on a 10-row and
@@ -245,23 +276,23 @@ exists for the rest. Rejected: it puts the burden on the reader at the moment
 
 ## Unresolved questions
 
-- The threshold itself: half a text area (proposed here), a whole one, or
-  something else. This must be settled before implementation, and it is the one
-  number the proposal cannot justify from first principles -- the trade is
-  between how much disruption centering is worth and how big a "small" move is.
-- Whether the threshold applies to the *distance the cursor moved* or the
-  *distance it is outside the viewport*. This RFC uses the latter ("how far out
-  is it"), which is what `adjust_viewport` can see and what keeps a walk from
-  crossing the threshold one row at a time. Using the move distance would need
-  every handler to pass it in (or keep a last-cursor field) and would center a
-  fast walk that happened to skip rows. Worth confirming no case needs the move
-  distance instead.
-- Whether columns should use the same threshold (see the Horizontal section)
-  or stay minimal for now.
-- Whether paging-style commands (`C-v`, `M-v`) should be able to opt out and
-  always center, since their whole purpose is a jump even when the arithmetic
-  does not cross the threshold. That would mean an intent flag, which this RFC
-  avoids everywhere else.
+- The threshold is settled: a whole text area (`rows_out > available_rows`),
+  because that is where the destination's neighbourhood stops overlapping the
+  screen being left (see "The threshold value"). A smaller one -- half a screen
+  -- would center while the reader still has half the destination's lines on
+  screen, and it degenerates on a one-text-row area.
+- The distance is settled as the distance *outside the viewport*, not the
+  distance the cursor moved. It is what `adjust_viewport` can see, it needs no
+  last-cursor field or per-caller argument, and it treats a held `C-n` as the
+  walk it is: each adjustment is one row out, never a screen.
+- Columns stay on the minimum scroll (see the Horizontal section). A long line
+  can put the cursor many columns out, but there is no horizontal paging and the
+  large column moves that exist (`C-a`, `C-e`, a click) are line-local, where
+  pinning the edge is right. The same threshold can be extended to columns later
+  without a new mechanism.
+- Paging-style opt-out is moot: kk has no `C-v`/`M-v`. If paging is added, the
+  command itself can set `recenter_viewport` and get centering directly, so no
+  intent flag has to live in the threshold.
 
 ## Future possibilities
 
