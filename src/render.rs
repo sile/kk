@@ -19,6 +19,12 @@ use crate::{
 /// matched range is bold and underlined instead, so a hit and a mark cannot be
 /// taken for one another.
 ///
+/// The reverse is painted wherever the cursor sits, including one column past
+/// the last character: there is no character to paint there, so a reversed blank
+/// marks the cell instead. A cursor at the end of a line is a position the
+/// buffer really reaches -- `End`, `C-e`, and a hit or a click at the line's end
+/// all arrive there -- so it must be as visible as one mid-line.
+///
 /// While a search prompt is open a gutter is reserved on the left, showing how
 /// many hits each visible line holds and, above and below, how many sit outside
 /// the visible slice; the text shifts right by the gutter's width to make room.
@@ -206,6 +212,24 @@ fn render_line(
                 col: text_offset + (current_col - start_col),
             };
             put_str(frame, at, &ch.to_string(), style);
+        }
+    }
+
+    // The character loop only runs for columns that hold a character, so the
+    // end-of-line position -- one column past the last character, where there
+    // is nothing to reverse -- would leave the cursor invisible. Paint a
+    // reversed blank there instead, the way an editor shows a block cursor
+    // past the last character. A mark already covers this column: its end is
+    // `usize::MAX` for a range that runs to the line's end.
+    if state.search_prompt.is_some() && state.cursor.row == line_row {
+        let cursor_col = state.cursor.col;
+        let line_width = line.width();
+        if cursor_col >= line_width && cursor_col >= start_col {
+            let at = tuinix::Position {
+                row: screen_row,
+                col: text_offset + (cursor_col - start_col),
+            };
+            put_str(frame, at, " ", tuinix::Style::new().reverse());
         }
     }
 }
