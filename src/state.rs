@@ -28,6 +28,11 @@ pub(crate) const HIT_GUTTER_COLS: usize = 5;
 /// bottom, and back to center -- so the key is never a dead end once the cursor
 /// is already in the middle. The column is centered for every place; the three
 /// differ only in where the cursor's row sits in the text area.
+///
+/// A place is a request, not a promise: the viewport cannot scroll above the
+/// buffer's first row, so [`Bottom`](Recenter::Bottom) clamps there when fewer
+/// than a text area of rows lie above the cursor, leaving the cursor somewhere
+/// other than the last drawn row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Recenter {
     /// The cursor's row in the middle of the text area.
@@ -37,6 +42,12 @@ pub enum Recenter {
     Top,
 
     /// The cursor's row on the last drawn row.
+    ///
+    /// The viewport is put a text area's worth of rows above the cursor, which
+    /// is what places the cursor on the last drawn row when the buffer has that
+    /// many rows above it. With fewer -- a short file, or a cursor near the
+    /// start -- the viewport stops at the buffer's first row and the cursor
+    /// stays where it is.
     Bottom,
 }
 
@@ -276,7 +287,10 @@ impl State {
     /// When [`recenter_viewport`](State::recenter_viewport) holds a place, the
     /// cursor is put there instead and the request is taken. The column is
     /// centered for every place; they differ only in the cursor's row, which is
-    /// the middle of the drawn rows, the first, or the last.
+    /// the middle of the drawn rows, the first, or the last. The place is sized
+    /// inside the height-settling loop below, so it lands against the drawn
+    /// height the summary rows leave rather than one computed before they are
+    /// known.
     ///
     /// A cursor that is more than a whole text area outside the viewport is
     /// centered too, rather than pinned to the edge it came in through: the
@@ -288,20 +302,14 @@ impl State {
         let cursor_pos = self.cursor_position();
         let available_cols = self.text_cols(text_area_size.cols);
 
-        if let Some(place) = self.recenter_viewport.take() {
-            let rows = self.text_rows(text_area_size.rows);
-            // The place decides the row only; every place centers the column,
-            // so the cursor's column is written the same way each time. The
-            // arithmetic saturates because a zero-height area is a real case
-            // at startup, not a mistake to guard against.
-            self.viewport.row = match place {
-                Recenter::Center => cursor_pos.row.saturating_sub(rows / 2),
-                Recenter::Top => cursor_pos.row,
-                Recenter::Bottom => cursor_pos.row.saturating_sub(rows.saturating_sub(1)),
-            };
-            self.viewport.col = cursor_pos.col.saturating_sub(available_cols / 2);
-            return;
-        }
+        // A pending request replaces the vertical rule, not the whole
+        // adjustment: the loop below still settles the height with the summary
+        // rows, and the place's row is computed against the height each pass
+        // ends up with. Doing it once, before the loop, would size the place
+        // against a height the new viewport then changes -- a `Bottom` request
+        // makes a summary row appear, which costs a drawn row, which leaves the
+        // cursor one row past the last one.
+        let place = self.recenter_viewport.take();
 
         // The height the text is drawn in depends on which summary rows are
         // shown, and those depend on the viewport -- so the two are settled
@@ -312,32 +320,42 @@ impl State {
             let available_rows = self.text_rows(text_area_size.rows);
             let before = self.viewport.row;
 
-            // The distance from the cursor to the edge of the viewport, in the
-            // rows the text is drawn in. A cursor on the row just past an edge
-            // is one row out, however it got there.
-            let rows_out = if cursor_pos.row < self.viewport.row {
-                self.viewport.row - cursor_pos.row
+            if let Some(place) = place {
+                self.viewport.row = match place {
+                    Recenter::Center => cursor_pos.row.saturating_sub(available_rows / 2),
+                    Recenter::Top => cursor_pos.row,
+                    Recenter::Bottom => cursor_pos
+                        .row
+                        .saturating_sub(available_rows.saturating_sub(1)),
+                };
             } else {
-                cursor_pos
-                    .row
-                    .saturating_sub(self.viewport.row + available_rows)
-            };
+                // The distance from the cursor to the edge of the viewport, in
+                // the rows the text is drawn in. A cursor on the row just past
+                // an edge is one row out, however it got there.
+                let rows_out = if cursor_pos.row < self.viewport.row {
+                    self.viewport.row - cursor_pos.row
+                } else {
+                    cursor_pos
+                        .row
+                        .saturating_sub(self.viewport.row + available_rows)
+                };
 
-            // Adjust vertical viewport. A cursor more than a screen out shares
-            // no row with the screen being left, so it is centered rather than
-            // pinned to the edge it came in through; nearer than that, the
-            // lines around the cursor are lines the reader was just looking
-            // at, and the minimum scroll keeps the connection.
-            if rows_out > available_rows {
-                self.viewport.row = cursor_pos.row.saturating_sub(available_rows / 2);
-            } else if cursor_pos.row < self.viewport.row {
-                // Cursor is above viewport, scroll up
-                self.viewport.row = cursor_pos.row;
-            } else if cursor_pos.row >= self.viewport.row + available_rows {
-                // Cursor is below viewport, scroll down
-                self.viewport.row = cursor_pos
-                    .row
-                    .saturating_sub(available_rows.saturating_sub(1));
+                // A cursor more than a screen out shares no row with the screen
+                // being left, so it is centered rather than pinned to the edge
+                // it came in through; nearer than that, the lines around the
+                // cursor are lines the reader was just looking at, and the
+                // minimum scroll keeps the connection.
+                if rows_out > available_rows {
+                    self.viewport.row = cursor_pos.row.saturating_sub(available_rows / 2);
+                } else if cursor_pos.row < self.viewport.row {
+                    // Cursor is above viewport, scroll up
+                    self.viewport.row = cursor_pos.row;
+                } else if cursor_pos.row >= self.viewport.row + available_rows {
+                    // Cursor is below viewport, scroll down
+                    self.viewport.row = cursor_pos
+                        .row
+                        .saturating_sub(available_rows.saturating_sub(1));
+                }
             }
 
             if self.viewport.row == before {
@@ -345,8 +363,14 @@ impl State {
             }
         }
 
-        // Adjust horizontal viewport
-        if cursor_pos.col < self.viewport.col {
+        // A pending request centers the column as well as placing the row: the
+        // place is about where the cursor sits in the text area, and a hit near
+        // the right edge of a long line belongs in the middle of the width the
+        // same way. Without a request, the horizontal rule is the minimum-scroll
+        // one, symmetric with the vertical rule above.
+        if place.is_some() {
+            self.viewport.col = cursor_pos.col.saturating_sub(available_cols / 2);
+        } else if cursor_pos.col < self.viewport.col {
             // Cursor is left of viewport, scroll left
             self.viewport.col = cursor_pos.col;
         } else if cursor_pos.col >= self.viewport.col + available_cols {

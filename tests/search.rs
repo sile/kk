@@ -483,6 +483,45 @@ fn a_step_to_a_hit_a_screen_away_centers_it() {
 }
 
 #[test]
+fn the_third_recenter_press_puts_the_hit_on_the_last_drawn_row() {
+    // The gutter's summary rows take rows from the text area, and a recenter
+    // changes the viewport, which changes which summaries are shown. A place
+    // sized before that settles lands one row out: a `Bottom` request computed
+    // with one more row than the viewport ends up leaving the cursor just past
+    // the last drawn row.
+    //
+    // A hit on every fifth row, so the steps land further down than a dense
+    // buffer would and the bottom place has room above the cursor to apply.
+    let mut text = String::new();
+    for row in 0..40 {
+        text.push_str(if row % 5 == 0 { "hit x\n" } else { "x\n" });
+    }
+    let mut state = state_of(&text);
+    state.search_prompt = Some(SearchPrompt::new());
+    for ch in "hit".chars() {
+        state.handle_char_insert(ch);
+    }
+
+    let text_area = tuinix::Size { rows: 12, cols: 80 };
+    for _ in 0..5 {
+        state.handle_search_next_hit();
+        state.adjust_viewport(text_area);
+    }
+
+    // Center, then top, then bottom.
+    for _ in 0..3 {
+        state.handle_view_recenter();
+        state.adjust_viewport(text_area);
+    }
+
+    assert_eq!(
+        state.viewport.row + state.text_rows(text_area.rows) - 1,
+        state.cursor.row,
+        "the hit is the last row the text is drawn in"
+    );
+}
+
+#[test]
 fn a_cursor_near_the_right_edge_scrolls_against_the_width_the_gutter_leaves() {
     let mut state = state_of("x = this line is long enough to need a scroll\n");
     state.search_prompt = Some(SearchPrompt::new());

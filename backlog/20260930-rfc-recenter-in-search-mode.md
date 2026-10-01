@@ -188,13 +188,16 @@ Things that are subtle and easy to get wrong:
   "last place asked for" field this is only a cosmetic oddity; the shared field
   is what makes it possible to decide at all, and the sibling RFC's unresolved
   question about skipping coincident places applies here unchanged.
-- **The gutter changes `text_rows`.** While a search prompt is open the summary
-  rows take rows from the text area, and which summary rows are shown depends
-  on the viewport. `adjust_viewport` already settles the two together with a
-  fixed-point loop, so a `Top` request that puts a summary row above the
-  viewport is drawn in the reduced area on the next pass; a recenter branch
-  that returns early must keep using `text_rows()`/`text_cols()` rather than the
-  raw `text_area_size`, exactly as the current `Center` branch does.
+- **The gutter changes `text_rows`, so a place must be sized after the height
+  settles.** While a search prompt is open the summary rows take rows from the
+  text area, and which summary rows are shown depends on the viewport -- so the
+  two are settled together by the fixed-point loop `adjust_viewport` already
+  runs. Sizing the place once, before that loop, computes the row against a
+  height the new viewport then changes: a `Bottom` request makes a summary row
+  appear, which costs a drawn row, which leaves the cursor one row past the
+  last one -- the exact opposite of what the press asked for. The landed code
+  folds the place into the loop and recomputes it each pass against the height
+  that pass ends up with.
 - **Horizontal centering.** The proposed cycle centers the column on every
   place, so `Top` and `Bottom` differ from `Center` in rows only. A hit near
   the right edge of a long line is centered horizontally by the same press,
@@ -217,6 +220,9 @@ Things that are subtle and easy to get wrong:
 - `tests/state.rs`: the cycle visits center, top, and bottom and wraps; a `Top`
   request puts the cursor on the first drawn row and a `Bottom` request on the
   last; a startup position rewinds the cycle so a later `C-l` centers again.
+- `tests/search.rs`: the third press puts a hit, reached by stepping with the
+  gutter open, on the last drawn row -- the case that fails if the place is
+  sized before the summary rows settle.
 
 ## Drawbacks
 
@@ -278,14 +284,13 @@ Things that are subtle and easy to get wrong:
 
 ## Unresolved questions
 
-- Whether the cycle skips a place that coincides with the previous one. The
-  same question is open in the sibling RFC; the answer should be shared, not
-  decided twice, and the search mode (which can center a hit at row 0 or on the
-  last row) is where a user is most likely to see the oddity. The landed code
-  advances regardless, matching the edit mode.
-- Whether `Top`/`Bottom` should center the column as well, or align the line to
-  the left edge. Centering landed because the hit is what is being read;
-  left-aligning would show more of a long line's tail past the hit.
+None. The cycle advances through a place that coincides with the previous one
+rather than skipping it, the column is centered on every place, and a place the
+buffer cannot show -- a `Bottom` with fewer than a text area of rows above the
+cursor -- clamps at the buffer's first row instead of scrolling past it. All
+three match the edit mode, which is the point of the shared key. The two that
+were open when this was drafted, whether the message names the place and where
+the cycle state lives, are settled above.
 
 ## Future possibilities
 

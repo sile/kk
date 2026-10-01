@@ -109,28 +109,42 @@ pub enum Recenter {
 The field becomes `recenter_viewport: Option<Recenter>`, where `None` means no
 recenter request is pending -- today's `false`, which runs the ordinary
 keep-it-visible rule (scroll by the minimum needed to show the cursor). The
-search steps land on exactly that behavior by setting `None`, so `None` carries
-both "nothing asked" and "follow with the minimum scroll". `adjust_viewport`
-matches on it instead of an `if`:
+search steps land on exactly that behavior by leaving it `None`, so `None`
+carries both "nothing asked" and "follow with the minimum scroll".
+`adjust_viewport` takes the request at the top and picks the row inside its
+existing fixed-point loop instead of an `if` that returns early, so the place is
+sized against the drawn height the summary rows leave:
 
 ```rust
-if let Some(place) = self.recenter_viewport.take() {
-    let (rows, cols) = (available_rows, available_cols);
-    self.viewport = match place {
-        Recenter::Center => TextPosition {
-            row: cursor_pos.row.saturating_sub(rows / 2),
-            col: cursor_pos.col.saturating_sub(cols / 2),
-        },
-        Recenter::Top => TextPosition {
-            row: cursor_pos.row,
-            col: cursor_pos.col.saturating_sub(cols / 2),
-        },
-        Recenter::Bottom => TextPosition {
-            row: cursor_pos.row.saturating_sub(rows.saturating_sub(1)),
-            col: cursor_pos.col.saturating_sub(cols / 2),
-        },
-    };
-    return;
+let place = self.recenter_viewport.take();
+
+for _ in 0..3 {
+    let available_rows = self.text_rows(text_area_size.rows);
+    let before = self.viewport.row;
+
+    if let Some(place) = place {
+        self.viewport.row = match place {
+            Recenter::Center => cursor_pos.row.saturating_sub(available_rows / 2),
+            Recenter::Top => cursor_pos.row,
+            Recenter::Bottom => {
+                cursor_pos.row.saturating_sub(available_rows.saturating_sub(1))
+            }
+        };
+    } else {
+        // ... the keep-it-visible rule, unchanged
+    }
+
+    if self.viewport.row == before {
+        break;
+    }
+}
+
+// The column is centered when a place asked for it, and scrolled by the
+// minimum otherwise.
+if place.is_some() {
+    self.viewport.col = cursor_pos.col.saturating_sub(available_cols / 2);
+} else if /* ... the keep-it-visible column rule */ {
+    // ...
 }
 ```
 
@@ -190,7 +204,9 @@ Things that are subtle and easy to get wrong:
   one.
 - **Empty text area.** `adjust_viewport` is still called with `rows == 0` at
   startup in some paths; the arithmetic must stay `saturating_sub`-based so a
-  zero-size area cannot underflow.
+  zero-size area cannot underflow. Folding the place into the existing
+  fixed-point loop, rather than returning after sizing it once, is what keeps a
+  `Bottom` request honest when the summary rows change the drawn height.
 
 ## Drawbacks
 
@@ -226,22 +242,11 @@ Things that are subtle and easy to get wrong:
 
 ## Unresolved questions
 
-- What to do when two places coincide. On a text area one row tall, or when the
-  cursor is at row 0, top and center are the same viewport; cycling through both
-  still advances the state, but the user sees one press do nothing. The landed
-  behavior advances regardless -- the explicit `last_recenter` field makes that
-  the natural reading, and skipping would need a rule for which place to skip.
-- Whether the horizontal column should stay centered on the top/bottom places
-  (proposed) or align to column 0 / the line's end. The landed code centers the
-  column on every place, so the three differ in rows only.
-- The search steps leaving the request alone is settled by the search-mode RFC;
-  what is not is whether anything *else* should follow the hit instead of
-  centering. If a later command wants "put the hit at the top", that is a
-  fourth place and the enum grows rather than the search steps changing again.
-
-The two that were open when this was drafted -- which field holds the cycle, and
-whether the message names the place -- were settled during implementation: the
-field is `last_recenter: Option<Recenter>`, and the message names the place.
+None. Each press advances one place, including a place that coincides with the
+previous one on screen, and a place the buffer cannot show -- a `Bottom` with
+fewer than a text area of rows above the cursor -- clamps at the buffer's first
+row rather than scrolling past it; the cursor then sits somewhere other than the
+last drawn row, which is the nearest the request can be met.
 
 ## Future possibilities
 
