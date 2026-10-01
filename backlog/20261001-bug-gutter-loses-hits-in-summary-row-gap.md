@@ -1,6 +1,6 @@
 # Bug: The hit-count gutter loses the hits a summary row displaces
 
-- Status: open
+- Status: fixed
 
 ## Summary
 
@@ -146,6 +146,18 @@ measured over the very slice being changed. The loop in `adjust_viewport` that
 already settles the two against each other is where that fixed point is computed
 for the viewport; the renderer needs the matching computation rather than a
 second independent one, or the two can drift apart again.
+
+Settling it turned out to need no loop after all, and the resolution is worth
+recording. `text_rows()` owns the drawn height, and `summary_rows()` is now
+derived from it (`available_rows - text_rows()`), so there is one definition
+rather than two. `text_rows()` walks a few passes from the full height: it
+measures the totals over the current slice, subtracts the summaries they call
+for, and repeats. The walk terminates because the total above depends only on
+the viewport (no hit can lie before the first drawn row), so only the bottom
+total can change, and shortening the slice can only move hits from inside it to
+below it -- the bottom total never disappears once it appears, so the size
+settles after at most one shrink. Three passes are enough for every case the
+property test reaches.
 
 A regression test should pin that the per-line counts plus the two totals equal
 `state.highlight.len()` whenever the gutter is drawn -- that identity holds

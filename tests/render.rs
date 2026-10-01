@@ -316,8 +316,8 @@ fn the_cursors_line_reverses_its_count_cell() {
 #[test]
 fn the_gutter_totals_the_hits_above_and_below_the_visible_slice() {
     // Eight lines; the query `x` hits rows 0, 1, and 7. With a four-row frame
-    // on viewport row 2, the full-height slice is rows 2..6, so two hits lie
-    // above and one below.
+    // on viewport row 2, the drawn slice is rows 2..4, so two hits lie above
+    // and one below.
     let mut state = state_of("x\nx\nplain\nplain\nplain\nplain\nplain\nx\n");
     state.search_prompt = Some(kk::SearchPrompt::new());
     state.handle_char_insert('x');
@@ -333,6 +333,80 @@ fn the_gutter_totals_the_hits_above_and_below_the_visible_slice() {
     assert_eq!(row_text(&frame, 1, 5), "   | ", "a line with no hit");
     assert_eq!(row_text(&frame, 2, 5), "   | ", "another with no hit");
     assert_eq!(row_text(&frame, 3, 5), " 1 : ", "one hit below");
+}
+
+#[test]
+fn the_gutter_counts_a_hit_a_summary_row_displaces() {
+    // Eight lines with a hit on rows 0, 1, 4, and 7. On viewport row 2 a
+    // four-row frame draws two buffer lines, and the summaries take the other
+    // two. Row 4 is the hit just past the drawn pair: it is displaced by the
+    // bottom summary, so it belongs to the bottom total rather than falling in
+    // a gap between the last drawn line and that total.
+    let mut state = state_of("x\nx\nplain\nplain\nx\nplain\nplain\nx\n");
+    state.search_prompt = Some(kk::SearchPrompt::new());
+    state.handle_char_insert('x');
+    state.viewport = kk::TextPosition { row: 2, col: 0 };
+    let mut frame = frame_of(4, 10);
+
+    kk::render_text_area(&state, &mut frame);
+
+    assert_eq!(row_text(&frame, 0, 5), " 2 : ", "two hits above");
+    assert_eq!(row_text(&frame, 1, 5), "   | ", "row 2 holds no hit");
+    assert_eq!(row_text(&frame, 2, 5), "   | ", "row 3 holds no hit");
+    assert_eq!(
+        row_text(&frame, 3, 5),
+        " 2 : ",
+        "row 4's hit joins row 7's in the bottom total"
+    );
+    assert_eq!(state.highlight.len(), 4, "the search found four hits");
+}
+
+#[test]
+fn the_gutter_accounts_for_every_hit_in_every_shape() -> noprop::TestResult {
+    let seed = noprop::seed_from_env_or_time("KK_SEED")?;
+    let mut runner = noprop::Runner::new(seed);
+
+    // The invariant: the counts drawn beside the visible lines, plus the two
+    // totals, are every hit -- none is dropped because a summary displaced its
+    // row, and none is counted twice.
+    runner.run(256, |ctx| {
+        let area_rows = noprop::sample_usize_in(ctx, 1..=6);
+        let viewport_row = noprop::sample_usize_in(ctx, 0..=12);
+        let line_count = noprop::sample_usize_in(ctx, 1..=16);
+        let mut text = String::new();
+        for _ in 0..line_count {
+            if noprop::sample_usize_in(ctx, 0..=1) == 0 {
+                text.push('x');
+            }
+            text.push('\n');
+        }
+
+        let mut state = state_of(&text);
+        state.search_prompt = Some(kk::SearchPrompt::new());
+        state.handle_char_insert('x');
+        state.viewport = kk::TextPosition {
+            row: viewport_row,
+            col: 0,
+        };
+        state.cursor = state.viewport;
+
+        let start = state.viewport.row;
+        let end = (start + state.text_rows(area_rows)).min(state.buffer.rows());
+        let (above, below) = state.hits_outside(start, end);
+        let on_lines: usize = (start..end)
+            .map(|row| state.highlight.count_on_row(row))
+            .sum();
+
+        assert_eq!(
+            above + on_lines + below,
+            state.highlight.len(),
+            "area {area_rows}, viewport {viewport_row}: {above} above, {on_lines} on lines, {below} below, {} found",
+            state.highlight.len()
+        );
+        Ok(())
+    })?;
+
+    Ok(())
 }
 
 #[test]
