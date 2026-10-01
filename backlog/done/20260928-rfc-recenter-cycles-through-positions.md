@@ -1,6 +1,6 @@
 # RFC: Make `C-l` cycle the cursor through center, top, and bottom
 
-- Status: implemented
+- Status: accepted
 
 ## Summary
 
@@ -285,3 +285,42 @@ flag (`--recenter=top`), and a `M-l`-style repeat key could jump straight to the
 next place without cycling from center. A per-axis place enum would also let a
 future horizontal recenter ("cursor at the window's middle column") reuse the
 same field.
+
+## Outcome
+
+Implemented in [#11](https://github.com/sile/kk/pull/11) (merged as `ba66c26`).
+
+## Outcome
+
+Implemented in PR #11, merged as `ba66c26`.
+
+`C-l` now cycles the cursor through center, top, and bottom, naming the place it
+moved to on the message line so the cycle is legible without counting presses.
+
+Rejected, after building it: threading an `Option<Recenter>` request through
+state with a remembered `Option<Recenter>` last-press field. That design has the
+press handler pick the next place from an estimate of the geometry (it has no
+`text_rows`), while `adjust_viewport` applies it from the real one. The two drift
+apart, and the third press could name "bottom" and land on center. The shipped
+design instead derives the next place from the viewport at the moment the
+request is applied -- first drawn row means top, last drawn row means bottom,
+otherwise center -- so there is no second source of truth. Top is tested before
+center because the two coincide when the text area is as tall as the buffer;
+center first would stick there. The request goes back to a plain `bool`, so the
+startup position and a far cursor jump, which also mean "center", are unchanged.
+
+`Top` and `Bottom` clamp at the buffer edge: with a terminal taller than the
+cursor's distance from either end, the viewport stops at the edge and the cursor
+does not reach the text area's last row. That is all a view can do, and the
+rustdoc says so.
+
+Unanticipated: the request did not need to grow from `bool` into
+`Option<Recenter>` in the state after all, and `Recenter` did not need to become
+public -- it is a private `RecenterPlace`. The existing `ViewRecenter` doc and
+the legend rustdoc were stale and needed touching.
+
+Coverage: `tests/state.rs` exercises the cycle (center, top, bottom, and back),
+`Top` landing on the first drawn row, `Bottom` on the last drawn row, a shared
+cycle across the two modes, and a zero-height guard.
+
+The scope is unchanged from what is described above.
