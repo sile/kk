@@ -1,6 +1,6 @@
 # RFC: Bind `C-j` to newline in the edit mode
 
-- Status: draft
+- Status: implemented
 
 ## Summary
 
@@ -89,9 +89,10 @@ The existing tests that pin the tables have to move with it:
 `the_edit_legend_is_exactly_this_text` in `tests/legend.rs` spells every row
 out, so it gains the new row and, if the row is inserted mid-list, the
 padding of the rows below shifts to the new widest width. The legend width is
-the widest row, and `Tab ⇥ save` is 12 columns before the left border;
-`C-j ⏎ newline` is the same width, so the box width does not change and the
-existing padding survives. A test asserting that `C-j` resolves to
+the widest row, and `Tab ⇥ save` is 11 columns before the left border;
+`C-j ⏎ newline` is 14, one wider than the previous widest row (`C-k cut-tail`
+and `C-d ⌦ delete`, both 13), so the box grows by one column and every other
+row's right padding grows with it. A test asserting that `C-j` resolves to
 `Action::NewlineInsert` in the edit mode should be added beside
 `undo_is_bound_to_ctrl_u_alone`.
 
@@ -130,14 +131,14 @@ existing padding survives. A test asserting that `C-j` resolves to
 
 ## Unresolved questions
 
-The ⏎ glyph is a guess at the house style; if the reader would rather reuse
-`Tab`'s ⇥, the choice is cosmetic and can be settled when the row is written.
-The spelling convention for the key is settled by
-`20260929-bug-search-legend-omits-enter.md`: the chord column shortens the key
-the way the other rows shorten theirs, and the label is a word for what the key
-does rather than a repeat of the chord. Whether `Enter` itself should also get a
-row in the edit legend (it is bound but unlisted today, the same way it was
-unlisted in the search legend) is a separate question and is not decided here.
+None. The ⏎ glyph is kept as written: it matches the way ⌫, ⌦, and ⇥ stand in
+for keys the reader does not type literally. The spelling convention is settled
+by `20260929-bug-search-legend-omits-enter.md`: the chord column shortens the
+key the way the other rows shorten theirs, and the label is a word for what the
+key does rather than a repeat of the chord. Whether `Enter` itself should also
+get a row in the edit legend (it is bound but unlisted today, the same way it
+was unlisted in the search legend) is a separate question and is not decided
+here.
 
 ## Future possibilities
 

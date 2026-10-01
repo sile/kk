@@ -29,8 +29,9 @@ pub const EDIT_LEGEND: &[&str] = &[
     "\u{2502}C-h \u{232b} bs",
     "\u{2502}C-d \u{2326} delete",
     "\u{2502}C-l recenter",
+    "\u{2502}C-j \u{23ce} newline",
     "\u{2502}Tab \u{21e5} save",
-    "\u{2514}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}",
+    "\u{2514}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
 /// The legend rows for the [search mode](Mode::Search), in legend order,
@@ -196,6 +197,7 @@ fn resolve_edit(key: &tuinix::KeyInput) -> Option<Resolved> {
         (false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),
         (true, tuinix::KeyCode::Char(' ' | '`')) => act(Action::MarkSet),
         (true, tuinix::KeyCode::Char('l')) => act(Action::ViewRecenter),
+        (true, tuinix::KeyCode::Char('j')) => act(Action::NewlineInsert),
         (true, tuinix::KeyCode::Char('k')) => act(Action::LineCutTail),
         (true, tuinix::KeyCode::Char('a')) => act(Action::CursorLineStart),
         (true, tuinix::KeyCode::Char('e')) => act(Action::CursorLineEnd),
