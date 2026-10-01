@@ -106,3 +106,36 @@ same as `C-k cut-tail` and `C-d ⌦ delete`, so the box width holds and the
 existing padding survives. The same omission exists for `Enter` in the edit
 legend, which the RFC `20260929-rfc-bind-c-j-to-newline.md` raises as an open
 question rather than deciding; that one is not fixed here.
+
+## Outcome
+
+Fixed in [#7](https://github.com/sile/kk/pull/7) (merged as `08ad01c`).
+
+## Outcome
+
+Implemented in PR #7, merged as `08ad01c`.
+
+A row was added after `C-g cancel` in the search legend:
+
+```
+│Ent ⏎ finish
+```
+
+The design settled on the short spelling `Ent` in the key column, matching the
+abbreviated style of the neighbouring rows (`C-k`, `C-d`, `Tab`, `⌫`, `⌦`, `⇥`),
+and a verb phrase `finish` in the label column, matching `cancel` / `prev` /
+`next` / `cut-tail` and the `SearchFinish` action. This is the reverse of what
+the ticket originally assumed (spelled-out `Enter` as the key, `Ent` as the
+label).
+
+The row is 13 columns wide, the same as the already-widest rows
+(`C-k cut-tail`, `C-d ⌦ delete`), so the box did not grow. The ticket's claim
+that the width was unchanged turned out to hold, but for a different reason than
+stated.
+
+`tests/legend.rs` gained an expectation for the new row and `tests/binding.rs`
+gained a regression test asserting that `Enter` resolves to the finish action
+and that the legend names it. The two references to the old spelling in
+`20260929-rfc-bind-c-j-to-newline.md` were corrected at the same time.
+
+The scope is unchanged from what is described above.
