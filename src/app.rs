@@ -17,7 +17,11 @@ use std::path::{Path, PathBuf};
 /// is treated as the Escape key.
 const ESCAPE_TIMEOUT_MS: libc::c_int = 50;
 
-/// How many lines one wheel notch scrolls.
+/// How many rows one wheel notch moves the view.
+///
+/// The rows are the text area's drawn rows, so a notch during an open search
+/// prompt moves the text by this many rows with the gutter's summaries already
+/// counted out.
 const SCROLL_ROWS: isize = 3;
 
 /// Owns the terminal edge and drives the core until the user quits.
@@ -218,8 +222,10 @@ impl App {
             tuinix::MouseInputKind::LeftPress if inside => self
                 .state
                 .handle_cursor_to_screen_position(text_area_rel.row, text_area_rel.col),
-            tuinix::MouseInputKind::ScrollUp => self.state.handle_scroll(-SCROLL_ROWS),
-            tuinix::MouseInputKind::ScrollDown => self.state.handle_scroll(SCROLL_ROWS),
+            tuinix::MouseInputKind::ScrollUp => self.state.handle_scroll(-SCROLL_ROWS, region.size),
+            tuinix::MouseInputKind::ScrollDown => {
+                self.state.handle_scroll(SCROLL_ROWS, region.size)
+            }
             _ => {}
         }
     }

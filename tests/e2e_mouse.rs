@@ -82,37 +82,44 @@ fn a_click_on_the_message_line_does_not_move_the_cursor() {
 }
 
 #[test]
-fn the_wheel_scrolls_the_cursor_and_the_view() {
-    // Ten lines in a terminal that shows far fewer than that at once, so the
-    // view has to move for the cursor to stay visible.
+fn the_wheel_scrolls_the_view_and_the_cursor_rides_with_it() {
+    // Forty lines in a terminal that shows far fewer than that at once, so the
+    // view has room to move on its own.
     let path = scratch_file("mouse_wheel.txt");
-    let text: String = (1..=10).map(|n| format!("line{n}\n")).collect();
+    let text: String = (1..=40).map(|n| format!("line{n}\n")).collect();
     std::fs::write(&path, &text).expect("write scratch file");
 
     let mut kk = e2e::KkHarness::open(&path);
     kk.wait_for_text("Opened");
 
-    // Shrink the terminal so the whole buffer does not fit and the view must
-    // scroll to keep the cursor visible. It is kept wide so the status line's
-    // tail, which is what these assertions read, stays on one row.
+    // Shrink the terminal so the whole buffer does not fit. It is kept wide so
+    // the status line's tail, which is what these assertions read, stays on one
+    // row.
     kk.resize(8, 200);
     kk.wait_for_text(":1:1]");
 
-    // One notch is three lines, so the cursor lands on line 4.
+    // Move the cursor down one row first, so it is not already on the viewport's
+    // own row: the notch must move the text under it, not drag it from the top.
+    kk.send_ctrl('n');
+    kk.wait_until("the cursor on line 2", |h| h.screen_contains(":2:1]"));
+
+    // One notch is three lines. The view moves by three, and the cursor keeps
+    // its screen row, so it lands on line 5 while the viewport sits on line 4:
+    // line 4 is now the top drawn row and line 2 has scrolled off.
     kk.scroll_down(0, 0);
-    kk.wait_for_text(":4:1]");
+    kk.wait_for_text(":5:1]");
     assert!(
         kk.screen_contains("line4"),
-        "the view should follow the cursor:\n{}",
+        "the view should have moved by the notch:\n{}",
         kk.screen_text()
     );
 
-    // Scrolling back up returns the cursor and the view to the start.
+    // Scrolling back up returns the view and the cursor to the start.
     kk.scroll_up(0, 0);
-    kk.wait_for_text(":1:1]");
+    kk.wait_for_text(":2:1]");
     assert!(
         kk.screen_contains("line1"),
-        "the view should follow the cursor back:\n{}",
+        "the view should scroll back to the top:\n{}",
         kk.screen_text()
     );
 
