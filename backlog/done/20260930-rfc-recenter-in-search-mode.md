@@ -1,6 +1,6 @@
 # RFC: Let `C-l` recenter from the search mode
 
-- Status: implemented
+- Status: accepted
 
 ## Summary
 
@@ -268,3 +268,35 @@ value in the request, which the sibling RFC deliberately kept out -- it is a
 change to that design, not to this binding. If a later command wants "put the
 hit at the top" as a *step* behavior rather than a manual press, that is a place
 in the enum and a second pending request, on the same terms.
+
+## Outcome
+
+Implemented in [#11](https://github.com/sile/kk/pull/11) (merged as `ba66c26`).
+
+## Outcome
+
+Implemented in PR #11, merged as `ba66c26`.
+
+`C-l` is now bound in the search mode, so a hit can be repositioned without
+leaving the prompt. The key runs the same cycle as in the edit mode (see the
+sibling note on cycling through positions), which is only possible because the
+next place is derived from the viewport rather than remembered per mode: a press
+in either mode continues through the same three places with nothing to carry
+across. The `C-l recenter` row sits right after `C-s next` in the search legend,
+and the box width is unchanged.
+
+The place is chosen inside the fixed-point loop that settles the summary rows,
+rather than early-returning, because the gutter's summary rows change the text
+area's height. This turned up a real one-row bug in search mode: the third press
+could name "bottom" and leave the hit one row past the last drawn row. A
+regression test covers it.
+
+Unanticipated: the search legend row did not widen the box, and existing search
+steps were already unaffected -- they leave any recenter request untouched, so
+they still keep the hit minimally visible rather than jumping to the center.
+
+Coverage: `tests/search.rs` presses `C-l` three times with the summary rows in
+play and checks the hit reaches the last drawn row; `tests/binding.rs` covers
+the new binding and `tests/legend.rs` the legend row.
+
+The scope is unchanged from what is described above.
