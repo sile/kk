@@ -101,7 +101,8 @@ existing padding survives. A test asserting that `C-j` resolves to
   which is one more binding to keep in step by hand and one more row in a
   legend the crate already keeps manually. The related search-legend bug
   `20260929-bug-search-legend-omits-enter.md` settles the spelling for the
-  chord there: `Enter` spelled out, and the three-character label `Ent`.
+  chord there: the chord column spells the key short, `Ent`, and the label is a
+  word for what it does, `finish`.
 - **`C-j` is a control character byte (`0x0a`), the same byte as a bare
   newline.** A terminal that sends the raw line feed without a ctrl modifier
   would not match the `ctrl == true` arm; it would fall to the `Enter` code
@@ -131,12 +132,12 @@ existing padding survives. A test asserting that `C-j` resolves to
 
 The ⏎ glyph is a guess at the house style; if the reader would rather reuse
 `Tab`'s ⇥, the choice is cosmetic and can be settled when the row is written.
-The spelling convention for the key itself is settled by
-`20260929-bug-search-legend-omits-enter.md`: the chord column spells `Enter`
-out in full, not `RET` or a symbol, and a three-character label like `Ent` fits
-without widening the box. Whether `Enter` itself should also get a row in the
-edit legend (it is bound but unlisted today, the same way `Enter` is unlisted
-in the search legend) is a separate question and is not decided here.
+The spelling convention for the key is settled by
+`20260929-bug-search-legend-omits-enter.md`: the chord column shortens the key
+the way the other rows shorten theirs, and the label is a word for what the key
+does rather than a repeat of the chord. Whether `Enter` itself should also get a
+row in the edit legend (it is bound but unlisted today, the same way it was
+unlisted in the search legend) is a separate question and is not decided here.
 
 ## Future possibilities
 

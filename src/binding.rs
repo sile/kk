@@ -37,6 +37,7 @@ pub const EDIT_LEGEND: &[&str] = &[
 /// the bottom border last.
 pub const SEARCH_LEGEND: &[&str] = &[
     "\u{2502}C-g cancel",
+    "\u{2502}Ent \u{23ce} finish",
     "\u{2502}C-r \u{21e4} prev",
     "\u{2502}C-s \u{21e5} next",
     "\u{2502}C-k cut-tail",

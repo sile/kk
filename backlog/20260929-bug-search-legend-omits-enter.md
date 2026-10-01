@@ -1,6 +1,6 @@
 # Bug: The search legend omits the `Enter` binding
 
-- Status: open
+- Status: fixed
 
 ## Summary
 
@@ -74,16 +74,18 @@ where it started, the other accepts the search on the hit the cursor sits on:
 
 ```text
 │C-g cancel
-│Enter ⏎ Ent
+│Ent ⏎ finish
 │C-r ⇤ prev
 │C-s ⇥ next
 ```
 
-The label `Ent` is three characters, and three characters fit: it is short
-enough that the box width does not change. `Ent` is the settled label and
-`Enter` the settled chord spelling for this row; the glyph beside the chord
-follows the house style used by ⌫, ⌦, and ⇥ elsewhere in the table. The
-requirement is that the `Enter` binding appears in the table, next to `C-g`.
+The chord column spells the key short, `Ent`, the way the other rows shorten
+theirs (`C-`, `Tab`, and the glyphs ⌫, ⌦, ⇥), and the label is a word for what
+the key does, like `cancel`, `prev`, and `next` on the rows around it: `finish`
+names the end of the search the way `SearchFinish` names the action. The glyph
+beside the chord follows the house style. The row is the same width as the
+widest existing row, so the box width does not change, and the requirement is
+that the `Enter` binding appears in the table, next to `C-g`.
 
 ## Impact
 
@@ -96,12 +98,11 @@ completeness. No resource effect.
 
 ## Notes
 
-The fix is one row, `│Enter ⏎ Ent`, in `SEARCH_LEGEND` in `src/binding.rs`,
+The fix is one row, `│Ent ⏎ finish`, in `SEARCH_LEGEND` in `src/binding.rs`,
 plus the matching update to `the_search_legend_is_exactly_this_text` in
-`tests/legend.rs` and any padding change if the new row is the widest. The row
-is `Enter ⏎ Ent`: 5 columns of chord, a space, the glyph, a space, and the
-3-column label, 12 columns before the border -- the same as `C-r ⇤ prev` and
-`C-s ⇥ next`, so the box width holds and the existing padding survives. The
-same omission exists for `Enter` in the edit legend, which the RFC
-`20260929-rfc-bind-c-j-to-newline.md` raises as an open question rather than
-deciding; that one is not fixed here.
+`tests/legend.rs`. The row is `Ent ⏎ finish`: 3 columns of chord, a space, the
+glyph, a space, and the 6-column label, 13 columns before the border -- the
+same as `C-k cut-tail` and `C-d ⌦ delete`, so the box width holds and the
+existing padding survives. The same omission exists for `Enter` in the edit
+legend, which the RFC `20260929-rfc-bind-c-j-to-newline.md` raises as an open
+question rather than deciding; that one is not fixed here.

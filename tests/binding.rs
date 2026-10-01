@@ -257,6 +257,27 @@ fn ctrl_c_quits_the_edit_mode() {
 }
 
 #[test]
+fn the_search_legend_names_enter_where_it_finishes_the_search() {
+    // `Enter` is the one command that ends a search, so it has to be the one
+    // the legend names. The row spells the chord short, `Ent`, the way the
+    // other rows shorten theirs, and labels it with a word like the rest.
+    assert!(
+        matches!(
+            action_of(kk::Mode::Search, code_key(tuinix::KeyCode::Enter)),
+            Some(kk::Action::SearchFinish)
+        ),
+        "Enter no longer finishes the search"
+    );
+    assert!(
+        kk::Mode::Search
+            .legend()
+            .iter()
+            .any(|row| row.contains("Ent")),
+        "the search legend omits the Enter binding"
+    );
+}
+
+#[test]
 fn every_other_mode_has_a_way_back_to_edit() {
     // Search and Ext are entered from Edit, so a chord that leaves for Edit is
     // what keeps them from trapping the editor. Search names the two ways out
