@@ -165,3 +165,49 @@ today for a frame with no summary row and fails as soon as one is shown, which
 is why `the_gutter_totals_the_hits_above_and_below_the_visible_slice` in
 `tests/render.rs` passes despite the gap (its rows 4 and 5 happen to hold no
 hits).
+
+## Outcome
+
+Fixed in [#12](https://github.com/sile/kk/pull/12) (merged as `b03fe54`).
+
+## Outcome
+
+Implemented in PR #12, merged as `b03fe54`.
+
+Hits could fall out of the gutter while a summary row was on screen. The totals
+were measured over the full text area height while the text was drawn into a
+shorter slice -- the one the summary rows leave behind -- so a hit pushed below
+the cut belonged to no drawn row and to no total either. The fix measures the
+totals over the slice that is actually drawn, and `State::text_rows` now owns
+the drawn height, solving the fixed-point between it and the totals; the summary
+row count is derived from it instead of being tracked separately.
+
+Coverage: the reported reproduction (`tests/render.rs`, a hit on row 4 counted
+in the bottom total) plus a `noprop` property test asserting that drawn rows,
+the top total, and the bottom total always add up to the whole hit count across
+random buffers, viewports, and area heights. Reverting the fix makes the new
+tests fail with the totals off by the displaced hits.
+
+`C-l` is now bound in the search mode, so a hit can be repositioned without
+leaving the prompt. The key runs the same cycle as in the edit mode (see the
+sibling note on cycling through positions), which is only possible because the
+next place is derived from the viewport rather than remembered per mode: a press
+in either mode continues through the same three places with nothing to carry
+across. The `C-l recenter` row sits right after `C-s next` in the search legend,
+and the box width is unchanged.
+
+The place is chosen inside the fixed-point loop that settles the summary rows,
+rather than early-returning, because the gutter's summary rows change the text
+area's height. This turned up a real one-row bug in search mode: the third press
+could name "bottom" and leave the hit one row past the last drawn row. A
+regression test covers it.
+
+Unanticipated: the search legend row did not widen the box, and existing search
+steps were already unaffected -- they leave any recenter request untouched, so
+they still keep the hit minimally visible rather than jumping to the center.
+
+Coverage: `tests/search.rs` presses `C-l` three times with the summary rows in
+play and checks the hit reaches the last drawn row; `tests/binding.rs` covers
+the new binding and `tests/legend.rs` the legend row.
+
+The scope is unchanged from what is described above.
