@@ -213,33 +213,25 @@ impl State {
     /// `available_rows` tall: zero, one, or two -- one for a total above the
     /// visible slice and one for a total below it.
     ///
-    /// The two totals are measured the same way here as they are when the
-    /// gutter is drawn: over the slice of `available_rows` rows starting at the
-    /// viewport. This is the one place that decides, so [`text_rows()`](State::text_rows)
-    /// here and
-    /// [`render_text_area()`](crate::render_text_area) cannot disagree about how
-    /// many rows the text is drawn in.
+    /// The two totals are measured over the rows the text is *drawn* in, the
+    /// same slice [`render_text_area()`](crate::render_text_area) walks, so a
+    /// hit can be neither drawn beside a count nor totalled: the rows a summary
+    /// takes are rows the totals have already been measured past, and a hit on
+    /// one of them falls to the bottom total. Measuring against the area's full
+    /// height instead would leave the displaced rows in a gap between the last
+    /// drawn line and the bottom total, counted nowhere.
+    ///
+    /// The drawn height is itself defined by how many summaries are drawn, so
+    /// the two are settled against each other; see [`text_rows()`](State::text_rows).
+    /// This is the one place that decides, so the renderer and [`adjust_viewport()`](State::adjust_viewport)
+    /// cannot disagree about how many rows the text is drawn in.
     ///
     /// A total above is only drawn when the viewport is not already at the
     /// buffer's first row, since no hit can lie above row 0; a total below only
     /// when there is a row past the slice to hold one. A one-row area keeps the
     /// top total and lets the bottom go, matching the drawing.
     pub fn summary_rows(&self, available_rows: usize) -> usize {
-        if self.search_prompt.is_none() {
-            return 0;
-        }
-        let start_row = self.viewport.row;
-        let end_row = (start_row + available_rows).min(self.buffer.rows());
-        let mut rows = 0;
-        if start_row > 0 && self.hits_outside(start_row, end_row).0 > 0 {
-            rows += 1;
-        }
-        // The bottom total needs a row of its own, which a one-row area does not
-        // have once the top total has claimed it.
-        if available_rows > rows && self.hits_outside(start_row, end_row).1 > 0 {
-            rows += 1;
-        }
-        rows
+        available_rows.saturating_sub(self.text_rows(available_rows))
     }
 
     /// Returns the rows left for the text itself in a text area `available_rows`
@@ -251,8 +243,40 @@ impl State {
     /// the summaries are drawn over. Handing it the area's full height instead
     /// would place the cursor on a row a summary then covers, and the cursor
     /// would be hidden exactly when a hit lies at the edge.
+    ///
+    /// The drawn height and the two totals are settled together, because each
+    /// decides the other: the totals are measured over the drawn slice, and a
+    /// total that is drawn costs the text a row, which shortens that slice. The
+    /// shorter slice can only move hits from inside it to below it -- the total
+    /// above is fixed by the viewport alone -- so the bottom total never goes
+    /// away by shortening the slice, and the loop below reaches the one slice
+    /// that both the totals and the drawn rows agree on.
     pub fn text_rows(&self, available_rows: usize) -> usize {
-        available_rows.saturating_sub(self.summary_rows(available_rows))
+        if self.search_prompt.is_none() {
+            return available_rows;
+        }
+        let start_row = self.viewport.row;
+        let buffer_rows = self.buffer.rows();
+        let mut text_rows = available_rows;
+        for _ in 0..3 {
+            let end_row = (start_row + text_rows).min(buffer_rows);
+            let (above, below) = self.hits_outside(start_row, end_row);
+            let mut summaries = 0;
+            if start_row > 0 && above > 0 {
+                summaries += 1;
+            }
+            // The bottom total needs a row of its own, which a one-row area
+            // does not have once the top total has claimed it.
+            if available_rows > summaries && below > 0 {
+                summaries += 1;
+            }
+            let settled = available_rows.saturating_sub(summaries);
+            if settled == text_rows {
+                break;
+            }
+            text_rows = settled;
+        }
+        text_rows
     }
 
     /// Returns the columns left for the text itself in a text area

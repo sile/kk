@@ -46,23 +46,24 @@ pub fn render_text_area(state: &State, frame: &mut tuinix::Frame) {
 
     let start_row = state.viewport.row;
 
-    // The gutter is drawn only while a search prompt is open, and its totals
-    // come from the same hit set the text is highlighted from. Measuring against
-    // the full-height slice makes the totals independent of which summaries are
-    // drawn -- no summary is ever the reason another is needed.
+    // A summary row costs a row of the text's height, so the text is clipped by
+    // as many rows as are shown above and below it. `State::text_rows()` settles
+    // that height against the totals, because each decides the other: the totals
+    // are measured over the drawn slice, and a summary drawn costs the text a
+    // row.
     let gutter_shown = state.search_prompt.is_some();
-    let full_end_row = (start_row + available_rows).min(state.buffer.rows());
+    let text_height = state.text_rows(available_rows);
+    let end_row = (start_row + text_height).min(state.buffer.rows());
+
+    // The totals are measured over that same drawn slice, so every row the loop
+    // below walks is either drawn beside its own count or is on the far side of
+    // one of the two totals. A row between the last drawn line and the bottom
+    // total would be counted nowhere.
     let (above, below) = if gutter_shown {
-        state.hits_outside(start_row, full_end_row)
+        state.hits_outside(start_row, end_row)
     } else {
         (0, 0)
     };
-
-    // A summary row costs a row of the text's height, so the text is clipped by
-    // as many rows as are shown above and below it. `State::text_rows()` decides
-    // the same thing for the viewport, from the same two totals.
-    let text_height = state.text_rows(available_rows);
-    let end_row = (start_row + text_height).min(state.buffer.rows());
 
     // The top summary claims row 0 and the bottom the last row. On a frame of a
     // single row they would collide, so the top wins: a one-row frame has no
