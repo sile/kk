@@ -512,22 +512,70 @@ impl State {
         self.finish_editing();
     }
 
-    /// Scrolls the viewport and the cursor `rows` lines down, or up when
-    /// `rows` is negative.
+    /// Scrolls the viewport `rows` lines down, or up when `rows` is negative.
     ///
-    /// The cursor moves with the viewport because [`adjust_viewport()`](State::adjust_viewport)
-    /// pulls the viewport back to the cursor on the next render, so a viewport
-    /// moved on its own would snap right back.
-    pub fn handle_scroll(&mut self, rows: isize) {
-        if rows < 0 {
-            for _ in rows..0 {
-                self.handle_cursor_up();
-            }
-        } else {
-            for _ in 0..rows {
-                self.handle_cursor_down();
-            }
+    /// This is the wheel: it drives the view, not the cursor. The cursor keeps
+    /// its screen row and rides along, so the text slides under a cursor that
+    /// appears to stand still. That is what makes a notch scroll a screen that
+    /// has room to move, rather than doing nothing until the cursor reaches an
+    /// edge the way a run of [`handle_cursor_down()`](State::handle_cursor_down)
+    /// would.
+    ///
+    /// The cursor moves with the viewport because
+    /// [`adjust_viewport()`](State::adjust_viewport) pulls the viewport back to
+    /// the cursor on the next render, so a viewport moved on its own would snap
+    /// right back; moving the cursor by the same rows leaves it inside the newly
+    /// shown slice and the adjustment alone.
+    ///
+    /// `text_area_size` is the text area's own size, like the one
+    /// [`adjust_viewport()`](State::adjust_viewport) takes: the viewport is
+    /// clamped against [`text_rows()`](State::text_rows), so a notch during an
+    /// open search prompt counts the gutter's summary rows out of the height and
+    /// moves the text by *drawn* rows.
+    ///
+    /// Only the bottom of the file breaks the rule that the cursor keeps its
+    /// screen row. When the viewport comes to rest on the last line and the
+    /// cursor still has screen rows left under it, keeping them would stop the
+    /// view a screen short of the file's end, so the cursor gives them up and
+    /// goes to the last row. That is what lets the reader bring the last line to
+    /// the frame's last row. Once both are at that edge a further notch down
+    /// changes nothing.
+    ///
+    /// The top needs no such exception: the cursor's screen row is measured from
+    /// the top of the text area, so a viewport at row `0` already draws the
+    /// cursor where its screen row says, with no rows to give up.
+    pub fn handle_scroll(&mut self, rows: isize, text_area_size: tuinix::Size) {
+        let drawn_rows = self.text_rows(text_area_size.rows);
+        let last_row = self.buffer.rows();
+        let last_viewport = last_row.saturating_sub(drawn_rows.saturating_sub(1));
+        let start_row = self.viewport.row;
+
+        // The cursor's row on screen before the notch. A cursor already off
+        // screen (which the ordinary rules should not produce) saturates to the
+        // top edge and the next `adjust_viewport` corrects it.
+        let screen_row = self.cursor.row.saturating_sub(start_row);
+
+        let target = start_row.saturating_add_signed(rows);
+        self.viewport.row = target.min(last_viewport);
+
+        // Phase one: the cursor keeps its screen row, so the text slides under
+        // it. `screen_row` is measured from the top of the text area, so at the
+        // top edge the clamp to `0` already lands the cursor where its screen
+        // row puts it and there is nothing further to give up.
+        self.cursor.row = self.viewport.row + screen_row;
+
+        // Phase two, at the bottom edge only: the viewport clamped at
+        // `last_viewport` while the cursor still had screen rows left under it,
+        // so keeping them would leave the cursor short of the last line and the
+        // view stopped a screen short of the file's end. The cursor gives them
+        // up and goes to the last row, which is what lets the last line reach
+        // the frame's last row.
+        if target > last_viewport {
+            self.cursor.row = last_row;
         }
+
+        self.cursor.row = self.cursor.row.min(last_row);
+        self.finish_editing();
     }
 
     /// Moves the cursor down one row.

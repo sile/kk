@@ -781,14 +781,115 @@ fn the_start_position_centering_is_clamped_to_the_buffer_start() {
 fn scrolling_down_moves_the_cursor_and_the_viewport_together() {
     let mut state = state_of("a\nb\nc\nd\ne\nf\ng\n");
 
-    state.handle_scroll(3);
+    // One notch of three, with a three-row area: the viewport moves by the
+    // notch and the cursor rides along, keeping its screen row of 0.
+    state.handle_scroll(3, area(3, 10));
 
-    assert_eq!(state.cursor.row, 3, "three rows down from row 0");
+    assert_eq!(state.cursor.row, 3, "the cursor rode down with the view");
     state.adjust_viewport(area(3, 10));
     assert_eq!(
-        state.viewport.row, 1,
-        "the viewport follows so the cursor stays visible"
+        state.viewport.row, 3,
+        "the view moved by the notch, not by a cursor-following slide"
     );
+}
+
+#[test]
+fn a_notch_with_room_to_scroll_moves_the_view_without_moving_the_cursor_on_screen() {
+    let mut state = state_of(&"a\n".repeat(40));
+    state.viewport = at(10, 0);
+    state.cursor = at(12, 0); // screen row 2
+
+    state.handle_scroll(3, area(20, 10));
+
+    assert_eq!(state.viewport.row, 13, "the view moves by the notch");
+    assert_eq!(
+        state.cursor.row, 15,
+        "the cursor keeps screen row 2, so the text slides under it"
+    );
+}
+
+#[test]
+fn a_notch_up_moves_the_view_without_moving_the_cursor_on_screen() {
+    let mut state = state_of(&"a\n".repeat(40));
+    state.viewport = at(10, 0);
+    state.cursor = at(12, 0); // screen row 2
+
+    state.handle_scroll(-3, area(20, 10));
+
+    assert_eq!(state.viewport.row, 7);
+    assert_eq!(state.cursor.row, 9, "still screen row 2");
+}
+
+#[test]
+fn a_notch_that_reaches_the_end_brings_the_last_line_to_the_bottom() {
+    // Twenty lines in a ten-row area: the buffer's last row is 20 (the row
+    // after the last line, which the cursor clamps to), so the furthest the
+    // viewport can go is 20 - 9 = 11. The cursor's screen row of 2 cannot
+    // survive that, so it is pulled down to the last row -- the whole point
+    // of phase two.
+    let mut state = state_of(&"a\n".repeat(20));
+    state.viewport = at(0, 0);
+    state.cursor = at(2, 0); // screen row 2
+
+    state.handle_scroll(50, area(10, 10));
+
+    assert_eq!(state.viewport.row, 11, "the viewport stops at its last row");
+    assert_eq!(
+        state.cursor.row, 20,
+        "the cursor gives up its screen row and rides to the last line"
+    );
+}
+
+#[test]
+fn a_notch_to_the_top_keeps_the_cursors_screen_row() {
+    // The top edge has no phase two: screen rows are measured from the top of
+    // the text area, so a cursor on screen row 2 lands on buffer row 2 when the
+    // viewport reaches row 0 -- it has nothing to give up.
+    let mut state = state_of(&"a\n".repeat(20));
+    state.viewport = at(10, 0);
+    state.cursor = at(12, 0); // screen row 2
+
+    state.handle_scroll(-50, area(10, 10));
+
+    assert_eq!(state.viewport.row, 0, "the viewport stops at the first row");
+    assert_eq!(
+        state.cursor.row, 2,
+        "the cursor keeps screen row 2 rather than being pulled to the first line"
+    );
+}
+
+#[test]
+fn a_notch_to_the_top_with_the_cursor_on_the_first_row_stays_there() {
+    let mut state = state_of(&"a\n".repeat(20));
+    state.viewport = at(10, 0);
+    state.cursor = at(10, 0); // screen row 0
+
+    state.handle_scroll(-50, area(10, 10));
+
+    assert_eq!(state.viewport.row, 0);
+    assert_eq!(state.cursor.row, 0);
+}
+
+#[test]
+fn a_notch_at_both_edges_changes_nothing() {
+    let mut state = state_of(&"a\n".repeat(20));
+    state.cursor = at(0, 0);
+
+    state.handle_scroll(-3, area(10, 10));
+    assert_eq!(state.viewport.row, 0);
+    assert_eq!(state.cursor.row, 0);
+
+    state.handle_scroll(-3, area(10, 10));
+    assert_eq!(state.viewport.row, 0, "still a no-op at the top");
+    assert_eq!(state.cursor.row, 0);
+
+    let mut state = state_of(&"a\n".repeat(20));
+    state.handle_scroll(50, area(10, 10)); // to the bottom edge
+    let (viewport, cursor) = (state.viewport.row, state.cursor.row);
+
+    state.handle_scroll(3, area(10, 10));
+    assert_eq!(state.viewport.row, viewport, "still a no-op at the bottom");
+    assert_eq!(state.cursor.row, cursor);
 }
 
 #[test]
@@ -872,7 +973,7 @@ fn a_far_jump_in_a_zero_height_area_does_not_underflow() {
 fn scrolling_up_stops_at_the_first_line() {
     let mut state = state_of("a\nb\n");
 
-    state.handle_scroll(-5);
+    state.handle_scroll(-5, area(3, 10));
 
     assert_eq!(state.cursor.row, 0);
 }
@@ -881,7 +982,7 @@ fn scrolling_up_stops_at_the_first_line() {
 fn scrolling_down_stops_at_the_row_after_the_last_line() {
     let mut state = state_of("a\nb\n");
 
-    state.handle_scroll(50);
+    state.handle_scroll(50, area(3, 10));
 
     assert_eq!(
         state.cursor.row, 2,

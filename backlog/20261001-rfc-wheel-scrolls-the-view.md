@@ -1,6 +1,6 @@
 # RFC: Let the wheel scroll the view, not the cursor
 
-- Status: open
+- Status: implemented
 
 ## Summary
 
@@ -117,9 +117,11 @@ So a notch always does one of three things, in order:
 
 - **The viewport can still move toward the edge it is heading for.** It moves by
 the notch, and the cursor moves with it, keeping its screen row.
-- **The viewport has reached the buffer's first or last line, but the cursor is
-  not on that line yet.** The viewport stays at the edge and the cursor moves
-toward it, giving up its screen row.
+- **The viewport has reached the buffer's last line, but the cursor is not on
+  that line yet.** The viewport stays at the bottom and the cursor moves toward
+  it, giving up its screen row. Only the bottom needs this: screen rows are
+  measured from the top of the text area, so a viewport at row `0` already puts
+  a visible cursor where its screen row says, with nothing left to give up.
 - **Both are at the edge.** Nothing happens.
 
 ## Reference-level explanation
@@ -127,38 +129,52 @@ toward it, giving up its screen row.
 ### The wheel handler
 
 `handle_scroll` no longer loops over cursor steps. It moves the viewport by the
-requested rows and then places the cursor:
+requested rows and then places the cursor. It needs the text area's size to do
+it -- the same argument [`State::adjust_viewport()`] already takes -- because
+the viewport is clamped against the drawn height [`State::text_rows()`] leaves,
+which is not a buffer-only number:
 
 ```rust
-pub fn handle_scroll(&mut self, rows: isize) {
-    self.scroll_view(rows);
+pub fn handle_scroll(&mut self, rows: isize, text_area_size: tuinix::Size) {
+    let screen_before = self.cursor.row.saturating_sub(self.viewport.row);
+    self.scroll_view(rows, text_area_size);
+    // ...
 }
 ```
 
 The two phases are one computation. Let `screen_row` be the cursor's row on
-screen before the notch, `last_row = self.buffer.rows()` (the index of the last
-line), and `last_viewport = last_row.saturating_sub(text_height - 1)` the
-furthest the viewport can go with the text area `text_height` tall.
+screen before the notch, `last_row = self.buffer.rows()` (the row after the last
+line, which is what the cursor clamps to), and `last_viewport =
+last_row.saturating_sub(drawn_rows - 1)` the furthest the viewport can go with
+the text area `drawn_rows` text rows tall.
 
 ```text
 new viewport = clamp(viewport + rows, 0, last_viewport)
-new cursor   = clamp(viewport + screen_row, 0, last_row)   // phase 1
-if the viewport hit an end and the cursor did not reach it, pull the cursor in
-                                                          // phase 2
+new cursor   = viewport + screen_row                      // phase 1
+new cursor   = min(new cursor, last_row)                  // phase 1 clamp
+if the viewport clamped at last_viewport, cursor = last_row   // phase 2
 ```
 
 Phase 1 keeps `cursor - viewport` constant, which is the screen row standing
-still. Phase 2 is the end exception: when the viewport clamped at `0` while the
-cursor still has rows to give up, `cursor = viewport + screen_row` may still be
-above `0`, so the cursor is clamped to the edge too -- but only after the
-viewport has stopped, which is what produces the ride-to-the-edge rather than a
-stall a screen short.
+still. Phase 2 is the bottom-end exception: the viewport stopped at
+`last_viewport` while the cursor still had screen rows left under it, so keeping
+them would leave the cursor short of the last line and the view stopped a screen
+short of the file's end. The cursor gives them up and goes to `last_row`, which
+is what lets the last line reach the frame's last row.
 
 Concretely, scrolling down: the viewport moves by `rows`, clamped to
-`last_viewport`; the cursor moves by the same `rows` unless that would take it
-past `last_row`, in which case it stops at `last_row`. The difference between
-the two clamps is exactly the second phase. Scrolling up is the mirror, with
-`0` for both clamps.
+`last_viewport`; the cursor moves by the same `rows`, clamped to `last_row`.
+Where the two clamps differ -- the viewport reaching `last_viewport` while the
+cursor would still stop short of `last_row` -- phase 2 pulls the cursor down to
+the last row.
+
+The top is not the mirror. `screen_row` is measured from the top of the text
+area, so when the viewport reaches row `0` the cursor lands on `0 + screen_row`
+and is already where phase 1 put it; there is no screen row it cannot keep, and
+a cursor that was on the first drawn row simply stays on the first line. The
+asymmetry is real, not an oversight: the view's own edge is the file's first
+line at the top and the frame's last row at the bottom, and only the bottom edge
+can come up short of the last line.
 
 ### Keeping the cursor on screen
 
@@ -190,6 +206,24 @@ runs the handler, as it does today; the handler simply sets the same values
 back. There is no message, and no new state. This matches the rule that a
 scroll to a place the view cannot reach is not an error.
 
+### Tests
+
+`tests/state.rs` covers the rule directly: a notch with room to move shifts the
+viewport by the notch while the cursor keeps its screen row (down and up); a
+notch past the bottom brings the last line to the last drawn row; a notch past
+the top keeps the cursor's screen row rather than pulling it to the first line;
+a notch with both already at an edge changes nothing. The two older scroll tests
+keep their ends (`scrolling_up_stops_at_the_first_line`,
+`scrolling_down_stops_at_the_row_after_the_last_line`), now that a notch drives
+the viewport.
+
+`tests/e2e_mouse.rs`'s `the_wheel_scrolls_the_view_and_the_cursor_rides_with_it`
+drives the real binary: with the cursor on line 2 and the viewport on line 1, one
+notch moves the view to line 4 and leaves the cursor on line 5 -- its screen row
+unchanged -- and a notch back returns both. The held-cursor case is the part the
+old cursor-loop handler could not produce, so the test pins the change rather
+than the status quo.
+
 ## Alternatives
 
 - **Leave the wheel as cursor motion.** It is the status quo and the smallest
@@ -210,14 +244,16 @@ scroll to a place the view cannot reach is not an error.
 
 ## Open questions
 
-- The exact rounding when the notch would overshoot the edge: clamp the move to
-  land exactly on the edge rather than stepping past and back. The handler
-  computes the clamp in one step, so this falls out of the arithmetic, but it
-  should be pinned by a test.
+- The exact rounding when the notch would overshoot the edge is settled by the
+  arithmetic: the viewport is clamped in one step to `last_viewport` (or `0`),
+  so it lands on the edge rather than stepping past and back.
+  `tests/state.rs`'s `a_notch_that_reaches_the_end_brings_the_last_line_to_the_bottom`
+  and `a_notch_to_the_top_keeps_the_cursors_screen_row` pin both ends.
 - Whether `SCROLL_ROWS` (three) is still the right notch, now that a notch moves
   the view rather than nudging the cursor. The value is unchanged by this
-  proposal.
+  proposal; the decision belongs to a later change that can feel it out.
 - A cursor off screen before the notch (which the ordinary rules should not
-  produce, but a hand-set viewport can): the rule above simply places it by
-  `viewport + screen_row` clamped to the buffer, and the next `adjust_viewport`
-  corrects anything odd. Worth a note in the fix rather than a design here.
+  produce, but a hand-set viewport can): the rule places it by
+  `viewport + screen_row`, and `screen_row` saturates to `0` for a cursor above
+  the viewport, so the cursor is placed on the viewport's own row and the next
+  `adjust_viewport` corrects anything odd.
