@@ -90,3 +90,31 @@ different question and should not be folded in. The e2e
 `the_legend_hides_for_the_buffer_cursor_while_the_prompt_is_open` and the unit
 `a_search_reverses_the_character_under_the_cursor` both cover the mid-line case
 and must keep passing; a new case for the end-of-line column is what is missing.
+
+## Outcome
+
+Fixed in [#8](https://github.com/sile/kk/pull/8) (merged as `18ae96f`).
+
+## Outcome
+
+Implemented in PR #8, merged as `18ae96f`.
+
+`render_line` now paints a reversed blank at the cursor's column when the
+cursor sits at or past a line's width, so a cursor one column past the last
+character stays visible mid-search. The condition is only a prompt being open,
+the cursor being on the row, and its column being at or past the line's width;
+an early draft also tested the column against the viewport's left edge, but the
+viewport never scrolls past a line's width, so that comparison could never be
+false and it was dropped.
+
+`TextLine` gained a public `width()` -- the former private `cols()` -- for the
+renderer to compare the cursor column against, and `TextBuffer::cols(row)` now
+calls it.
+
+`tests/render.rs` gained three cases: the blank cell past the last character is
+reversed, the same cursor with no prompt open paints nothing extra, and an empty
+line reverses the cell at column 0. A fourth case for a cursor left of the
+viewport was drafted and dropped: it required a viewport column past the line's
+width, a state the editor never builds.
+
+The scope is unchanged from what is described above.
