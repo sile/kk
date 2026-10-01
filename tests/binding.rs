@@ -257,6 +257,54 @@ fn ctrl_c_quits_the_edit_mode() {
 }
 
 #[test]
+fn ctrl_j_inserts_a_newline_in_the_edit_mode() {
+    // `Enter` and `C-j` are the same command in the editor kk's chords come
+    // from, so the pair travels together here too.
+    assert!(
+        matches!(
+            action_of(kk::Mode::Edit, ctrl_key('j')),
+            Some(kk::Action::NewlineInsert)
+        ),
+        "C-j no longer inserts a newline"
+    );
+    assert!(
+        matches!(
+            action_of(kk::Mode::Edit, code_key(tuinix::KeyCode::Enter)),
+            Some(kk::Action::NewlineInsert)
+        ),
+        "Enter must keep inserting a newline beside C-j"
+    );
+}
+
+#[test]
+fn the_edit_legend_names_the_newline_binding() {
+    // The table is kept in step with the bindings by hand, so a binding with
+    // no row breaks that promise.
+    assert!(
+        kk::Mode::Edit
+            .legend()
+            .iter()
+            .any(|row| row.contains("newline")),
+        "the edit legend omits the newline binding"
+    );
+}
+
+#[test]
+fn ctrl_j_is_not_a_newline_outside_the_edit_mode() {
+    // Only the edit mode has a buffer to split: the search prompt has no
+    // newline of its own and the extension mode no text at all.
+    for &mode in &[kk::Mode::Search, kk::Mode::Ext] {
+        assert!(
+            !matches!(
+                action_of(mode, ctrl_key('j')),
+                Some(kk::Action::NewlineInsert)
+            ),
+            "{mode:?} must not insert a newline"
+        );
+    }
+}
+
+#[test]
 fn the_search_legend_names_enter_where_it_finishes_the_search() {
     // `Enter` is the one command that ends a search, so it has to be the one
     // the legend names. The row spells the chord short, `Ent`, the way the
