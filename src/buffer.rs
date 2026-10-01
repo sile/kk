@@ -216,7 +216,7 @@ impl TextBuffer {
 
     /// Returns the display width of line `row`, or 0 if there is no such line.
     pub fn cols(&self, row: usize) -> usize {
-        self.text.get(row).map(|l| l.cols()).unwrap_or_default()
+        self.text.get(row).map(TextLine::width).unwrap_or_default()
     }
 
     /// Moves `pos`'s column onto a character boundary.
@@ -475,7 +475,11 @@ impl TextLine {
         None
     }
 
-    fn cols(&self) -> usize {
+    /// Returns the line's display width in columns.
+    ///
+    /// Columns count display cells, not characters, so a wide character
+    /// contributes more than one.
+    pub fn width(&self) -> usize {
         self.0.iter().copied().map(crate::terminal::char_cols).sum()
     }
 

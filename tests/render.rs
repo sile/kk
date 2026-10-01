@@ -177,6 +177,58 @@ fn a_search_reverses_the_character_under_the_cursor() {
 }
 
 #[test]
+fn a_search_reverses_the_blank_cell_past_the_end_of_a_line() {
+    let mut state = state_of("one\n");
+    state.search_prompt = Some(kk::SearchPrompt::new());
+    state.cursor = kk::TextPosition { row: 0, col: 3 };
+    let mut frame = frame_of(1, 9);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // Column 3 is one past the last character of `one`, so there is no
+    // character to reverse; the text starts past the gutter, so the cursor's
+    // column 3 is screen column 8 and the cell is painted as a reversed blank.
+    assert!(
+        style_at(&frame, 0, 8).reverse,
+        "the cell past the last character is reversed"
+    );
+    assert!(
+        !style_at(&frame, 0, 7).reverse,
+        "the character before it is not"
+    );
+}
+
+#[test]
+fn a_cursor_past_the_end_of_a_line_is_left_alone_without_a_search() {
+    let mut state = state_of("one\n");
+    state.cursor = kk::TextPosition { row: 0, col: 3 };
+    let mut frame = frame_of(1, 5);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // No prompt is open, so the gutter is absent and no cell is reversed: the
+    // terminal's own cursor marks the position, as it does mid-line.
+    assert_eq!(painted_cells(&frame), 3, "only the line's three characters");
+}
+
+#[test]
+fn an_empty_line_reverses_the_cursor_at_column_zero() {
+    let mut state = state_of("\none\n");
+    state.search_prompt = Some(kk::SearchPrompt::new());
+    state.cursor = kk::TextPosition { row: 0, col: 0 };
+    let mut frame = frame_of(1, 8);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // An empty line has no character at column 0, so the cursor draws as a
+    // reversed blank one column past the gutter.
+    assert!(
+        style_at(&frame, 0, 5).reverse,
+        "the blank cell at the line's start is reversed"
+    );
+}
+
+#[test]
 fn the_cursor_is_not_reversed_outside_a_search() {
     let mut state = state_of("one\n");
     state.cursor = kk::TextPosition { row: 0, col: 1 };

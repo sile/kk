@@ -1,6 +1,6 @@
 # Bug: The search cursor is invisible at the end of a line
 
-- Status: open
+- Status: fixed
 
 ## Summary
 
