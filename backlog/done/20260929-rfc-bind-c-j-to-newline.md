@@ -1,6 +1,6 @@
 # RFC: Bind `C-j` to newline in the edit mode
 
-- Status: implemented
+- Status: accepted
 
 ## Summary
 
@@ -145,3 +145,26 @@ here.
 If a later binding wants to insert a newline without splitting the line -- a
 soft wrap, say -- the two arms would stop sharing one action and the legend
 row would have to name which one `C-j` is. Nothing today needs that.
+
+## Outcome
+
+Implemented in [#9](https://github.com/sile/kk/pull/9) (merged as `8d9c681`).
+
+## Outcome
+
+Implemented in PR #9, merged as `8d9c681`.
+
+`C-j` now inserts a newline in the edit mode, alongside Enter, via a new arm in
+`resolve_edit`. The edit legend gained `C-j ⏎ newline` after `C-l recenter`.
+
+One assumption in this note did not hold: the new row was expected to fit the
+legend's existing width, but it measures 14 columns while the widest existing
+rows (`C-k cut-tail`, `C-d ⌦ delete`) measure 13, so the box grew one column and
+every row's right padding changed. The note's width claim was corrected to
+match, and `tests/legend.rs` pins the 14-column rendering.
+
+`tests/binding.rs` gained three cases: `C-j` inserts a newline in the edit mode,
+the edit legend names the newline binding, and `C-j` does not insert a newline
+outside the edit mode.
+
+The scope is unchanged from what is described above.
