@@ -1,6 +1,6 @@
 # RFC: Recenter when the cursor jumps far off screen
 
-- Status: draft
+- Status: implemented
 
 ## Summary
 
@@ -217,14 +217,20 @@ expectations and a new set covers the far case:
 - a cursor more than a text area outside scrolls so it is centered;
 - the boundary: exactly `available_rows` rows out stays minimal,
   `available_rows + 1` centers;
-- an explicit `C-l` still centers even when the cursor is one row out
-  (the threshold branch must not run).
+- an explicit `C-l` still centers even when the cursor is a screen out.
 
-The existing search tests already exercise the small side: with a three-row
-area and the gutter's summaries, `handle_search_next_hit` followed by
-`adjust_viewport` moves the cursor one row past the edge at a time, so the
-threshold stays out of the way and the assertions about the viewport holding
-still are unchanged.
+`tests/state.rs` has the boundary pair (`a_cursor_exactly_a_screen_out_is_not_
+centered`, `a_cursor_a_screen_and_a_row_out_is_centered`), the upward case, the
+explicit-recenter precedence, and a zero-height area that must not underflow.
+`tests/search.rs`'s `a_step_to_a_hit_a_screen_away_centers_it` checks the far
+step, and the existing hit tests keep exercising the small side: with a
+three-row area and the gutter's summaries they move the cursor one row past the
+edge at a time, so the threshold stays out of the way.
+
+One earlier draft asserted the boundary with `handle_cursor_to_position` and
+forgot that each call recenters before the adjustment runs; the tests set the
+viewport directly instead, so the cursor move being measured is the only thing
+that decided it.
 
 ## Drawbacks
 

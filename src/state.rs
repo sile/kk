@@ -233,6 +233,13 @@ impl State {
     ///
     /// When [`recenter_viewport`](State::recenter_viewport) is set, the cursor
     /// is centered instead and the flag is cleared.
+    ///
+    /// A cursor that is more than a whole text area outside the viewport is
+    /// centered too, rather than pinned to the edge it came in through: the
+    /// screen it left has nothing near the destination to preserve, so the
+    /// middle is the most useful place to show it. This is the one automatic
+    /// recenter; it is measured against
+    /// [`text_rows()`](State::text_rows), like the scroll it replaces.
     pub fn adjust_viewport(&mut self, text_area_size: tuinix::Size) {
         let cursor_pos = self.cursor_position();
         let available_cols = self.text_cols(text_area_size.cols);
@@ -255,8 +262,25 @@ impl State {
             let available_rows = self.text_rows(text_area_size.rows);
             let before = self.viewport.row;
 
-            // Adjust vertical viewport
-            if cursor_pos.row < self.viewport.row {
+            // The distance from the cursor to the edge of the viewport, in the
+            // rows the text is drawn in. A cursor on the row just past an edge
+            // is one row out, however it got there.
+            let rows_out = if cursor_pos.row < self.viewport.row {
+                self.viewport.row - cursor_pos.row
+            } else {
+                cursor_pos
+                    .row
+                    .saturating_sub(self.viewport.row + available_rows)
+            };
+
+            // Adjust vertical viewport. A cursor more than a screen out shares
+            // no row with the screen being left, so it is centered rather than
+            // pinned to the edge it came in through; nearer than that, the
+            // lines around the cursor are lines the reader was just looking
+            // at, and the minimum scroll keeps the connection.
+            if rows_out > available_rows {
+                self.viewport.row = cursor_pos.row.saturating_sub(available_rows / 2);
+            } else if cursor_pos.row < self.viewport.row {
                 // Cursor is above viewport, scroll up
                 self.viewport.row = cursor_pos.row;
             } else if cursor_pos.row >= self.viewport.row + available_rows {

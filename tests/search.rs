@@ -449,6 +449,40 @@ fn a_hit_below_the_text_area_scrolls_just_far_enough() {
 }
 
 #[test]
+fn a_step_to_a_hit_a_screen_away_centers_it() {
+    // Two hits far apart: one on row 0 and one on row 30, in a 12-row area.
+    // Stepping to the row 30 hit leaves most of a screen behind the last
+    // visible row, so it no longer shares the screen it left and is centered.
+    let mut text = String::new();
+    for row in 0..40 {
+        if row == 0 || row == 30 {
+            text.push_str("hit\n");
+        } else {
+            text.push_str("x\n");
+        }
+    }
+    let mut state = state_of(&text);
+    state.search_prompt = Some(SearchPrompt::new());
+    for ch in "hit".chars() {
+        state.handle_char_insert(ch);
+    }
+
+    let text_area = tuinix::Size { rows: 12, cols: 80 };
+    state.adjust_viewport(text_area);
+
+    state.handle_search_next_hit();
+    state.adjust_viewport(text_area);
+
+    assert_eq!(state.cursor.row, 30, "the cursor moved to the far hit");
+    let rows = state.text_rows(text_area.rows);
+    assert_eq!(
+        state.viewport.row,
+        30 - rows / 2,
+        "the hit sits in the middle of the drawn rows"
+    );
+}
+
+#[test]
 fn a_cursor_near_the_right_edge_scrolls_against_the_width_the_gutter_leaves() {
     let mut state = state_of("x = this line is long enough to need a scroll\n");
     state.search_prompt = Some(SearchPrompt::new());
