@@ -486,6 +486,27 @@ fn each_mode_resolves_its_own_chords() {
 }
 
 #[test]
+fn the_recenter_key_is_bound_in_both_edit_and_search() {
+    // The search mode is where a recenter is wanted most -- a hit the minimal
+    // scroll left against an edge -- and `C-l` is the chord the edit mode
+    // already uses for it, so the two agree rather than the prompt being a
+    // dead end for the key.
+    for &mode in &[kk::Mode::Edit, kk::Mode::Search] {
+        assert!(
+            matches!(
+                action_of(mode, ctrl_key('l')),
+                Some(kk::Action::ViewRecenter)
+            ),
+            "{mode:?} does not recenter on C-l"
+        );
+        assert!(
+            mode.legend().iter().any(|row| row.contains("C-l")),
+            "{mode:?} recenters on C-l but its legend does not name it"
+        );
+    }
+}
+
+#[test]
 fn non_key_input_never_resolves() {
     for &mode in &MODES {
         assert!(mode.resolve(&tuinix::Input::Mouse(left_press())).is_none());

@@ -544,17 +544,93 @@ fn a_run_of_inserts_is_one_snapshot_then_there_is_nothing_left() {
 
 #[test]
 fn a_recenter_request_centres_the_cursor_and_is_consumed() {
-    let mut state = state_of("one\ntwo\nthree\n");
-    state.cursor = at(2, 0);
+    // The viewport starts at row 0, which is the row a center of row 2 would
+    // use in a 10-row area: the cursor is not yet in the middle, and the cycle
+    // moves on from the place it finds rather than centering again.
+    let mut state = state_of("one\ntwo\nthree\nfour\nfive\nsix\nseven\n");
+    state.cursor = at(6, 0);
     state.handle_view_recenter();
 
     state.adjust_viewport(area(10, 10));
 
     assert_eq!(
-        state.viewport.row, 0,
-        "2 is centered in a 10-row area at row 0"
+        state.viewport.row, 1,
+        "6 - 10 / 2: row 6 sits in the middle of the ten visible rows"
     );
     assert!(!state.recenter_viewport, "the request is used once");
+}
+
+#[test]
+fn a_recenter_cycle_visits_center_top_and_bottom() {
+    // Each press is consumed by the render that follows it, so the loop lets
+    // the adjustment run between presses the way a render would. The place a
+    // press lands on is read back from the viewport it left.
+    let mut state = state_of(&"a\n".repeat(20));
+    state.cursor = at(10, 0);
+
+    let mut rows = Vec::new();
+    for _ in 0..4 {
+        state.handle_view_recenter();
+        state.adjust_viewport(area(5, 10));
+        rows.push(state.viewport.row);
+    }
+
+    assert_eq!(
+        rows,
+        vec![8, 10, 6, 8],
+        "10 - 5 / 2, then the cursor's own row, then 10 - (5 - 1), and around"
+    );
+}
+
+#[test]
+fn a_top_request_puts_the_cursor_on_the_first_drawn_row() {
+    let mut state = state_of(&"a\n".repeat(20));
+    state.cursor = at(10, 0);
+
+    state.handle_view_recenter(); // Center, so the cycle is on its first press.
+    state.adjust_viewport(area(5, 10));
+    state.handle_view_recenter(); // Top.
+    state.adjust_viewport(area(5, 10));
+
+    assert_eq!(state.viewport.row, 10, "row 10 is the area's first row");
+}
+
+#[test]
+fn a_bottom_request_puts_the_cursor_on_the_last_drawn_row() {
+    let mut state = state_of(&"a\n".repeat(20));
+    state.cursor = at(10, 0);
+
+    for _ in 0..2 {
+        state.handle_view_recenter();
+        state.adjust_viewport(area(5, 10));
+    }
+    state.handle_view_recenter(); // Bottom.
+    state.adjust_viewport(area(5, 10));
+
+    assert_eq!(
+        state.viewport.row, 6,
+        "10 - (5 - 1): row 10 is the area's last row"
+    );
+}
+
+#[test]
+fn a_startup_position_leaves_the_cycle_at_its_start() {
+    // The startup path asks for a center of its own. The next `C-l` reads the
+    // centered viewport and moves on to the top, exactly as a first press does
+    // -- so a reader who never pressed `C-l` cannot land in the middle of a
+    // cycle they did not start.
+    let mut state = state_of(&"a\n".repeat(20));
+
+    state.handle_view_recenter();
+    state.adjust_viewport(area(5, 10));
+    state.handle_cursor_to_position(10, 0);
+    state.adjust_viewport(area(5, 10));
+    assert_eq!(state.viewport.row, 8, "the startup path centers");
+
+    state.handle_view_recenter();
+    state.adjust_viewport(area(5, 10));
+
+    assert_eq!(state.viewport.row, 10, "the press after it goes to the top");
 }
 
 #[test]
@@ -724,7 +800,7 @@ fn a_cursor_a_screen_and_a_row_out_is_centered() {
     state.viewport = at(0, 0);
 
     state.handle_cursor_to_position(11, 0);
-    state.recenter_viewport = false;
+    state.center_viewport = false; // drop the startup center
     state.adjust_viewport(area(5, 10));
 
     assert_eq!(
@@ -741,7 +817,7 @@ fn a_cursor_exactly_a_screen_out_is_not_centered() {
     state.viewport = at(0, 0);
 
     state.handle_cursor_to_position(10, 0);
-    state.recenter_viewport = false;
+    state.center_viewport = false; // drop the startup center
     state.adjust_viewport(area(5, 10));
 
     assert_eq!(
@@ -757,7 +833,7 @@ fn a_cursor_above_the_viewport_a_screen_out_is_centered() {
 
     // Row 6 is 6 rows above the viewport's row 12, more than the 5-row area.
     state.handle_cursor_to_position(6, 0);
-    state.recenter_viewport = false;
+    state.center_viewport = false; // drop the startup center
     state.adjust_viewport(area(5, 10));
 
     assert_eq!(
@@ -777,6 +853,7 @@ fn an_explicit_recenter_beats_the_far_jump_rule() {
     state.adjust_viewport(area(5, 10));
 
     assert_eq!(state.viewport.row, 0, "row 0 centers as far as it can");
+    assert!(!state.recenter_viewport, "the request is used once");
 }
 
 #[test]

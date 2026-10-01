@@ -64,7 +64,12 @@ pub enum Action {
     /// Moves the cursor to the end of the buffer.
     CursorBufferEnd,
 
-    /// Scrolls so the cursor's line is vertically centered.
+    /// Puts the cursor at the next of the three places `C-l` cycles through:
+    /// the middle of the text area, its first row, or its last row.
+    ///
+    /// A place that the buffer cannot show -- a last row with no rows above the
+    /// cursor to fill the area with -- lands at the top of the buffer, the
+    /// nearest the request can be met.
     ViewRecenter,
 
     /// Splits the line at the cursor.

@@ -1,6 +1,6 @@
 # RFC: Make `C-l` cycle the cursor through center, top, and bottom
 
-- Status: draft
+- Status: implemented
 
 ## Summary
 
@@ -15,10 +15,10 @@ it.
 ## Motivation
 
 `State::recenter_viewport` is a boolean that asks the next `adjust_viewport` to
-center the cursor and clear itself. (A sibling RFC,
-`20260928-rfc-search-hit-keeps-viewport.md`, wants the search steps to stop
-setting it, so this RFC turns the flag into `Option<Recenter>` and the search
-steps write `None` -- see "The flag is shared" below.)
+center the cursor and clear itself. A sibling RFC,
+`20260928-rfc-search-hit-keeps-viewport.md`, already had the search steps stop
+setting it, so the flag is now written only by `C-l` and by the startup
+position.
 
 ```rust
 // src/state.rs
@@ -88,105 +88,156 @@ Unresolved questions.
 
 ## Reference-level explanation
 
-`recenter_viewport: bool` says *that* a recenter is pending, not *which* place
-was asked for, and the cycle needs the place. Replace the flag with an enum
-that carries both:
+The request stays a boolean. Which place it lands on is worked out from the
+viewport, the way `mamediff` does it, so nothing remembers a place:
 
 ```rust
-/// The place a recenter request will put the cursor on the next viewport
-/// adjustment.
+/// Where a recenter request puts the cursor's row in the text area.
+///
+/// The three are the places `C-l` cycles through. Which one a press asks for
+/// is read off the viewport it is pressed on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Recenter {
-    /// Cursor in the middle of the text area (current `C-l` behavior).
+enum RecenterPlace {
     Center,
-    /// Cursor on the first visible row.
     Top,
-    /// Cursor on the last visible row.
     Bottom,
 }
-```
 
-The field becomes `recenter_viewport: Option<Recenter>`, where `None` means no
-recenter request is pending -- today's `false`, which runs the ordinary
-keep-it-visible rule (scroll by the minimum needed to show the cursor). The
-search steps land on exactly that behavior by setting `None`, so `None` carries
-both "nothing asked" and "follow with the minimum scroll". `adjust_viewport`
-matches on it instead of an `if`:
+impl RecenterPlace {
+    /// The viewport row that puts the cursor's row at this place.
+    fn row(self, cursor_row: usize, available_rows: usize) -> usize {
+        match self {
+            Self::Center => cursor_row.saturating_sub(available_rows / 2),
+            Self::Top => cursor_row,
+            Self::Bottom => cursor_row.saturating_sub(available_rows.saturating_sub(1)),
+        }
+    }
 
-```rust
-if let Some(place) = self.recenter_viewport.take() {
-    let (rows, cols) = (available_rows, available_cols);
-    self.viewport = match place {
-        Recenter::Center => TextPosition {
-            row: cursor_pos.row.saturating_sub(rows / 2),
-            col: cursor_pos.col.saturating_sub(cols / 2),
-        },
-        Recenter::Top => TextPosition {
-            row: cursor_pos.row,
-            col: cursor_pos.col.saturating_sub(cols / 2),
-        },
-        Recenter::Bottom => TextPosition {
-            row: cursor_pos.row.saturating_sub(rows.saturating_sub(1)),
-            col: cursor_pos.col.saturating_sub(cols / 2),
-        },
-    };
-    return;
+    fn message(self) -> &'static str { /* "Cursor centered", ... */ }
 }
 ```
 
-`handle_view_recenter` advances the cycle. It has to read the *current* place to
-know the next one, and the place that was last applied is gone from the field
-(`adjust_viewport` took it), so the cycle is decided from what is already
-observable -- the viewport against the cursor -- the way `mamediff` does:
+The enum is private. Nothing outside `State` needs to name a place: the field
+is public but holds a boolean, and the place is an implementation detail of
+the key.
+
+`handle_view_recenter` only raises the request. An earlier draft had it also
+pick the place and write the message, which forced the text area's height into
+`State` (or an estimate of it) so the press could tell "already centered" from
+"already at the top". It does not know the height, and guessing gets the cycle
+wrong: with the estimate one row short of the real area, the third press asked
+for the bottom and the adjustment sized it as a center. Deciding the place in
+`adjust_viewport`, which has the height, removes the third state entirely.
 
 ```rust
 pub fn handle_view_recenter(&mut self) {
     self.finish_editing();
-    let rows = /* last known text area rows */;
-    self.recenter_viewport = Some(self.next_recenter(rows));
-    self.set_message(match self.recenter_viewport {
-        Some(Recenter::Top) => "Cursor at top",
-        Some(Recenter::Bottom) => "Cursor at bottom",
-        _ => "Cursor centered",
-    });
+    self.recenter_viewport = true;
+}
+```
+
+`adjust_viewport` takes the request, picks the place from the viewport as the
+last adjustment left it, and sizes that place inside its existing fixed-point
+loop (rather than an `if` that returns early), so it lands against the drawn
+height the summary rows leave:
+
+```rust
+let recenter = self.recenter_viewport;
+self.recenter_viewport = false;
+let recenter_place = if recenter {
+    let available_rows = self.text_rows(text_area_size.rows);
+    Some(self.recenter_place(available_rows))
+} else {
+    None
+};
+
+for _ in 0..3 {
+    let available_rows = self.text_rows(text_area_size.rows);
+    let before = self.viewport.row;
+
+    if let Some(place) = recenter_place {
+        self.viewport.row = place.row(cursor_pos.row, available_rows);
+    } else {
+        // ... the keep-it-visible rule, unchanged
+    }
+
+    if self.viewport.row == before {
+        break;
+    }
+}
+
+if recenter {
+    if let Some(place) = recenter_place {
+        self.set_message(place.message());
+    }
+}
+
+// The column is centered when a place asked for it, and scrolled by the
+// minimum otherwise.
+if recenter_place.is_some() {
+    self.viewport.col = cursor_pos.col.saturating_sub(available_cols / 2);
+} else if /* ... the keep-it-visible column rule */ {
+    // ...
+}
+```
+
+`recenter_place` is the whole cycle:
+
+```rust
+fn recenter_place(&self, available_rows: usize) -> RecenterPlace {
+    let cursor_row = self.cursor.row;
+    let center_row = RecenterPlace::Center.row(cursor_row, available_rows);
+    let top_row = RecenterPlace::Top.row(cursor_row, available_rows);
+
+    if self.viewport.row == top_row {
+        RecenterPlace::Bottom
+    } else if self.viewport.row == center_row {
+        RecenterPlace::Top
+    } else {
+        RecenterPlace::Center
+    }
 }
 ```
 
 Things that are subtle and easy to get wrong:
 
-- **Where the cycle state lives.** `handle_view_recenter` runs before any
-  `adjust_viewport`, so it must predict the next place from the viewport and
-  cursor as they are now. Deriving "am I centered / at top / at bottom" from
-  `viewport.row - cursor.row` against the text area's rows reproduces
-  `mamediff`'s `current != center && current != top` test, but the text area's
-  size is only known at render time. Either store the last text area size in
-  `State` (set by `App::render` before `adjust_viewport`), or keep an explicit
-  `recenter_index`/`last_place` field that records the place last asked for,
-  which is simpler to reason about than re-deriving it. The explicit field is
-  preferred: it removes the same ambiguity `mamediff` has when top and center
-  coincide.
-- **The flag is shared.** The startup position (`handle_cursor_to_position`)
-  and the search steps (`handle_search_next_hit`, `handle_search_prev_hit`)
-  also write `recenter_viewport`. The startup position wants a one-shot
-  *center*, so it sets `Some(Recenter::Center)` and is unaffected by the cycle.
-  The search steps want the viewport to follow the hit with the minimum scroll,
-  not to center, so they set `None` -- the same value that means "no request"
-  today, and the sibling RFC's whole point. Neither caller participates in the
-  cycle.
+- **The top is tested before the center.** The places are not disjoint: a
+  cursor in the middle of the drawn rows is on the top row and centered at the
+  same time whenever the area's height has not changed since the last
+  adjustment. Testing the center first leaves the cycle there, and the third
+  press never reaches the bottom.
+- **The place is chosen once, not per loop pass.** The loop overwrites
+  `viewport.row` on its first pass, so a second pass branching on the new value
+  steps the cycle a second time: the first press would center and then move on
+  to the top in the same adjustment. The place is picked before the loop; only
+  the row it works out to is re-evaluated against each pass's height.
+- **The startup position is not a `C-l` press.** `handle_cursor_to_position`
+  wants a one-shot *center* and must not step the cycle, or the reader's first
+  `C-l` after opening a file at a `FILE:ROW:COL` position would jump to the top
+  instead of centering. It writes its own `center_viewport` flag, which asks
+  for `RecenterPlace::Center` directly. Keeping it apart also keeps the
+  message off the startup path: it is not a place the reader asked for, so it
+  should not be announced, and the message is written only for a `C-l` press.
+  The search steps (`handle_search_next_hit`, `handle_search_prev_hit`) want
+  the viewport to follow the hit with the minimum scroll, so they leave both
+  flags alone.
 - **Horizontal centering.** Today `recenter` centers both axes. The proposal
-  keeps the column centered for all three places, so only the vertical
+  keeps the column centered when a place asked for it, so only the vertical
   position changes across the cycle; a top/bottom request is about rows. If a
-  later request wants per-axis places, the enum grows two components instead of
-  one.
+  later request wants per-axis places, `RecenterPlace` grows two components
+  instead of one.
 - **Empty text area.** `adjust_viewport` is still called with `rows == 0` at
   startup in some paths; the arithmetic must stay `saturating_sub`-based so a
-  zero-size area cannot underflow.
+  zero-size area cannot underflow. Folding the place into the existing
+  fixed-point loop, rather than returning after sizing it once, is what keeps a
+  `Bottom` request honest when the summary rows change the drawn height.
 
 ## Drawbacks
 
-- More state than a boolean: a public enum, a field that is now `Option<Recenter>`
-  rather than `bool`, and the cycle bookkeeping. `C-l` is currently the simplest
-  action in the table, and this makes it the most stateful.
+- A second boolean on `State` (`center_viewport`, for the startup position),
+  which exists only so the startup path does not step the cycle. The cycle
+  itself needs no memory, but the two kinds of request do have to be told
+  apart.
 - The third press changes where the cursor sits relative to the file's start
   and end, which interacts with the "scroll just far enough" rule: after a
   cycle, the next cursor move re-adjusts from a non-minimal viewport, so the
@@ -205,10 +256,15 @@ Things that are subtle and easy to get wrong:
   something Emacs-style editors fold into one key; kk has no prefix arguments,
   so there is nowhere natural to put the choice.
 
-- **Keep `bool` and derive the cycle from the viewport** (exactly `mamediff`'s
-  approach). Fewer fields, but it needs the text area's rows inside `State` and
-  it is ambiguous when top and center coincide; the explicit `Option<Recenter>`
-  is only a little more code and removes both problems.
+- **Carry the place in the request** (`recenter_viewport: Option<Recenter>`,
+  with an explicit `last_recenter` to advance the cycle). This is what the
+  first draft did. It keeps the cycle out of `adjust_viewport`, but it needs
+  the text area's height inside `State` to work out the next place -- or an
+  estimate, which is what the draft used and which is wrong: the cycle reads
+  the same viewport the adjustment is about to rewrite, so the two disagree,
+  and the press asks for one place while the adjustment applies another.
+  Deriving the place from the viewport in `adjust_viewport` removes both the
+  extra state and the disagreement.
 
 - **Only cycle between center and top**, leaving bottom out. Simpler, but
   bottom is the state that the minimal-scroll rule already produces implicitly,
@@ -216,21 +272,11 @@ Things that are subtle and easy to get wrong:
 
 ## Unresolved questions
 
-- Whether to keep an explicit "which place was requested last" field or to
-  derive it from the viewport and cursor. The RFC leans explicit; the derived
-  form matches `mamediff` and needs no extra field.
-- What to do when two places coincide. On a text area one row tall, or when the
-  cursor is at row 0, top and center are the same viewport; cycling through both
-  still advances the state, but the user sees one press do nothing. Decide
-  whether the cycle skips coincident places or advances regardless.
-- Whether the horizontal column should stay centered on the top/bottom places
-  (proposed) or align to column 0 / the line's end.
-- Whether the message should name the place (`"Cursor at top"`) or stay the
-  single `"View recentered"` string.
-- The search steps writing `None` is settled by the sibling RFC; what is not is
-  whether anything *else* should follow the hit instead of centering. If a
-  later command wants "put the hit at the top", that is a fourth place and the
-  enum grows rather than the search steps changing again.
+None. Each press advances one place, including a place that coincides with the
+previous one on screen, and a place the buffer cannot show -- a `Bottom` with
+fewer than a text area of rows above the cursor -- clamps at the buffer's first
+row rather than scrolling past it; the cursor then sits somewhere other than the
+last drawn row, which is the nearest the request can be met.
 
 ## Future possibilities
 
