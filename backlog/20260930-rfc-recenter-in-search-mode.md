@@ -1,6 +1,6 @@
 # RFC: Let `C-l` recenter from the search mode
 
-- Status: draft
+- Status: implemented
 
 ## Summary
 
@@ -179,7 +179,9 @@ Things that are subtle and easy to get wrong:
   explicit "place last asked for" field -- is the one to take, because it also
   removes the ambiguity when two places coincide (a text area one row tall
   makes `Center` and `Top` the same viewport; a field still advances, a
-  derivation cannot tell them apart).
+  derivation cannot tell them apart). It landed as
+  `last_recenter: Option<Recenter>`, where `None` opens the cycle at `Center`
+  so the first press does what it always did.
 - **Coincident places in a search.** A search hit at row 0 of a file, in a text
   area shorter than the file, makes `Center` and `Top` the same viewport: the
   first press appears to do nothing, the second lands on `Bottom`. With a
@@ -201,9 +203,20 @@ Things that are subtle and easy to get wrong:
   `rows == 0` cannot underflow (the current `Center` branch already relies on
   this).
 - **The message.** `handle_view_recenter` reports `"View recentered"`. With
-  three places the message can name the place (`"Cursor centered"`,
-  `"Cursor at top"`, `"Cursor at bottom"`); the sibling RFC leaves this open,
-  and the search mode does not decide it either.
+  three places the message names the place (`"Cursor centered"`,
+  `"Cursor at top"`, `"Cursor at bottom"`), shared with the edit mode rather
+  than decided here.
+
+## Tests
+
+- `tests/binding.rs`: `C-l` resolves to `Action::ViewRecenter` in both the edit
+  and search modes, and each mode's legend names the chord it binds.
+- `tests/legend.rs`: the search legend's exact rendering gains the `C-l` row
+  under `C-s`; the existing width and border checks pin that the box stayed 13
+  columns wide.
+- `tests/state.rs`: the cycle visits center, top, and bottom and wraps; a `Top`
+  request puts the cursor on the first drawn row and a `Bottom` request on the
+  last; a startup position rewinds the cycle so a later `C-l` centers again.
 
 ## Drawbacks
 
@@ -268,12 +281,10 @@ Things that are subtle and easy to get wrong:
 - Whether the cycle skips a place that coincides with the previous one. The
   same question is open in the sibling RFC; the answer should be shared, not
   decided twice, and the search mode (which can center a hit at row 0 or on the
-  last row) is where a user is most likely to see the oddity.
-- Whether the message should name the place in the search mode too, or keep the
-  single `"View recentered"`. Sharing the sibling RFC's answer is the
-  expectation.
+  last row) is where a user is most likely to see the oddity. The landed code
+  advances regardless, matching the edit mode.
 - Whether `Top`/`Bottom` should center the column as well, or align the line to
-  the left edge. Centering is proposed because the hit is what is being read;
+  the left edge. Centering landed because the hit is what is being read;
   left-aligning would show more of a long line's tail past the hit.
 
 ## Future possibilities

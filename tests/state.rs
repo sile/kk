@@ -554,7 +554,86 @@ fn a_recenter_request_centres_the_cursor_and_is_consumed() {
         state.viewport.row, 0,
         "2 is centered in a 10-row area at row 0"
     );
-    assert!(!state.recenter_viewport, "the request is used once");
+    assert!(
+        state.recenter_viewport.is_none(),
+        "the request is used once"
+    );
+}
+
+#[test]
+fn a_recenter_cycle_visits_center_top_and_bottom() {
+    // Each press is consumed by the render that follows it, so the loop puts
+    // the field back to `None` between presses the way a render would.
+    let mut state = state_of(&"a\n".repeat(20));
+    state.cursor = at(10, 0);
+
+    let mut places = Vec::new();
+    for _ in 0..4 {
+        state.handle_view_recenter();
+        places.push(state.recenter_viewport);
+        state.adjust_viewport(area(5, 10));
+    }
+
+    assert_eq!(
+        places,
+        vec![
+            Some(kk::Recenter::Center),
+            Some(kk::Recenter::Top),
+            Some(kk::Recenter::Bottom),
+            Some(kk::Recenter::Center),
+        ],
+        "center, top, bottom, and back around"
+    );
+}
+
+#[test]
+fn a_top_request_puts_the_cursor_on_the_first_drawn_row() {
+    let mut state = state_of(&"a\n".repeat(20));
+    state.cursor = at(10, 0);
+
+    state.handle_view_recenter(); // Center, so the cycle is on its first press.
+    state.adjust_viewport(area(5, 10));
+    state.handle_view_recenter(); // Top.
+    state.adjust_viewport(area(5, 10));
+
+    assert_eq!(state.viewport.row, 10, "row 10 is the area's first row");
+}
+
+#[test]
+fn a_bottom_request_puts_the_cursor_on_the_last_drawn_row() {
+    let mut state = state_of(&"a\n".repeat(20));
+    state.cursor = at(10, 0);
+
+    for _ in 0..2 {
+        state.handle_view_recenter();
+        state.adjust_viewport(area(5, 10));
+    }
+    state.handle_view_recenter(); // Bottom.
+    state.adjust_viewport(area(5, 10));
+
+    assert_eq!(
+        state.viewport.row, 6,
+        "10 - (5 - 1): row 10 is the area's last row"
+    );
+}
+
+#[test]
+fn a_startup_position_rewinds_the_recenter_cycle() {
+    // The startup path asks for a center of its own; a later `C-l` must not
+    // continue a cycle the reader never started.
+    let mut state = state_of(&"a\n".repeat(20));
+
+    state.handle_view_recenter();
+    state.adjust_viewport(area(5, 10));
+    state.handle_cursor_to_position(10, 0);
+    state.adjust_viewport(area(5, 10));
+
+    state.handle_view_recenter();
+    assert_eq!(
+        state.recenter_viewport,
+        Some(kk::Recenter::Center),
+        "the press after a startup position centers again"
+    );
 }
 
 #[test]
@@ -724,7 +803,7 @@ fn a_cursor_a_screen_and_a_row_out_is_centered() {
     state.viewport = at(0, 0);
 
     state.handle_cursor_to_position(11, 0);
-    state.recenter_viewport = false;
+    state.recenter_viewport = None; // drop the startup center
     state.adjust_viewport(area(5, 10));
 
     assert_eq!(
@@ -741,7 +820,7 @@ fn a_cursor_exactly_a_screen_out_is_not_centered() {
     state.viewport = at(0, 0);
 
     state.handle_cursor_to_position(10, 0);
-    state.recenter_viewport = false;
+    state.recenter_viewport = None; // drop the startup center
     state.adjust_viewport(area(5, 10));
 
     assert_eq!(
@@ -757,7 +836,7 @@ fn a_cursor_above_the_viewport_a_screen_out_is_centered() {
 
     // Row 6 is 6 rows above the viewport's row 12, more than the 5-row area.
     state.handle_cursor_to_position(6, 0);
-    state.recenter_viewport = false;
+    state.recenter_viewport = None; // drop the startup center
     state.adjust_viewport(area(5, 10));
 
     assert_eq!(
@@ -777,6 +856,10 @@ fn an_explicit_recenter_beats_the_far_jump_rule() {
     state.adjust_viewport(area(5, 10));
 
     assert_eq!(state.viewport.row, 0, "row 0 centers as far as it can");
+    assert!(
+        state.recenter_viewport.is_none(),
+        "the request is used once"
+    );
 }
 
 #[test]

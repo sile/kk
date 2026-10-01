@@ -1,6 +1,6 @@
 # RFC: Make `C-l` cycle the cursor through center, top, and bottom
 
-- Status: draft
+- Status: implemented
 
 ## Summary
 
@@ -136,21 +136,31 @@ if let Some(place) = self.recenter_viewport.take() {
 
 `handle_view_recenter` advances the cycle. It has to read the *current* place to
 know the next one, and the place that was last applied is gone from the field
-(`adjust_viewport` took it), so the cycle is decided from what is already
-observable -- the viewport against the cursor -- the way `mamediff` does:
+(`adjust_viewport` took it), so it reads the place the last press asked for from
+its own field:
 
 ```rust
 pub fn handle_view_recenter(&mut self) {
     self.finish_editing();
-    let rows = /* last known text area rows */;
-    self.recenter_viewport = Some(self.next_recenter(rows));
-    self.set_message(match self.recenter_viewport {
-        Some(Recenter::Top) => "Cursor at top",
-        Some(Recenter::Bottom) => "Cursor at bottom",
-        _ => "Cursor centered",
+    let place = match self.last_recenter {
+        None => Recenter::Center,
+        Some(Recenter::Center) => Recenter::Top,
+        Some(Recenter::Top) => Recenter::Bottom,
+        Some(Recenter::Bottom) => Recenter::Center,
+    };
+    self.last_recenter = Some(place);
+    self.recenter_viewport = Some(place);
+    self.set_message(match place {
+        Recenter::Center => "Cursor centered",
+        Recenter::Top => "Cursor at top",
+        Recenter::Bottom => "Cursor at bottom",
     });
 }
 ```
+
+The field is `last_recenter: Option<Recenter>`, where `None` means no press has
+run yet: the match above opens the cycle at `Center` rather than at `Top`, so
+the very first `C-l` keeps doing what it always did.
 
 Things that are subtle and easy to get wrong:
 
@@ -159,20 +169,20 @@ Things that are subtle and easy to get wrong:
   cursor as they are now. Deriving "am I centered / at top / at bottom" from
   `viewport.row - cursor.row` against the text area's rows reproduces
   `mamediff`'s `current != center && current != top` test, but the text area's
-  size is only known at render time. Either store the last text area size in
-  `State` (set by `App::render` before `adjust_viewport`), or keep an explicit
-  `recenter_index`/`last_place` field that records the place last asked for,
-  which is simpler to reason about than re-deriving it. The explicit field is
-  preferred: it removes the same ambiguity `mamediff` has when top and center
-  coincide.
+  size is only known at render time. The alternative was to store the last text
+  area size in `State` (set by `App::render` before `adjust_viewport`). The
+  explicit `last_recenter: Option<Recenter>` field was taken instead: it is
+  simpler to reason about, and it removes the ambiguity `mamediff` has when top
+  and center coincide.
 - **The flag is shared.** The startup position (`handle_cursor_to_position`)
-  and the search steps (`handle_search_next_hit`, `handle_search_prev_hit`)
-  also write `recenter_viewport`. The startup position wants a one-shot
-  *center*, so it sets `Some(Recenter::Center)` and is unaffected by the cycle.
-  The search steps want the viewport to follow the hit with the minimum scroll,
-  not to center, so they set `None` -- the same value that means "no request"
-  today, and the sibling RFC's whole point. Neither caller participates in the
-  cycle.
+  also writes `recenter_viewport`. It wants a one-shot *center*, so it sets
+  `Some(Recenter::Center)` and is unaffected by the cycle -- and it also resets
+  `last_recenter` to `None`, so the reader's first `C-l` after opening a file at
+  a `FILE:ROW:COL` position centers rather than jumping to the top. The search
+  steps (`handle_search_next_hit`, `handle_search_prev_hit`) want the viewport
+  to follow the hit with the minimum scroll, so they leave both fields alone --
+  the same value that means "no request" today, and the search-mode RFC's whole
+  point. No caller but `C-l` participates in the cycle.
 - **Horizontal centering.** Today `recenter` centers both axes. The proposal
   keeps the column centered for all three places, so only the vertical
   position changes across the cycle; a top/bottom request is about rows. If a
@@ -216,21 +226,22 @@ Things that are subtle and easy to get wrong:
 
 ## Unresolved questions
 
-- Whether to keep an explicit "which place was requested last" field or to
-  derive it from the viewport and cursor. The RFC leans explicit; the derived
-  form matches `mamediff` and needs no extra field.
 - What to do when two places coincide. On a text area one row tall, or when the
   cursor is at row 0, top and center are the same viewport; cycling through both
-  still advances the state, but the user sees one press do nothing. Decide
-  whether the cycle skips coincident places or advances regardless.
+  still advances the state, but the user sees one press do nothing. The landed
+  behavior advances regardless -- the explicit `last_recenter` field makes that
+  the natural reading, and skipping would need a rule for which place to skip.
 - Whether the horizontal column should stay centered on the top/bottom places
-  (proposed) or align to column 0 / the line's end.
-- Whether the message should name the place (`"Cursor at top"`) or stay the
-  single `"View recentered"` string.
-- The search steps writing `None` is settled by the sibling RFC; what is not is
-  whether anything *else* should follow the hit instead of centering. If a
-  later command wants "put the hit at the top", that is a fourth place and the
-  enum grows rather than the search steps changing again.
+  (proposed) or align to column 0 / the line's end. The landed code centers the
+  column on every place, so the three differ in rows only.
+- The search steps leaving the request alone is settled by the search-mode RFC;
+  what is not is whether anything *else* should follow the hit instead of
+  centering. If a later command wants "put the hit at the top", that is a
+  fourth place and the enum grows rather than the search steps changing again.
+
+The two that were open when this was drafted -- which field holds the cycle, and
+whether the message names the place -- were settled during implementation: the
+field is `last_recenter: Option<Recenter>`, and the message names the place.
 
 ## Future possibilities
 

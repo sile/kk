@@ -374,12 +374,12 @@ fn a_hit_step_leaves_a_pending_recenter_request_alone() {
     // step runs, because the render path has not consumed it yet. The step
     // must not cancel it: the request is about the cursor, not the search.
     state.handle_view_recenter();
-    assert!(state.recenter_viewport);
+    assert!(state.recenter_viewport.is_some());
 
     state.handle_search_next_hit();
     assert_eq!(state.cursor, kk::TextPosition { row: 0, col: 8 });
     assert!(
-        state.recenter_viewport,
+        state.recenter_viewport.is_some(),
         "the step carries the request through instead of clearing it"
     );
 }
@@ -492,7 +492,7 @@ fn a_cursor_near_the_right_edge_scrolls_against_the_width_the_gutter_leaves() {
     // not: without the fix the viewport stays put and the cursor is drawn off
     // the right edge.
     state.cursor = kk::TextPosition { row: 0, col: 25 };
-    state.recenter_viewport = false;
+    state.recenter_viewport = None;
     let text_area = tuinix::Size { rows: 3, cols: 30 };
     state.adjust_viewport(text_area);
 

@@ -122,6 +122,7 @@ fn the_search_legend_is_exactly_this_text() {
         "\u{2502}Ent \u{23ce} finish",
         "\u{2502}C-r \u{21e4} prev  ",
         "\u{2502}C-s \u{21e5} next  ",
+        "\u{2502}C-l recenter",
         "\u{2502}C-k cut-tail",
         "\u{2502}C-y paste   ",
         "\u{2502}C-a bol     ",
