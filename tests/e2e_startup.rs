@@ -56,14 +56,15 @@ fn a_line_and_column_suffix_moves_the_cursor_to_both() {
 }
 
 #[test]
-fn an_out_of_range_suffix_is_clamped_to_the_buffer_end() {
+fn an_out_of_range_suffix_is_clamped_to_the_last_line() {
     let path = write_lines("startup_clamped.txt");
 
     let mut kk = e2e::KkHarness::open_arg(&format!("{}:9999", path.display()));
     widen(&mut kk);
 
-    // The last line is line 4; the line after it is where the core clamps.
-    kk.wait_for_text(":5:1]");
+    // The last line is line 4, and the row after it is not one a cursor can
+    // stand on.
+    kk.wait_for_text(":4:1]");
 
     let status = kk.quit();
     assert!(status.success(), "kk exited with {status:?}");

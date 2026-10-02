@@ -1,6 +1,6 @@
 # Bug: The cursor reaches the row after the last line
 
-- Status: open
+- Status: fixed
 
 ## Summary
 
@@ -100,18 +100,25 @@ effect.
 
 ## Notes
 
-All of the handlers that clamp a cursor row should draw the same bound
-(`rows() - 1`, or `rows().saturating_sub(1)` so an empty buffer behaves), not
-just `handle_cursor_down`: the bug is one wrong bound copied into
-`handle_cursor_down`, `handle_cursor_buffer_end`, `handle_cursor_right`,
-`handle_cursor_to_screen_position`, `handle_cursor_to_position`,
-`handle_buffer_reload`, and `handle_scroll`, and fixing one leaves the rest.
+All of the handlers that clamp a cursor row draw the same bound through
+`State::row_count()`, which is `TextBuffer::last_row()`. The bug was one wrong
+bound copied into `handle_cursor_down`, `handle_cursor_buffer_end`,
+`handle_cursor_right`, `handle_cursor_to_screen_position`,
+`handle_cursor_to_position`, `handle_buffer_reload`, and `handle_scroll`, and
+fixing one would have left the rest.
+
 `handle_char_delete_backward`'s `else if self.cursor.row == self.buffer.rows()`
-branch should then be dropped, since the position it handles no longer exists.
+branch is gone, since the position it handled no longer exists.
 
 The indexing is already right where `rows()` is used as a *count* rather than a
 bound -- `State::text_rows` and the `end_row` slice in `src/render.rs` use
-`rows()` as an exclusive slice end, which is correct and should not change.
+`rows()` as an exclusive slice end, which is correct and unchanged.
+
+The automatic recenter in `adjust_viewport` needed one more change: the
+centering formula's only floor was the buffer's start, so a jump near the last
+line was placed past the buffer's end. Its center is now also floored by the
+last page, which is the file-end placement the companion RFC on recentering near
+the file end asks for, reached from the bound fixed here.
 
 This is a bug and not an RFC because the code contradicts a documented
 invariant in `src/buffer.rs`; the choice is which row the cursor may occupy,

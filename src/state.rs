@@ -209,6 +209,16 @@ impl State {
         self.buffer.adjust_to_char_boundary(self.cursor, true)
     }
 
+    /// Returns the last row a cursor can stand on: the buffer's last line.
+    ///
+    /// Every handler that bounds a cursor row draws it from here, so the bound
+    /// is written once. [`TextBuffer::rows()`](crate::TextBuffer::rows) is the
+    /// number of lines, one past this, and is the wrong bound for a cursor: a
+    /// cursor on it would stand on a row no line backs.
+    fn row_count(&self) -> usize {
+        self.buffer.last_row()
+    }
+
     /// Returns how many rows the gutter's summary rows take from a text area
     /// `available_rows` tall: zero, one, or two -- one for a total above the
     /// visible slice and one for a total below it.
@@ -391,9 +401,17 @@ impl State {
                 // being left, so it is centered rather than pinned to the edge
                 // it came in through; nearer than that, the lines around the
                 // cursor are lines the reader was just looking at, and the
-                // minimum scroll keeps the connection.
+                // minimum scroll keeps the connection. The center is floored by
+                // the buffer's end, not by its start: a cursor near the last
+                // line has too little file below it to fill the lower half of
+                // the frame, and centering past the end would put the cursor
+                // against the bottom edge with blank rows under it. Flooring at
+                // the last page instead leaves the cursor on the last drawn
+                // row, the same place the start of the file gets at the top.
                 if rows_out > available_rows {
-                    self.viewport.row = cursor_pos.row.saturating_sub(available_rows / 2);
+                    let centered = cursor_pos.row.saturating_sub(available_rows / 2);
+                    let last_viewport = self.row_count().saturating_sub(available_rows);
+                    self.viewport.row = centered.min(last_viewport);
                 } else if cursor_pos.row < self.viewport.row {
                     // Cursor is above viewport, scroll up
                     self.viewport.row = cursor_pos.row;
@@ -490,7 +508,7 @@ impl State {
     /// centers the cursor, and the `C-l` after that reads the centered viewport
     /// and moves on to the top, as a first press would.
     pub fn handle_cursor_to_position(&mut self, row: usize, col: usize) {
-        self.cursor.row = row.min(self.buffer.rows());
+        self.cursor.row = row.min(self.row_count());
         self.cursor.col = self.buffer.cols(self.cursor.row).min(col);
         self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
         self.center_viewport = true;
@@ -503,7 +521,7 @@ impl State {
     /// Both are relative to the text area, not the terminal, so the viewport is
     /// added here rather than by the caller.
     pub fn handle_cursor_to_screen_position(&mut self, row: usize, col: usize) {
-        self.cursor.row = (self.viewport.row + row).min(self.buffer.rows());
+        self.cursor.row = (self.viewport.row + row).min(self.row_count());
         self.cursor.col = self
             .buffer
             .cols(self.cursor.row)
@@ -546,8 +564,8 @@ impl State {
     /// cursor where its screen row says, with no rows to give up.
     pub fn handle_scroll(&mut self, rows: isize, text_area_size: tuinix::Size) {
         let drawn_rows = self.text_rows(text_area_size.rows);
-        let last_row = self.buffer.rows();
-        let last_viewport = last_row.saturating_sub(drawn_rows.saturating_sub(1));
+        let last_row = self.row_count();
+        let last_viewport = (last_row + 1).saturating_sub(drawn_rows);
         let start_row = self.viewport.row;
 
         // The cursor's row on screen before the notch. A cursor already off
@@ -580,7 +598,7 @@ impl State {
 
     /// Moves the cursor down one row.
     pub fn handle_cursor_down(&mut self) {
-        self.cursor.row = self.cursor.row.saturating_add(1).min(self.buffer.rows());
+        self.cursor.row = self.cursor.row.saturating_add(1).min(self.row_count());
         self.finish_editing();
     }
 
@@ -619,7 +637,7 @@ impl State {
         if self.cursor.col < current_cols {
             self.cursor.col = self.cursor.col.saturating_add(1);
             self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, false);
-        } else if self.cursor.row < self.buffer.rows() {
+        } else if self.cursor.row < self.row_count() {
             // Move to beginning of next line
             self.cursor.row = self.cursor.row.saturating_add(1);
             self.cursor.col = 0;
@@ -657,17 +675,16 @@ impl State {
 
     /// Moves the cursor to the last line of the buffer.
     pub fn handle_cursor_buffer_end(&mut self) {
-        self.cursor.row = self.buffer.rows();
+        self.cursor.row = self.row_count();
         self.cursor.col = 0;
         self.finish_editing();
     }
 
     /// Deletes the character before the cursor.
     ///
-    /// At the buffer end there is no character to delete -- the buffer always
-    /// saves a trailing newline, so the row after the last line holds nothing
-    /// -- but the cursor is moved back to the end of the last line, which is
-    /// where the next press joins that line onto the previous one.
+    /// At the start of the line this joins it onto the previous one, so a
+    /// press there deletes the newline. At the buffer's first row there is no
+    /// previous line and nothing to delete.
     ///
     /// While a search prompt is open, this deletes from the query instead and
     /// re-runs it.
@@ -682,11 +699,6 @@ impl State {
         self.start_editing();
         if let Some(new_pos) = self.buffer.delete_char_before(self.cursor) {
             self.cursor = new_pos;
-        } else if self.cursor.row == self.buffer.rows() {
-            // The buffer end: nothing to delete, but fall back to the last
-            // line so a repeated backspace can join it onto the previous one.
-            self.cursor.row = self.buffer.rows().saturating_sub(1);
-            self.cursor.col = self.buffer.cols(self.cursor.row);
         }
     }
 
@@ -740,16 +752,15 @@ impl State {
 
         self.buffer = TextBuffer::new(text);
 
-        // Try to preserve cursor position, but adjust if the file has changed
-        let max_row = self.buffer.rows();
-        self.cursor.row = self.cursor.row.min(max_row);
+        // Try to preserve the cursor position, but adjust if the file has
+        // changed. The row is clamped to the buffer's last line, so a cursor
+        // that survives keeps whatever fits of its column on that line; a
+        // cursor pulled back from past the end lands on the last line's end
+        // rather than at column 0 of nowhere.
+        self.cursor.row = self.cursor.row.min(self.row_count());
 
-        if self.cursor.row < max_row {
-            let max_col = self.buffer.cols(self.cursor.row);
-            self.cursor.col = self.cursor.col.min(max_col);
-        } else {
-            self.cursor.col = 0;
-        }
+        let max_col = self.buffer.cols(self.cursor.row);
+        self.cursor.col = self.cursor.col.min(max_col);
 
         // Adjust cursor to proper character boundary
         self.cursor = self.buffer.adjust_to_char_boundary(self.cursor, true);
