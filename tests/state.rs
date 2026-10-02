@@ -472,11 +472,16 @@ fn saving_and_reloading_round_trip_through_the_edge() {
     assert_eq!(saved_text(&state), "fresh\n");
     assert_eq!(state.cursor, at(0, 2), "column 2 fits in a 5-column line");
 
-    // A cursor on the row one past the last line is left there with column 0,
-    // because the clamp compares against `rows()` rather than the last index.
-    state.cursor = at(1, 0);
+    // A cursor past the end is pulled back to the last line rather than left
+    // on a row no line backs. Its column was on another line entirely, so the
+    // clamp to the shorter one brings it to that line's end.
+    state.cursor = at(9, 20);
     state.handle_buffer_reload("fresh\n");
-    assert_eq!(state.cursor, at(1, 0));
+    assert_eq!(
+        state.cursor,
+        at(0, 5),
+        "a cursor past the end lands on the last line's end"
+    );
 }
 
 #[test]
@@ -652,8 +657,8 @@ fn a_click_below_the_buffer_lands_on_the_last_line() {
 
     assert_eq!(
         state.cursor,
-        at(2, 0),
-        "row 2 is the row after the last line"
+        at(1, 0),
+        "row 1 is the last line, and no row past it exists"
     );
 }
 
@@ -698,8 +703,8 @@ fn the_start_position_is_clamped_to_the_buffer() {
 
     assert_eq!(
         state.cursor,
-        at(2, 0),
-        "row 2 is the row after the last line, and it has no columns"
+        at(1, 3),
+        "row 1 is the last line, clamped to the end of it"
     );
 }
 
@@ -822,20 +827,19 @@ fn a_notch_up_moves_the_view_without_moving_the_cursor_on_screen() {
 
 #[test]
 fn a_notch_that_reaches_the_end_brings_the_last_line_to_the_bottom() {
-    // Twenty lines in a ten-row area: the buffer's last row is 20 (the row
-    // after the last line, which the cursor clamps to), so the furthest the
-    // viewport can go is 20 - 9 = 11. The cursor's screen row of 2 cannot
-    // survive that, so it is pulled down to the last row -- the whole point
-    // of phase two.
+    // Twenty lines in a ten-row area: the buffer's last row is 19, so the
+    // furthest the viewport can go is 19 - 9 = 10. The cursor's screen row of 2
+    // cannot survive that, so it is pulled down to the last row -- the whole
+    // point of phase two.
     let mut state = state_of(&"a\n".repeat(20));
     state.viewport = at(0, 0);
     state.cursor = at(2, 0); // screen row 2
 
     state.handle_scroll(50, area(10, 10));
 
-    assert_eq!(state.viewport.row, 11, "the viewport stops at its last row");
+    assert_eq!(state.viewport.row, 10, "the viewport stops at its last row");
     assert_eq!(
-        state.cursor.row, 20,
+        state.cursor.row, 19,
         "the cursor gives up its screen row and rides to the last line"
     );
 }
@@ -979,44 +983,112 @@ fn scrolling_up_stops_at_the_first_line() {
 }
 
 #[test]
-fn scrolling_down_stops_at_the_row_after_the_last_line() {
+fn scrolling_down_stops_at_the_last_line() {
     let mut state = state_of("a\nb\n");
 
     state.handle_scroll(50, area(3, 10));
 
     assert_eq!(
-        state.cursor.row, 2,
-        "the clamp is `rows()`, not the last index"
+        state.cursor.row, 1,
+        "the clamp is the last line, not the row after it"
     );
 }
 
 #[test]
-fn backspace_at_the_buffer_end_moves_the_cursor_to_the_last_line()
--> Result<(), Box<dyn std::error::Error>> {
+fn backspace_at_the_buffer_end_joins_the_last_two_lines() -> Result<(), Box<dyn std::error::Error>>
+{
     let mut state = state_of("abc\nxyz\n");
 
     state.handle_cursor_buffer_end();
-    state.handle_char_delete_backward();
-
-    // The buffer always saves a trailing newline, so backspace there cannot
-    // delete one. It leaves the text alone and pulls the cursor back to the
-    // end of the last line instead.
-    assert_eq!(saved_text(&state), "abc\nxyz\n", "the text is unchanged");
     assert_eq!(
         state.cursor,
-        at(1, 3),
-        "the cursor is at the last line's end"
+        at(1, 0),
+        "the buffer end is the last line, not a row past it"
     );
 
-    // A second press deletes from that line as usual now that the cursor is
-    // on it.
     state.handle_char_delete_backward();
-    assert_eq!(
-        saved_text(&state),
-        "abc\nxy\n",
-        "the last character is deleted"
-    );
-    assert_eq!(state.cursor, at(1, 2), "the cursor follows the deletion");
+
+    // Backspace at the start of a line joins it onto the previous one, so the
+    // last press deletes the newline rather than doing nothing.
+    assert_eq!(saved_text(&state), "abcxyz\n");
+    assert_eq!(state.cursor, at(0, 3), "the cursor joins the previous line");
 
     Ok(())
+}
+
+#[test]
+fn holding_down_stops_on_the_last_line() {
+    let mut state = state_of("1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n");
+
+    for _ in 0..10 {
+        state.handle_cursor_down();
+    }
+
+    assert_eq!(
+        state.cursor.row,
+        state.buffer.rows() - 1,
+        "the cursor stops on the last line, not the row after it"
+    );
+    assert_eq!(state.cursor.row, 9);
+}
+
+#[test]
+fn every_cursor_row_a_handler_can_produce_is_a_real_line() {
+    // The bug was one wrong bound copied into several handlers, so the check is
+    // that every way of moving the cursor lands on a row the buffer backs.
+    let text = "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n";
+    let out_of_range = at(999, 999);
+
+    let after: Vec<(&str, kk::TextPosition)> = vec![
+        ("down past the end", {
+            let mut state = state_of(text);
+            state.cursor = out_of_range;
+            state.cursor.row = 0;
+            for _ in 0..20 {
+                state.handle_cursor_down();
+            }
+            state.cursor
+        }),
+        ("the buffer end", {
+            let mut state = state_of(text);
+            state.handle_cursor_buffer_end();
+            state.cursor
+        }),
+        ("right at the last line's end", {
+            let mut state = state_of(text);
+            state.cursor = at(9, 2);
+            state.handle_cursor_right();
+            state.cursor
+        }),
+        ("a click below the text", {
+            let mut state = state_of(text);
+            state.handle_cursor_to_screen_position(50, 0);
+            state.cursor
+        }),
+        ("a start position past the end", {
+            let mut state = state_of(text);
+            state.handle_cursor_to_position(999, 999);
+            state.cursor
+        }),
+        ("a scroll past the end", {
+            let mut state = state_of(text);
+            state.handle_scroll(999, area(10, 10));
+            state.cursor
+        }),
+        ("a reload with a cursor past the end", {
+            let mut state = state_of("a\nb\n");
+            state.cursor = out_of_range;
+            state.handle_buffer_reload(text);
+            state.cursor
+        }),
+    ];
+
+    for (what, cursor) in after {
+        assert!(
+            cursor.row < state_of(text).buffer.rows(),
+            "{what} landed on row {}, but the last line is {}",
+            cursor.row,
+            state_of(text).buffer.rows() - 1
+        );
+    }
 }

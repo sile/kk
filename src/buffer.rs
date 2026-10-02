@@ -43,8 +43,22 @@ impl TextBuffer {
     }
 
     /// Returns the number of lines.
+    ///
+    /// This is a count, not the last row: the last line is index
+    /// [`last_row()`](TextBuffer::last_row), one less than this. `rows()` is
+    /// what a slice end wants -- the rows of the whole buffer are
+    /// `0..rows()` -- and the cursor is never placed on it.
     pub fn rows(&self) -> usize {
         self.text.len()
+    }
+
+    /// Returns the index of the last line, which is also the last row a cursor
+    /// can stand on.
+    ///
+    /// An empty buffer is one empty line, so this is `0` rather than an
+    /// underflow.
+    pub fn last_row(&self) -> usize {
+        self.rows().saturating_sub(1)
     }
 
     /// Returns line `row`, or `None` if there is no such line.
