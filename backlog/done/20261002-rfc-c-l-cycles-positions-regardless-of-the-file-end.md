@@ -228,3 +228,55 @@ highlight, all to fix a press that today lands a row or two short of the edge
 it names. That is too much for the gain, and the 20260928 outcome already
 records `Top`/`Bottom` clamping at the buffer edge as the documented, accepted
 behavior. The item is closed without a change.
+
+### Prototype: a signed viewport
+
+To size that cost rather than guess at it, option (a) of the Open questions --
+make `viewport.row` signed -- was built on a scratch branch and exercised in the
+editor. `ViewportPosition { row: isize, col: usize }` replaced the unsigned
+field; `RecenterPlace::row()` returned an `isize` and stopped saturating, so a
+manual `C-l` could name a row above row `0`; the renderer drew the negative
+buffer rows blank; and hit testing, clicks, `adjust_viewport`, `handle_scroll`,
+and `text_rows` all took the signed row. The automatic recenter stayed clamped
+(the companion proposal), and a manual place was left unclamped.
+
+The goal was reached: near the start of a file the three places no longer
+collapse onto row `0`. For a cursor on row `1` in a five-row area, a run of
+`C-l` presses landed on `-1`, `1`, `-3`, `-1` -- Center, Top, Bottom and back,
+all distinct -- where today they all clamp to `0`. The rejected cycle rewrite
+would not have reached that, so the representation is what buys it.
+
+What the prototype also showed is the cost the Outcome above guessed at, in
+concrete terms, and it is larger than the summary suggests:
+
+- **The signed viewport and the unsigned cursor disagree about "inside."**
+  With `viewport.row` at `-1`, a cursor on row `0` sits *below* the viewport
+  top (`0 < -1` is false), so the ordinary keep-it-visible rule does not see a
+  cursor that has moved to the first line as being above the frame. Three
+  places had to be taught about the negative row by hand -- the automatic
+  clamp, a new `cursor.row == 0 && viewport.row < 0` floor in the generic rule,
+  and the `.max(0)` guards in click handling and `handle_scroll` -- and getting
+  the generic floor wrong twice (once too broad, breaking `C-x a`; once too
+  narrow, letting `C-n` eat the recenter's blank rows) is what the exercise
+  cost.
+
+- **The wheel moves oddly right after a top recenter.** With the viewport at
+  `-1` the cursor's `screen_row` is measured from a frame one row above the
+  file, so the first notch down moves the viewport three rows *and* drops the
+  blank row, and the text appears to jump four rows while every later notch
+  moves three. The invariant (the cursor keeps its screen row) holds; the
+  screen row is just counted from a frame the reader does not think in.
+
+- **About three dozen existing assertions** across `tests/state.rs`,
+  `tests/search.rs`, and `tests/render.rs` compare `viewport.row` directly and
+  would need the signed type threaded through them.
+
+The prototype therefore confirms the Outcome's conclusion with numbers rather
+than leaving it a hunch: the representation buys the three distinct places at
+the ends, and the price is a signed/unsigned mismatch that every later feature
+-- search, go-to-line, undo's cursor restore, any soft-wrap -- would have to
+keep in mind, on a rule (`Top`/`Bottom` clamp at the buffer edge) that the
+20260928 outcome already records as accepted. The cheaper alternative stands:
+clamp a manual `C-l` at the ends too and let the places collapse there, which
+keeps `viewport.row` unsigned and touches almost nothing. The branch was
+deleted; the finding is kept here.
