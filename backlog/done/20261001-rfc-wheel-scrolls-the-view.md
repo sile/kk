@@ -260,10 +260,6 @@ than the status quo.
 
 ## Outcome
 
-Implemented in [#13](https://github.com/sile/kk/pull/13) (merged as `e52a8b0`).
-
-## Outcome
-
 Implemented in PR #13, merged as `e52a8b0`.
 
 A wheel notch used to move the cursor by one row and let the viewport follow
