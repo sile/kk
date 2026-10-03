@@ -1,224 +1,208 @@
-# RFC: C-l chooses its next position from the cursor and the viewport
+# RFC: C-l reaches the screen's edges at the ends of the file
 
 - Status: open
 
 ## Summary
 
-`C-l` moves the cursor through the three places there are to put it -- the
-middle of the text area, the first drawn row, the last drawn row -- but which
-place the next press picks cannot always be told from the screen. Near the top
-of the file two of the places are the same viewport row, and the code tells the
-places apart by the row the viewport is on, so a press there asks for a
-different place than the reader expects and a press cannot be predicted without
-knowing where the cursor sits in the buffer and how long the file is. A command
-the reader asks for by hand should be predictable from what is on screen, and it
-can be: the relation between the cursor's drawn row and the viewport's row names
-the next place on its own, with nothing to remember and no two places ever
-being confused for each other.
+`C-l` cycles the cursor through the three places there are to put it -- the
+middle of the text area, the first drawn row, the last drawn row -- and near the
+middle of a file each place is where it says it is. Near an end of the file they
+are not: the rows a place names are computed by subtracting from the cursor's
+row, and the subtraction saturates at row `0`, so a `Top`/`Bottom` (and a
+`Center`) asked for close enough to an end of the buffer leaves the viewport at
+row `0` and the cursor somewhere short of the edge the place names. A reader who
+asks for the cursor on the last drawn row gets it a few rows above instead,
+because there are not enough lines above the cursor to push the frame down.
 
-What matters is not that the presses visit the places in some particular order,
-but that each press is easy to call. Reading the next place off the relation
-between the cursor and the viewport makes every press answerable before it is
-made: the reader sees the cursor against the top edge and knows the press will
-move it to the bottom, or sees it lower down and knows the press will put it
-against the top. The order the three come in follows from that, and is
-Center, Top, Bottom, Center for a cursor in the middle of a file; it is not a
-fixed cycle the code walks, and it does not need to be.
+That is the wrong thing to give up. A manual `C-l` press is the reader asking
+for a place on the screen, and the place should be shown whether or not the
+buffer has the rows to fill the frame around it. The screen can already show
+blank rows past the end of the file; showing blank rows before the start is the
+same kind of thing, and it is what lets `Bottom` near the top of a file put the
+cursor on the last drawn row. This proposal makes the manual places reach the
+screen's edges at the ends of the file, leaving the blank rows that takes.
 
-This splits the two recenters by what they are for. The automatic recenter
-should avoid adding wasteful blank rows, and is the subject of the companion
-proposal to place a jump near the file end on the last drawn row. The manual
-`C-l` should be easy to predict, which the relation gives it, and that
-outweighs saving the blank rows a place may leave.
+This is a change to the manual `C-l` alone. The automatic recenter -- the one
+that fires on a jump the reader did not ask to place -- keeps its own rule, and
+is the subject of the companion proposal that floors a far recenter at the last
+drawn row so it does not add blank rows. The two are already split by who asked,
+and this proposal keeps the split: the automatic recenter avoids blank rows, and
+the manual place honors the place and takes them.
+
+The places themselves stay a cycle; that is the existing behavior and is not
+what this proposal changes.
 
 ## Background
 
-The next place is chosen by `State::recenter_place()` in `src/state.rs`. Each
-press asks where the viewport is now and returns the next place:
+The next place is chosen by `State::recenter_place()` in `src/state.rs`, and the
+viewport row a place works out to is computed by `RecenterPlace::row()`:
 
 ```rust
-fn recenter_place(&self, available_rows: usize) -> RecenterPlace {
-    let cursor_row = self.cursor.row;
-    let center_row = RecenterPlace::Center.row(cursor_row, available_rows);
-    let top_row = RecenterPlace::Top.row(cursor_row, available_rows);
-
-    if self.viewport.row == top_row {
-        RecenterPlace::Bottom
-    } else if self.viewport.row == center_row {
-        RecenterPlace::Top
-    } else {
-        RecenterPlace::Center
+fn row(self, cursor_row: usize, available_rows: usize) -> usize {
+    match self {
+        Self::Center => cursor_row.saturating_sub(available_rows / 2),
+        Self::Top => cursor_row,
+        Self::Bottom => cursor_row.saturating_sub(available_rows.saturating_sub(1)),
     }
 }
 ```
 
-The three places are rows computed from the cursor: `Center` is
-`cursor_row.saturating_sub(available_rows / 2)`, `Top` is `cursor_row`, and
-`Bottom` is `cursor_row.saturating_sub(available_rows.saturating_sub(1))`. The
-method tells them apart by which of those rows the viewport sits on, and it
-needs the text area's height to compute the rows to compare against.
+Every subtraction saturates at `0`, so `row()` cannot name a row above the
+file's first line. `Top` names the cursor's own row and is never a problem, but
+`Center` and `Bottom` both subtract enough to saturate whenever the cursor is
+within half a screen of the file's first line:
+
+- `Bottom` saturates when `cursor_row < available_rows - 1`, that is, whenever
+the cursor is nearer the first line than the frame is tall;
+- `Center` saturates when `cursor_row < available_rows / 2`, which is every
+  cursor position within half a screen of the first line.
+
+At the far end of the file the same shape appears for `Top`: the cursor's row is
+near the last line, and putting it on the first drawn row would leave the frame
+mostly blank below, but nothing stops that, so `Top` near the end already shows
+blank rows. The asymmetry is that blank rows *below* the text are allowed today
+and blank rows *above* it are not, and it is the second kind that a `Bottom`
+near the top of the file needs.
 
 ## Problem
 
-The next place is read from the row the viewport sits on, and two of the three
-rows a place names can be the same row. `Center` and `Top` are the same row
-whenever the cursor is no further down than `available_rows / 2`: `Center` is
-`cursor_row.saturating_sub(available_rows / 2)` and `Top` is `cursor_row`, so
-the two agree as soon as the subtraction saturates. At cursor row `0` both are
-`0`, and rows `1` through `available_rows / 2` agree with them as well.
+A manual `C-l` near an end of the file does not reach the edge it names.
 
-That is the common case, not an edge one: it is every cursor position within
-half a screen of the top of the file, which is where a reader who has just
-opened a file and scrolled a little is sitting. `Center` and `Bottom` can also
-agree, but only when the text area is one or two rows tall -- `available_rows /
-2` and `available_rows - 1` are then the same number -- so it is a curiosity of
-very short frames rather than something a reader meets.
+At the start of the file, a `Bottom` request asks for the cursor on the last
+drawn row, which means a viewport row of `cursor_row - (available_rows - 1)`.
+For a cursor on row `1` in a five-row area that is `1 - 4`, which saturates to
+`0`, so the viewport stays on row `0` and the cursor is drawn on row `1` of the
+area -- the *second* drawn row, not the last. The reader asked for the bottom
+and got neither the bottom nor the top.
 
-The test in `recenter_place` is `viewport.row == top_row` first, then
-`viewport.row == center_row`. When the two rows are equal, the first test that
-matches wins and the other place is never reached, so the press that should
-have asked for one of them asks for something else. At the top of a file the
-rows `Center` and `Top` name are equal, the first test matches, and the press
-that should have asked for the top asks for the bottom instead: a reader who
-wanted to nudge the cursor to the top of the screen gets the bottom of it.
+The same happens to a `Center` request within half a screen of the first line:
+the viewport saturates at `0` and the cursor is drawn above the middle of the
+area instead of in it.
 
-That is why the result depends on the buffer. From the middle of a file the two
-rows differ and the presses come out in the order the code's two tests happen
-to spell; near the top the same presses give a different order, because the
-rows are the same there. Which place a press asks for is decided by the rows the
-places name in this buffer rather than by what the reader sees, so the same
-gesture does different things in different places.
+The cause is one thing: the viewport row is a `usize`, the file's first line is
+row `0`, and there is no representation for a frame whose first drawn row is
+*above* the file's first line. Blank rows below the end of the file already
+work because the viewport is a real buffer row there and the renderer draws
+nothing for rows past the last line; blank rows above the start have no such
+row to point at.
 
 ## Proposal
 
-Choose the next place from the relation between the cursor's drawn row and the
-viewport's row, and from nothing else:
+Let a manual `C-l` place the cursor on the drawn row its place names, at the
+ends of the file as well as in the middle. When the place needs more rows above
+the cursor than the file has, the frame's upper rows are drawn blank, mirroring
+the blank rows already drawn below the end of the file, so:
 
-- the viewport's row is above the cursor -- the cursor is somewhere down the
-  drawn rows -- so the next place is `Top`, which puts the cursor on the first
-  drawn row;
-- the viewport's row is the cursor's row -- the cursor is already on the first
-  drawn row -- so the next place is `Bottom`, which puts it on the last drawn
-  row;
-- the viewport's row is below the cursor, which a settled viewport does not
-  leave but a pending request can, so the next place is `Center`.
+- `Top` puts the cursor on the first drawn row. Near the end of the file this
+  leaves blank rows below, as it does today;
+- `Bottom` puts the cursor on the last drawn row. Near the start of the file
+  this leaves blank rows above, which is the new part;
+- `Center` puts the cursor in the middle of the drawn rows. Near either end this
+  leaves blank rows on the short side.
 
-The relation is three states with three different places, so no two places are
-ever confused for each other and no press needs anything remembered to be
-predicted. A reader looking at the cursor on the first drawn row knows the next
-press takes it to the last; a reader looking at it lower down knows the press
-takes it to the first.
+The reader asked for a place on the screen, and the place is what is shown. The
+blank rows are the cost of showing it near an end of the file, and they are the
+same rows the reader already accepts below the end of the file.
 
-The order the places come in is Center, Top, Bottom, Center, but it is an
-outcome of the rule rather than a cycle the code walks: from `Center` the
-viewport ends up above the cursor, from `Top` on the cursor's row, and from
-`Bottom` above it again, so the presses come out in that order without any
-place being told apart by remembering it. What matters is the rule, and the
-order falls out of it.
-
-The places themselves do not change. When `Top` is asked for near the end of
-the file, the cursor goes to the first drawn row even though that leaves blank
-rows below it; when `Bottom` is asked for near the start, the cursor goes to the
-last drawn row even though that leaves blank rows above it. The reader asked for
-the place, so the place is what is shown.
-
-Those blank rows are a separate matter from the collapse this proposal is
-about, and the change does not make them better or worse. They come from where a
-place lands in the file, not from two places sharing a row: a `Center` with
-fewer than `available_rows / 2` rows below the cursor lands past the last line,
-and the rows between the cursor and the bottom of the frame are drawn blank,
-whether or not another place happens to name the same row. A reader who asks for
-a place gets that place, blank rows and all, and a reader who wants the cursor
-against an edge asks for `Top` or `Bottom`. A text area one row tall puts all
-three places on the same row and the press does nothing, as it does now.
+Nothing about the cycle changes: the presses still visit Center, Top, Bottom and
+back, and the next place is still read from the viewport the last adjustment
+left. Only the row a place works out to changes, and only when the file is too
+short above the cursor to fill the frame. Far from the ends of the file every
+place is already where it says it is, and nothing moves.
 
 ## Design
 
-The change is `State::recenter_place()` and its rustdoc. It currently compares
-`self.viewport.row` against the rows `Center` and `Top` would name, in that
-order. The comparison is what ties the places together when they share a row,
-so it goes: the method reads `self.viewport.row` against `self.cursor.row`
-instead, and needs neither `RecenterPlace::row()` for the place it is choosing
-nor the `available_rows` it was passed.
+The change is in `RecenterPlace::row()` and in the viewport it writes, and in
+nothing else about `recenter_place()` or the cycle. `row()` stops saturating at
+`0`: the row it names may be negative relative to the file's first line, and
+that is the signal for the frame to start above the file. The viewport still
+takes a `usize` for the renderer's sake, but the manual places may point before
+the file's first line, and the renderer draws the rows before row `0` as blank.
 
-```rust
-fn recenter_place(&self) -> RecenterPlace {
-    match self.viewport.row.cmp(&self.cursor.row) {
-        Ordering::Less => RecenterPlace::Top,
-        Ordering::Equal => RecenterPlace::Bottom,
-        Ordering::Greater => RecenterPlace::Center,
-    }
-}
-```
+How the "before row `0`" state is represented is the open question below; the
+rest of the change is clear:
 
-`available_rows` goes with it, so `adjust_viewport` calls the method without a
-height and the place's row is still worked out inside the height-settling loop,
-against the drawn height each pass leaves -- the part that a summary row
-appearing or going away would otherwise get wrong is untouched.
+- `RecenterPlace::row()` returns a signed row (or an equivalent "rows above the
+  file" count beside the unsigned row) so that `Bottom` near the top of a file
+  can name a row before the first line;
+- the draw path treats a frame whose first drawn row is above the file's first
+  line the same way it treats a frame whose last drawn row is past the file's
+  last line: the rows with no buffer line are left blank;
+- cursor placement, hit testing, clicks, and the search highlight all already
+  map between screen rows and buffer rows through the viewport; they get the
+  same "row before the file" handling as the draw path, so a click on a blank
+  row above the file lands nowhere rather than wrapping to a real line.
 
-Nothing is stored. There is no field on `State` for the last place, no clearing
-rule to get right, and no way for a remembered place and the screen to
-disagree. The state the reader cannot see -- which press this is -- is exactly
-what the current code is forced to guess at, and reading the relation instead
-is what lets it stop guessing.
+The `Top` behavior near the end of the file does not change: it already names
+the cursor's row and already shows blank rows below when the file ends first.
+This proposal only adds the mirror at the top.
 
-### Why no case looks at the file's length
+## Open questions
 
-The rule reads the relation between the cursor and the viewport, and nothing
-else; the file's length, the cursor's row, and the height the rows are computed
-against are all out of it. That is what makes a press predictable from the
-screen the reader is looking at: the same picture -- cursor on the first drawn
-row -- asks for the same next place whether the file runs on for a thousand
-lines or ends three rows below the frame. A blank row below the cursor does not
-change the relation either, so a `Bottom` request near the file end still puts
-the cursor on the last drawn row, and the press after it reads the cursor above
-the viewport and asks for `Top`, exactly as it would anywhere else.
+- **How to represent a frame that starts above the file's first line.**
+  `viewport.row` is a `usize` today, and the file's first line is row `0`; a
+  frame starting one or more rows above it has no `usize` row to point at. The
+  options are, at least: (a) make the field signed (or a small struct of an
+  "above" count and a `usize` row), (b) keep `viewport.row` at `0` and add a
+  separate "blank rows above" count that the renderer and the row/column
+  mapping read, or (c) keep the frame's top at row `0` and give only the cursor
+  a screen row above it, which does not work because the cursor must stay inside
+  the drawn area. Each option reaches into the renderer and the screen/buffer
+  row mapping; which one is least disruptive is not yet settled.
 
-### One-row areas
+- **What the automatic recenter should do near the start of the file.** It
+  already avoids blank rows by flooring at the last drawn row when the cursor is
+  near the end; the companion proposal handles that end. Whether it should
+  mirror that at the start -- and whether a far jump that lands near row `0`
+  should center or clamp -- is left to the companion proposal, since this one is
+  about the manual press.
 
-A text area one row tall puts `Center`, `Top`, and `Bottom` on the same row:
-`cursor_row - 0`, `cursor_row`, and `cursor_row - 0`. The relation still
-decides -- viewport equal to cursor asks for `Bottom`, which lands on the same
-row -- so the press is a no-op, as it is today, and both the relation and the
-place agree that there is nowhere else to draw the cursor.
+- **Whether a `Bottom` request on the file's first line should be a no-op or a
+  move.** With blank rows above allowed, `Bottom` from row `0` could show the
+  cursor on the last drawn row with the rows above it blank, instead of the
+  no-op it is today (the viewport cannot go above row `0`, so the press lands on
+  row `0` again). Leaving it a no-op keeps the first line from moving on a press
+  that names no real row above it; making it move is more consistent with the
+  rest of this proposal. Not settled here.
 
 ## Alternatives
 
-- **Remember the place the last press asked for** (a `last_recenter` field on
-  `State`, advanced as the request is applied). This fixes the collapse by
-  telling the two places apart with a value the reader cannot see, and it needs
-  a rule for when the value is cleared so a cursor move between presses does
-  not continue a cycle that is no longer on screen. The relation between the
-  cursor and the viewport already tells the places apart -- they share a row,
-  they do not share a *relation* -- so the field and its clearing rule buy
-  nothing.
-- **Keep the two comparisons and test `center_row` first.** The cycle would
-  then run Center, Top, Bottom from the top of a file and something else from
-  the middle, which is the same position-dependence read the other way round.
-  Reordering the tests moves which buffer the bug shows up in; it does not
-  remove it.
-- **Give the automatic recenter the same rule.** The automatic recenter fires
-  on a jump the reader did not ask to place; its job is to show the
-  destination, not to honor a place, so it centers and floors against the
-  file's end rather than showing the place. The two are already split by who
-  asked, and this proposal keeps that split.
-- **Make `Center` and `Top` never share a row.** They share one whenever the
-  cursor is no further down than `available_rows / 2`, which is the ordinary
-  case at the top of a file; avoiding it would mean the center is not the
-  center. Two places sharing a row is not itself the problem -- `Bottom` and
-  `Center` may share one too, and the reader is still looking at a real row --
-  so the fix is in how the next place is chosen, not in the rows the places
-  name.
+- **Leave the ends of the file as they are.** A press near an end clamps at row
+  `0` and the cursor stops short of the edge. This is the current behavior, and
+  it is what this proposal exists to change; it is listed to be clear that the
+  blank rows are the point, not a bug to avoid.
+
+- **Clamp at the file's first line and say so in the message.** The press could
+  name the place it could not fully reach (for example, "Cursor at bottom (at
+  start of file)") rather than silently landing short. This is truthful about
+  the clamp but still does not put the cursor where the reader asked; it is a
+  smaller change that does not meet the goal.
+
+- **Extend the file with a virtual blank line above row `0`.** Give the buffer
+  itself a leading empty line the cursor can be placed on, so the frame never
+  needs to start outside the buffer. Rejected: it changes what the file is -- the
+  line would be editable and saveable unless special-cased everywhere -- for a
+  display need.
+
+- **Represent the frame as "first buffer row" plus "rows of lead-in".** A pair
+  of values, where the lead-in is the count of blank rows above the first
+  buffer row. This is the concrete form of option (b) in the Open questions and
+  is the leading candidate; it is listed here as an alternative because it is a
+  bigger change to `State` than a signed row and the choice is not yet made.
 
 ## Impact
 
-Ergonomics. The places shown are the same places as before, so no text is
-hidden or revealed differently, and the press that asks for one still puts the
-cursor there. What changes is that the press after it is chosen from the screen
-the reader is looking at rather than from the rows the places name in this
-buffer, so the same presses do the same thing wherever the cursor is. The cost
-is that `C-l` can visit `Bottom` twice in a row when there is nowhere else for
-the cursor to be drawn: a text area one row tall puts all three places on the
-cursor's own row, so `Bottom` leaves the viewport equal to the cursor and the
-relation asks for `Bottom` again. That is the one case where a press cannot
-change the screen, and it is the same no-op the current code leaves there.
+Ergonomics, with a real change under the hood. What a reader sees changes only
+near the ends of a file: a manual `C-l` that used to stop short of the edge now
+reaches it, and the rows between the cursor and the edge are blank. In the
+middle of a file nothing changes.
+
+Under the hood the viewport's row may point before the file's first line, so the
+renderer, the cursor's screen position, hit testing, and clicks all need to treat
+"above the file's first line" the way they already treat "below the file's last
+line." The signed-or-paired representation from the Open questions is the whole
+of the risk; the cycle and the place selection are untouched.
+
+The companion proposal about the automatic recenter near the file end is
+unaffected: it is about the rows below the cursor, and this one is about the
+rows above.
