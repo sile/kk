@@ -1,6 +1,6 @@
 # RFC: Recenter near the file end avoids blank space
 
-- Status: implemented
+- Status: accepted
 
 ## Summary
 
@@ -211,6 +211,17 @@ where `last_viewport = (row_count() + 1) - available_rows`. `max` alone under-
 floors, `min` alone hides the last line at the file's end; only the pair keeps
 the cursor on the last drawn row with no blank rows below it and the last line in
 the frame. See
-[`20261002-rfc-c-l-cycles-positions-regardless-of-the-file-end.md`](20261002-rfc-c-l-cycles-positions-regardless-of-the-file-end.md)
+[`20261002-rfc-c-l-cycles-positions-regardless-of-the-file-end.md`](done/20261002-rfc-c-l-cycles-positions-regardless-of-the-file-end.md)
 for the cycle that reads its next place from the cursor and viewport, which this
 floor sits beside.
+
+## Outcome
+
+Implemented on `main`; no separate pull request.
+
+`5f70114` landed the first version, which was inert (see
+[Correction](#correction-the-floor-is-a-balance-not-a-max)), and `c2b7384`
+landed the balanced floor that ships: `centered.max(bottom).min(last_viewport)`
+in `State::adjust_viewport`. `tests/state.rs` pins that a far jump near the
+file end puts the cursor on the last drawn row with no blank rows below it and
+the last line still in the frame.
