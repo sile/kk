@@ -6,14 +6,15 @@
 
 `C-l` moves the cursor through the three places there are to put it -- the
 middle of the text area, the first drawn row, the last drawn row -- but which
-place the next press picks cannot always be told from the screen. Near the file
-end two of the places are the same viewport row, and the code tells the places
-apart by the row the viewport is on, so the cycle skips a place there and the
-reader cannot predict a press without knowing where the cursor sits in the
-buffer and how long the file is. A command the reader asks for by hand should
-be predictable from what is on screen, and it can be: the relation between the
-cursor's drawn row and the viewport's row names the next place on its own, with
-nothing to remember and no two places ever being confused for each other.
+place the next press picks cannot always be told from the screen. Near the top
+of the file two of the places are the same viewport row, and the code tells the
+places apart by the row the viewport is on, so a press there asks for a
+different place than the reader expects and a press cannot be predicted without
+knowing where the cursor sits in the buffer and how long the file is. A command
+the reader asks for by hand should be predictable from what is on screen, and it
+can be: the relation between the cursor's drawn row and the viewport's row names
+the next place on its own, with nothing to remember and no two places ever
+being confused for each other.
 
 What matters is not that the presses visit the places in some particular order,
 but that each press is easy to call. Reading the next place off the relation
@@ -59,29 +60,34 @@ needs the text area's height to compute the rows to compare against.
 
 ## Problem
 
-The three places are rows computed from the cursor, and two of them collapse
-onto the same row whenever the cursor is close enough to an edge of the file
-for the other to saturate against it. `Center` and `Top` are the same row when
-fewer than `available_rows / 2` rows lie above the cursor: at row `0`, `Center`
-is `0.saturating_sub(available_rows / 2)` and `Top` is `0`. `Center` and
-`Bottom` are the same row, and can be past the file's end, when fewer than
-`available_rows / 2` rows lie below the cursor.
+The next place is read from the row the viewport sits on, and two of the three
+rows a place names can be the same row. `Center` and `Top` are the same row
+whenever the cursor is no further down than `available_rows / 2`: `Center` is
+`cursor_row.saturating_sub(available_rows / 2)` and `Top` is `cursor_row`, so
+the two agree as soon as the subtraction saturates. At cursor row `0` both are
+`0`, and rows `1` through `available_rows / 2` agree with them as well.
+
+That is the common case, not an edge one: it is every cursor position within
+half a screen of the top of the file, which is where a reader who has just
+opened a file and scrolled a little is sitting. `Center` and `Bottom` can also
+agree, but only when the text area is one or two rows tall -- `available_rows /
+2` and `available_rows - 1` are then the same number -- so it is a curiosity of
+very short frames rather than something a reader meets.
 
 The test in `recenter_place` is `viewport.row == top_row` first, then
-`viewport.row == center_row`. When two of the rows are equal, the first test
-that matches wins and the other place is never reached, so the press that
-should have asked for one of them asks for something else. At the top of a file
-the rows `Center` and `Top` name are equal, the first test matches, and the
-press that should have gone to the top goes to the bottom instead: the cycle
-runs Center, Bottom, Top, Center, and a reader who wanted to nudge the cursor
-to the top of the screen gets the bottom of it.
+`viewport.row == center_row`. When the two rows are equal, the first test that
+matches wins and the other place is never reached, so the press that should
+have asked for one of them asks for something else. At the top of a file the
+rows `Center` and `Top` name are equal, the first test matches, and the press
+that should have asked for the top asks for the bottom instead: a reader who
+wanted to nudge the cursor to the top of the screen gets the bottom of it.
 
 That is why the result depends on the buffer. From the middle of a file the two
 rows differ and the presses come out in the order the code's two tests happen
 to spell; near the top the same presses give a different order, because the
-rows are the same there. The cycle is defined by the rows the places name in
-this buffer rather than by what the reader sees, so the same gesture does
-different things in different places.
+rows are the same there. Which place a press asks for is decided by the rows the
+places name in this buffer rather than by what the reader sees, so the same
+gesture does different things in different places.
 
 ## Proposal
 
@@ -114,7 +120,16 @@ The places themselves do not change. When `Top` is asked for near the end of
 the file, the cursor goes to the first drawn row even though that leaves blank
 rows below it; when `Bottom` is asked for near the start, the cursor goes to the
 last drawn row even though that leaves blank rows above it. The reader asked for
-the place, so the place is what is shown. A text area one row tall puts all
+the place, so the place is what is shown.
+
+Those blank rows are a separate matter from the collapse this proposal is
+about, and the change does not make them better or worse. They come from where a
+place lands in the file, not from two places sharing a row: a `Center` with
+fewer than `available_rows / 2` rows below the cursor lands past the last line,
+and the rows between the cursor and the bottom of the frame are drawn blank,
+whether or not another place happens to name the same row. A reader who asks for
+a place gets that place, blank rows and all, and a reader who wants the cursor
+against an edge asks for `Top` or `Bottom`. A text area one row tall puts all
 three places on the same row and the press does nothing, as it does now.
 
 ## Design
@@ -143,19 +158,21 @@ appearing or going away would otherwise get wrong is untouched.
 
 Nothing is stored. There is no field on `State` for the last place, no clearing
 rule to get right, and no way for a remembered place and the screen to
-disagree. The state the reader cannot see -- which press of the cycle this is --
-is exactly what the current code is forced to guess at, and dropping the fixed
-cycle is what lets it stop guessing.
+disagree. The state the reader cannot see -- which press this is -- is exactly
+what the current code is forced to guess at, and reading the relation instead
+is what lets it stop guessing.
 
-### Why the file end is not special-cased
+### Why no case looks at the file's length
 
-The blank rows a place may leave are a consequence of the places being fixed,
-not something to guard against. The rule reads the relation between the cursor
-and the viewport, which a blank row does not change: a `Bottom` request with the
-cursor near the file end still puts the cursor on the last drawn row, and the
-next press reads the cursor above the viewport and asks for `Top`. The places
-and the blank rows they may leave are the same as today; only the choice of the
-next one is.
+The rule reads the relation between the cursor and the viewport, and nothing
+else; the file's length, the cursor's row, and the height the rows are computed
+against are all out of it. That is what makes a press predictable from the
+screen the reader is looking at: the same picture -- cursor on the first drawn
+row -- asks for the same next place whether the file runs on for a thousand
+lines or ends three rows below the frame. A blank row below the cursor does not
+change the relation either, so a `Bottom` request near the file end still puts
+the cursor on the last drawn row, and the press after it reads the cursor above
+the viewport and asks for `Top`, exactly as it would anywhere else.
 
 ### One-row areas
 
@@ -182,13 +199,16 @@ place agree that there is nowhere else to draw the cursor.
   remove it.
 - **Give the automatic recenter the same rule.** The automatic recenter fires
   on a jump the reader did not ask to place; its job is to show the
-  destination, not to honor a place, so it should avoid blank rows. The two are
-  already split by who asked, and this proposal keeps that split.
-- **Make `Center` and `Top` never share a row.** They share one whenever there
-  are fewer than `available_rows / 2` rows above the cursor, which is the
-  ordinary case at the top of a file; avoiding it would mean the center is not
-  the center. The collapse is in the positions, not in the reading of them, so
-  the fix belongs in the choice of the next place.
+  destination, not to honor a place, so it centers and floors against the
+  file's end rather than showing the place. The two are already split by who
+  asked, and this proposal keeps that split.
+- **Make `Center` and `Top` never share a row.** They share one whenever the
+  cursor is no further down than `available_rows / 2`, which is the ordinary
+  case at the top of a file; avoiding it would mean the center is not the
+  center. Two places sharing a row is not itself the problem -- `Bottom` and
+  `Center` may share one too, and the reader is still looking at a real row --
+  so the fix is in how the next place is chosen, not in the rows the places
+  name.
 
 ## Impact
 
