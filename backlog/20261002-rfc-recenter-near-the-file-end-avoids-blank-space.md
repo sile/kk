@@ -1,6 +1,6 @@
 # RFC: Recenter near the file end avoids blank space
 
-- Status: open
+- Status: implemented
 
 ## Summary
 
@@ -13,6 +13,12 @@ centering formula saturates at row `0` and leaves the cursor at the top of the
 frame. This RFC makes the end of the file behave the way the start already
 does: an automatic recenter that lands near the file end puts the cursor on the
 last drawn row instead of centering it.
+
+This is also the tail of the far-jump rule
+(`20260929-rfc-recenter-when-cursor-jumps-far.md`): a cursor more than a text
+area outside the viewport is centered, and this RFC is what keeps that center
+from spending the lower half of the frame on rows past the end of the file.
+Nothing here introduces a second scrolling mode of its own.
 
 ## Background
 
@@ -40,11 +46,19 @@ the first drawn row with no blank rows above it. The start of the file is
 placed well not because it is special-cased but because the centering formula
 cannot put the cursor anywhere else once there is nothing above it.
 
-The end of the file has no such accident. A cursor on the last row, or on any
-row with fewer than `available_rows / 2` rows below it, still centers: the
-formula subtracts from the cursor row and there is no lower bound to saturate
-against, so the viewport is left far enough above the file end that the rows
-below the cursor run out before the frame does. Those rows are drawn blank.
+The end of the file has no such accident in the plain centering formula. A
+cursor on the last row, or on any row with fewer than `available_rows / 2` rows
+below it, still centers: the formula subtracts from the cursor row and there is
+no lower bound to saturate against, so the viewport is left far enough above
+the file end that the rows below the cursor run out before the frame does.
+Those rows are drawn blank.
+
+The floor that fixes it is the `Bottom` place the `C-l` cycle already names,
+`cursor_row.saturating_sub(available_rows.saturating_sub(1))`, applied with a
+`max`: the automatic recenter takes the centered row unless the bottom place is
+lower. The two agree on where the cursor should rest, and reusing that row
+rather than writing a second one keeps the automatic rule and the place the
+reader can ask for from drifting apart.
 
 ## Problem
 
@@ -63,28 +77,36 @@ halfway down with dead rows under it.
 
 ## Proposal
 
-When the automatic recenter centers the cursor and the cursor is near the file
-end, place the cursor on the last drawn row instead of the middle. "Near the
-file end" means there are fewer rows below the cursor than the lower half of
-the frame the centering would use:
+When the automatic recenter centers the cursor, take whichever is lower: the
+centered row, or the row that puts the cursor on the last drawn row. The second
+is the formula the `C-l` cycle's `Bottom` place already uses:
+
+```rust
+let centered = cursor_pos.row.saturating_sub(available_rows / 2);
+let bottom = cursor_pos.row.saturating_sub(available_rows.saturating_sub(1));
+self.viewport.row = centered.max(bottom);
+```
+
+Expressed as a condition, the floor applies when the centering would leave the
+cursor with fewer than `available_rows / 2` file rows below it:
 
 ```text
 cursor_pos.row + available_rows / 2 >= rows()
 ```
 
-In that case the viewport row is the one that puts the cursor on the last drawn
-row, which is the formula [`RecenterPlace::Bottom`] already uses:
+It is a saturation, not an equality against `rows() - 1`: a cursor on the last
+row satisfies it, and so does a cursor one row above the last when the frame is
+short, and a search that lands a few rows before the end. Any position with too
+little file below it to fill the lower half of the frame is floored. This is
+the mirror of the start, where the centering formula already saturates because
+there is too little file above the cursor.
 
-```rust
-self.viewport.row = cursor_pos.row.saturating_sub(available_rows.saturating_sub(1));
-```
-
-The condition is a saturation, not an equality against `rows() - 1`: a cursor
-on the last row satisfies it, and so does a cursor one row above the last when
-the frame is short, and a search that lands a few rows before the end. Any
-position with too little file below it to fill the lower half of the frame is
-placed the same way. This is the mirror of the start, where the centering
-formula already saturates because there is too little file above the cursor.
+`max` rather than an `if` on the condition is not just a shorter spelling: it
+is also correct for the whole case without a separate `rows()` comparison. When
+the cursor is far enough from the end that centering already leaves a full
+lower half, `bottom` is above `centered` and `max` keeps the center; when it is
+not, `bottom` is below and takes over. Neither side is special-cased, so there
+is no threshold row count to get wrong.
 
 The rule belongs to the automatic recenter only. An explicit `C-l`
 (`handle_view_recenter`) still cycles through Center, Top, and Bottom and still
@@ -94,17 +116,35 @@ placement, takes the new rule.
 
 ## Design
 
-The change is one branch inside the `rows_out > available_rows` case in
-`State::adjust_viewport`, next to the centering it replaces. When the condition
-above holds the viewport takes the `Bottom` row for the cursor instead of the
-centered one; otherwise the centered row is kept exactly as it is now. Nothing
-to do with an explicit recenter changes, so `RecenterPlace` and its three
-messages are untouched, and the `C-l` cycle is unchanged.
+The change is one expression inside the `rows_out > available_rows` case in
+`State::adjust_viewport`, next to the centering it replaces. The viewport takes
+the lower of the centered row and the `Bottom` row; nothing else changes.
+Nothing to do with an explicit recenter changes, so `RecenterPlace` and its
+three messages are untouched, and the `C-l` cycle is unchanged.
 
-Reusing the `Bottom` formula rather than writing a second one keeps the two in
-step: the row an automatic recenter picks when it lands near the file end is the
-row `C-l` would pick for `Bottom`, so the reader who then presses `C-l` to settle
-the placement sees `Cursor at bottom` and the very spot the jump already chose.
+Reusing `RecenterPlace::Bottom.row()` rather than writing the arithmetic out
+again keeps the two in step: the row an automatic recenter picks when it lands
+near the file end is the row `C-l` would pick for `Bottom`, so the reader who
+then presses `C-l` to settle the placement sees `Cursor at bottom` and the very
+spot the jump already chose. It is one function call, not a second formula that
+has to be kept in agreement by hand.
+
+The floor is inside the far-jump branch, so it only ever applies to a cursor
+more than a text area outside the viewport -- the jump that centers in the first
+place. A nearer jump keeps its minimum scroll, which is what a walk down a
+screen and a step to an adjacent hit still rely on.
+
+### Tests
+
+`tests/state.rs`'s `an_automatic_recenter_near_the_end_matches_the_bottom_place`
+asserts the two reach the same viewport row for a jump near the end (one row
+above the last), which is the invariant that matters: the automatic rule and
+the place the reader can ask for name the same spot. It also covers a jump to
+the file's last row, where the centering formula is already low enough that the
+floor has nothing to pull back, and a jump several rows before the end, where
+it does.
+
+### Why not gate on the last row only
 
 ### Why not gate on the last row only
 
@@ -137,6 +177,11 @@ there would ignore the request. The automatic recenter is the one the reader did
 - **Always place near the file end at the bottom edge.** Equivalent to the
   proposal for the automatic recenter, and the condition above is the way to say
   "near the file end" without a magic row count.
+- **Give the automatic recenter a mode of its own** (a flag a caller sets, or a
+  second threshold). Rejected: the far-jump rule already decides *when* to
+  center, and the blank rows are a property of *where* the center lands. One
+  expression beside that rule is enough, and a mode would be a third thing to
+  keep in agreement.
 
 ## Impact
 
