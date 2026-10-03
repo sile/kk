@@ -549,9 +549,12 @@ fn a_run_of_inserts_is_one_snapshot_then_there_is_nothing_left() {
 
 #[test]
 fn a_recenter_request_centres_the_cursor_and_is_consumed() {
-    // The viewport starts at row 0, which is the row a center of row 2 would
-    // use in a 10-row area: the cursor is not yet in the middle, and the cycle
-    // moves on from the place it finds rather than centering again.
+    // The viewport starts at row 0, which is not the row either `Top` (row 6)
+    // or `Center` (row 1) names, so the cycle reads `Center` and asks for row
+    // 1. The file is shorter than the ten-row area -- eight rows of file
+    // against ten rows of screen -- so the last page is 0 and the cap holds the
+    // request there: there is no page below row 0 to move down to, and the two
+    // rows under the last line are the file not filling the screen.
     let mut state = state_of("one\ntwo\nthree\nfour\nfive\nsix\nseven\n");
     state.cursor = at(6, 0);
     state.handle_view_recenter();
@@ -559,8 +562,9 @@ fn a_recenter_request_centres_the_cursor_and_is_consumed() {
     state.adjust_viewport(area(10, 10));
 
     assert_eq!(
-        state.viewport.row, 1,
-        "6 - 10 / 2: row 6 sits in the middle of the ten visible rows"
+        state.viewport.row, 0,
+        "(8 - 10) saturates to 0: a file shorter than the area has no page \
+         below row 0"
     );
     assert!(!state.recenter_viewport, "the request is used once");
 }
@@ -616,6 +620,54 @@ fn a_bottom_request_puts_the_cursor_on_the_last_drawn_row() {
         state.viewport.row, 6,
         "10 - (5 - 1): row 10 is the area's last row"
     );
+}
+
+#[test]
+fn a_manual_recenter_near_the_end_leaves_no_blank_rows() {
+    // A place near the last line names a row past the file's last page --
+    // `Center` of row 18 in a five-row area asks for viewport 16, and `Top`
+    // would ask for 18 -- but the cap holds every manual place at
+    // `(row_count() + 1) - available_rows`, 20 - 5 = 15. Row 15 draws rows
+    // 15..19, the last line on the last drawn row, so no blank row is drawn
+    // under the file. The start already stops at row 0 without a cap; this is
+    // the end's mirror.
+    let mut state = state_of(&"a\n".repeat(20));
+    state.cursor = at(18, 0);
+    state.viewport = at(18, 0); // on the cursor's row, so the first press reads `Bottom`
+
+    let mut rows = Vec::new();
+    for _ in 0..3 {
+        state.handle_view_recenter();
+        state.adjust_viewport(area(5, 10));
+        rows.push(state.viewport.row);
+    }
+
+    assert_eq!(
+        rows,
+        vec![14, 15, 15],
+        "Bottom lands on 14; the `Center` after it asks for 16 but the cap \
+         holds it at 15, the last page"
+    );
+}
+
+#[test]
+fn a_manual_recenter_on_the_last_line_is_capped_at_the_last_page() {
+    // The cursor on the last line: `Top` names its own row (19) and `Center`
+    // names 17, both of which would draw blank rows under the file, so the cap
+    // holds every press at the last page, 15, with the last line on the last
+    // drawn row and no blank row under it.
+    let mut state = state_of(&"a\n".repeat(20));
+    state.cursor = at(19, 0);
+    state.viewport = at(19, 0);
+
+    let mut rows = Vec::new();
+    for _ in 0..3 {
+        state.handle_view_recenter();
+        state.adjust_viewport(area(5, 10));
+        rows.push(state.viewport.row);
+    }
+
+    assert_eq!(rows, vec![15, 15, 15], "the last page is 20 - 5");
 }
 
 #[test]

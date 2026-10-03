@@ -31,20 +31,17 @@ enum RecenterPlace {
 impl RecenterPlace {
     /// The viewport row that puts the cursor's row at this place, in a text
     /// area `available_rows` tall.
+    ///
+    /// Every subtraction saturates at row `0`, the file's first line, so a
+    /// place near the start of the file stops at the top and nothing blank is
+    /// drawn above it. There is no matching bound here at the end of the file:
+    /// a place may name a row past the last line and be pulled back by the
+    /// caller's cap (see [`State::adjust_viewport()`]).
     fn row(self, cursor_row: usize, available_rows: usize) -> usize {
         match self {
             Self::Center => cursor_row.saturating_sub(available_rows / 2),
             Self::Top => cursor_row,
             Self::Bottom => cursor_row.saturating_sub(available_rows.saturating_sub(1)),
-        }
-    }
-
-    /// The one-line message naming this place, shown as the request is applied.
-    fn message(self) -> &'static str {
-        match self {
-            Self::Center => "Cursor centered",
-            Self::Top => "Cursor at top",
-            Self::Bottom => "Cursor at bottom",
         }
     }
 }
@@ -333,9 +330,12 @@ impl State {
     /// row is centered when the viewport is already centered on the cursor, and
     /// otherwise moved on from there -- see
     /// [`handle_view_recenter()`](State::handle_view_recenter) for the cycle.
-    /// The column is centered for every place. The row is sized inside the
-    /// height-settling loop below, so it lands against the drawn height the
-    /// summary rows leave rather than one computed before they are known.
+    /// The place's own row saturates at the file's first line; at the file's
+    /// end it is capped at the last page, the same bound the automatic recenter
+    /// uses, so a manual `C-l` near either end draws no blank rows. The column
+    /// is centered for every place. The row is sized inside the height-settling
+    /// loop below, so it lands against the drawn height the summary rows leave
+    /// rather than one computed before they are known.
     ///
     /// A cursor that is more than a whole text area outside the viewport is
     /// centered too, rather than pinned to the edge it came in through: the
@@ -384,7 +384,19 @@ impl State {
             let before = self.viewport.row;
 
             if let Some(place) = recenter_place {
-                self.viewport.row = place.row(cursor_pos.row, available_rows);
+                // The manual place is capped at the file's last page, the same
+                // bound the automatic recenter below applies to its center. The
+                // place's own `saturating_sub` already holds it at the file's
+                // first line, so the start needs no separate bound; the cap is
+                // the end's mirror. Without it a `Top`/`Center` near the last
+                // line names a row past the file and draws blank rows under it,
+                // the asymmetry with the start the cap removes. A file shorter
+                // than the area has no page below `0` to move to, the cap
+                // saturates to `0`, and the rows under the last line are the
+                // file not filling the screen -- shown, as every editor shows
+                // them, not removed.
+                let last_viewport = (self.row_count() + 1).saturating_sub(available_rows);
+                self.viewport.row = place.row(cursor_pos.row, available_rows).min(last_viewport);
             } else {
                 // The distance from the cursor to the edge of the viewport, in
                 // the rows the text is drawn in. A cursor on the row just past
@@ -439,13 +451,11 @@ impl State {
             }
         }
 
-        // Only a `C-l` press says what it did: the reader asked for the place,
-        // and the message is how the cycle is legible without counting presses.
-        // The startup position is placed just as deliberately, but it was not
-        // asked for and its message would be noise.
-        if recenter && let Some(place) = recenter_place {
-            self.set_message(place.message());
-        }
+        // A `C-l` press names no place: with the places collapsing at an end of
+        // the file, a line naming the place the reader asked for would report a
+        // place the cursor is not at once the cap bites, and on an ordinary
+        // press it would only repeat what the cursor's motion already shows.
+        // The startup position and the automatic recenter never spoke.
 
         // A pending request centers the column as well as placing the row: the
         // place is about where the cursor sits in the text area, and a hit near
@@ -988,7 +998,10 @@ impl State {
     /// This does not place anything itself, because the text area's height is
     /// not known until render time: the request is what
     /// [`adjust_viewport()`](State::adjust_viewport) reads, and that is where
-    /// the place -- and the message naming it -- is worked out.
+    /// the place is worked out. The press names no place, so it says nothing on
+    /// the message line: near an end of the file the cap can land the cursor
+    /// somewhere other than the place the press asked for, and a line naming
+    /// the request would then be false.
     pub fn handle_view_recenter(&mut self) {
         self.finish_editing();
         self.recenter_viewport = true;
