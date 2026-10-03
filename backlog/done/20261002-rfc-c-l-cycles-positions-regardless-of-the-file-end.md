@@ -1,6 +1,6 @@
 # RFC: C-l reaches the screen's edges at the ends of the file
 
-- Status: open
+- Status: rejected
 
 ## Summary
 
@@ -206,3 +206,25 @@ of the risk; the cycle and the place selection are untouched.
 The companion proposal about the automatic recenter near the file end is
 unaffected: it is about the rows below the cursor, and this one is about the
 rows above.
+
+## Outcome
+
+Rejected; no pull request.
+
+Tried first with the manual cycle: make the next place independent of the
+viewport, so a run of `C-l` presses always visits Center, Top, Bottom and back.
+Built that way, the cycle collapsed in practice -- with the next place read from
+the viewport the last adjustment left, Center could not be held, and repeated
+presses bounced between Top and Bottom. Making the cycle position-independent
+needs more than a remembered last place; it needs a rule for staying on Center,
+and that rule was not found.
+
+The proposal was then rewritten to the other reading: leave the cycle as it is
+and let a manual place reach the screen's edge even at an end of the file, by
+allowing blank rows above the first line. That works, but it costs a
+representation for "the frame starts above row 0" threaded through the
+renderer, the cursor's screen position, hit testing, clicks, and the search
+highlight, all to fix a press that today lands a row or two short of the edge
+it names. That is too much for the gain, and the 20260928 outcome already
+records `Top`/`Bottom` clamping at the buffer edge as the documented, accepted
+behavior. The item is closed without a change.
