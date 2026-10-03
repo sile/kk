@@ -410,13 +410,19 @@ impl State {
                 // row, the same place the start of the file gets at the top.
                 if rows_out > available_rows {
                     let centered = cursor_pos.row.saturating_sub(available_rows / 2);
-                    // The floor is the `Bottom` place itself, not a second
-                    // formula written out: a reader who jumps near the end and
-                    // then presses `C-l` to settle the placement sees
-                    // "Cursor at bottom" at the very row the jump chose, and the
-                    // two cannot drift apart if either is touched.
+                    // Two bounds, not one formula. The `Bottom` place is the
+                    // floor on how far the center is pulled back: a jump near
+                    // the end is pulled up until the cursor sits on the area's
+                    // last drawn row, the same row a reader who then asks for
+                    // "Cursor at bottom" would get. The file's end is the hard
+                    // cap: the viewport cannot sit so low that a row past the
+                    // last line is asked for. `max` then `min` applies the floor
+                    // inside the cap. (The floor and the center are different
+                    // rows by construction -- `cursor - (n - 1)` against
+                    // `cursor - n / 2` -- so no single expression can be both.)
                     let bottom = RecenterPlace::Bottom.row(cursor_pos.row, available_rows);
-                    self.viewport.row = centered.max(bottom);
+                    let last_viewport = (self.row_count() + 1).saturating_sub(available_rows);
+                    self.viewport.row = centered.max(bottom).min(last_viewport);
                 } else if cursor_pos.row < self.viewport.row {
                     // Cursor is above viewport, scroll up
                     self.viewport.row = cursor_pos.row;

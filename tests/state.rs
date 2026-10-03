@@ -932,39 +932,29 @@ fn a_cursor_exactly_a_screen_out_is_not_centered() {
 }
 
 #[test]
-fn an_automatic_recenter_near_the_end_matches_the_bottom_place() {
+fn an_automatic_recenter_near_the_end_leaves_no_blank_rows() {
     // A far jump to a row with less than half a frame of file below it: the
-    // center is floored by the buffer's end, and the floor is the same row the
-    // `C-l` cycle's Bottom place names. The two are one formula in the code, so
-    // this pins them together: a jump that lands near the end leaves the cursor
-    // on the last drawn row with no blank rows under it, exactly where a reader
-    // who then asks for the bottom would put it.
+    // center is pulled back until the cursor sits on the area's last drawn row,
+    // the same row a reader who then asks for "Cursor at bottom" would get. A
+    // centering that ran past the file's end would put the cursor against the
+    // bottom edge with blank rows under it; this pins that it does not.
     let mut some_rows_below = state_of(&"a\n".repeat(20));
     some_rows_below.viewport = at(0, 0);
     some_rows_below.handle_cursor_to_position(18, 0);
     some_rows_below.center_viewport = false; // drop the startup center
     some_rows_below.adjust_viewport(area(5, 10));
 
-    // The cycle visits center, top, bottom. A fresh viewport sits on the top
-    // row, which the cycle reads as "top already", so one press reaches the
-    // bottom.
-    let mut asked = state_of(&"a\n".repeat(20));
-    asked.cursor = at(18, 0);
-    asked.handle_view_recenter();
-    asked.adjust_viewport(area(5, 10));
-
+    // The center would ask for viewport 16, drawing rows 16..20 -- but row 20
+    // does not exist, so the floor brings it to 15. Rows 15..19 are all backed
+    // by lines, with no blank row under the last one.
     assert_eq!(
-        some_rows_below.viewport.row, asked.viewport.row,
-        "the automatic floor is the row `C-l` would pick for the bottom"
-    );
-    assert_eq!(
-        some_rows_below.viewport.row, 16,
-        "18 - (5 - 1): the cursor is the area's last drawn row"
+        some_rows_below.viewport.row, 15,
+        "20 - 5: the last drawn row is the last line, no blank rows under it"
     );
 
     // The last row of the file itself, where centering would ask for a row past
-    // the end and the floor is what brings it back: the same row the bottom
-    // place names, with no blank row under the last line.
+    // the end and the cap is what brings it back: the last line sits on the
+    // last drawn row with no blank row under it.
     let mut at_the_end = state_of(&"a\n".repeat(20));
     at_the_end.viewport = at(0, 0);
     at_the_end.handle_cursor_to_position(19, 0);
@@ -972,9 +962,9 @@ fn an_automatic_recenter_near_the_end_matches_the_bottom_place() {
     at_the_end.adjust_viewport(area(5, 10));
 
     assert_eq!(
-        at_the_end.viewport.row, 17,
-        "19 - 5 / 2: the center already leaves the last line on the last drawn \
-         row, so the floor has nothing to pull back"
+        at_the_end.viewport.row, 15,
+        "20 - 5: the last line is the last drawn row, with no blank row under \
+         it"
     );
     assert!(!at_the_end.recenter_viewport, "no request was involved");
 }

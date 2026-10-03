@@ -53,12 +53,12 @@ no lower bound to saturate against, so the viewport is left far enough above
 the file end that the rows below the cursor run out before the frame does.
 Those rows are drawn blank.
 
-The floor that fixes it is the `Bottom` place the `C-l` cycle already names,
-`cursor_row.saturating_sub(available_rows.saturating_sub(1))`, applied with a
-`max`: the automatic recenter takes the centered row unless the bottom place is
-lower. The two agree on where the cursor should rest, and reusing that row
-rather than writing a second one keeps the automatic rule and the place the
-reader can ask for from drifting apart.
+The floor that fixes it is the row the `C-l` cycle names for `Bottom`,
+`cursor_row.saturating_sub(available_rows.saturating_sub(1))`, balanced against
+the file's end: the automatic recenter takes the centered row, pulled up to the
+bottom place when that is lower, and capped so the viewport never asks for a row
+past the last line. (An earlier draft floored with `max` alone; see
+[the correction](#correction-the-floor-is-a-balance-not-a-max).)
 
 ## Problem
 
@@ -77,14 +77,16 @@ halfway down with dead rows under it.
 
 ## Proposal
 
-When the automatic recenter centers the cursor, take whichever is lower: the
-centered row, or the row that puts the cursor on the last drawn row. The second
-is the formula the `C-l` cycle's `Bottom` place already uses:
+When the automatic recenter centers the cursor, floor the center at the row that
+puts the cursor on the last drawn row, and cap it at the file's end. The floor
+is the formula the `C-l` cycle's `Bottom` place already uses; the cap is where
+the last drawn row reaches the last line:
 
 ```rust
 let centered = cursor_pos.row.saturating_sub(available_rows / 2);
-let bottom = cursor_pos.row.saturating_sub(available_rows.saturating_sub(1));
-self.viewport.row = centered.max(bottom);
+let bottom = RecenterPlace::Bottom.row(cursor_pos.row, available_rows);
+let last_viewport = (self.row_count() + 1).saturating_sub(available_rows);
+self.viewport.row = centered.max(bottom).min(last_viewport);
 ```
 
 Expressed as a condition, the floor applies when the centering would leave the
@@ -101,12 +103,15 @@ little file below it to fill the lower half of the frame is floored. This is
 the mirror of the start, where the centering formula already saturates because
 there is too little file above the cursor.
 
-`max` rather than an `if` on the condition is not just a shorter spelling: it
-is also correct for the whole case without a separate `rows()` comparison. When
-the cursor is far enough from the end that centering already leaves a full
-lower half, `bottom` is above `centered` and `max` keeps the center; when it is
-not, `bottom` is below and takes over. Neither side is special-cased, so there
-is no threshold row count to get wrong.
+The floor and the cap are two bounds, not one formula. The `Bottom` place is the
+floor on how far the center is pulled back, and the file's end is the hard cap.
+They are different by construction -- `cursor - (n - 1)` against `cursor - n / 2`
+-- so no single expression is both, and the `max` and `min` are both needed.
+`max` alone is a no-op: `bottom` is never above `centered` for `available_rows
+>= 2`, so a `max`-only version leaves the center untouched and the blank rows in
+place. `min` alone is the opposite error: at the file's last row it floors to a
+viewport that stops a screen short of the file's end and hides the last line.
+The pair has no threshold row count to get wrong.
 
 The rule belongs to the automatic recenter only. An explicit `C-l`
 (`handle_view_recenter`) still cycles through Center, Top, and Bottom and still
@@ -117,17 +122,17 @@ placement, takes the new rule.
 ## Design
 
 The change is one expression inside the `rows_out > available_rows` case in
-`State::adjust_viewport`, next to the centering it replaces. The viewport takes
-the lower of the centered row and the `Bottom` row; nothing else changes.
-Nothing to do with an explicit recenter changes, so `RecenterPlace` and its
-three messages are untouched, and the `C-l` cycle is unchanged.
+`State::adjust_viewport`, next to the centering it replaces: the center pulled up
+to the `Bottom` row when that is lower, then capped at the file's end. Nothing
+else changes. Nothing to do with an explicit recenter changes, so `RecenterPlace`
+and its three messages are untouched, and the `C-l` cycle is unchanged.
 
 Reusing `RecenterPlace::Bottom.row()` rather than writing the arithmetic out
-again keeps the two in step: the row an automatic recenter picks when it lands
-near the file end is the row `C-l` would pick for `Bottom`, so the reader who
-then presses `C-l` to settle the placement sees `Cursor at bottom` and the very
-spot the jump already chose. It is one function call, not a second formula that
-has to be kept in agreement by hand.
+again keeps the floor in step with the `C-l` cycle's `Bottom`: when the floor is
+the binding bound, a reader who then presses `C-l` to settle the placement sees
+`Cursor at bottom` and the very spot the jump already chose. The cap is written
+from `row_count()`, the same bound `handle_scroll` clamps its bottom against, so
+the two views of the file's end agree.
 
 The floor is inside the far-jump branch, so it only ever applies to a cursor
 more than a text area outside the viewport -- the jump that centers in the first
@@ -136,15 +141,13 @@ screen and a step to an adjacent hit still rely on.
 
 ### Tests
 
-`tests/state.rs`'s `an_automatic_recenter_near_the_end_matches_the_bottom_place`
-asserts the two reach the same viewport row for a jump near the end (one row
-above the last), which is the invariant that matters: the automatic rule and
-the place the reader can ask for name the same spot. It also covers a jump to
-the file's last row, where the centering formula is already low enough that the
-floor has nothing to pull back, and a jump several rows before the end, where
-it does.
-
-### Why not gate on the last row only
+`tests/state.rs`'s `an_automatic_recenter_near_the_end_leaves_no_blank_rows`
+asserts that a jump near the end leaves the cursor on the area's last drawn row,
+with no blank rows under it, and that a jump to the file's last row puts the last
+line on the last drawn row -- the property that matters. It does not assert that
+the automatic row equals the `C-l` `Bottom` row: the two are different by
+construction (`cursor - n / 2` pulled to `cursor - (n - 1)` and then capped), and
+they only coincide when the floor is the binding bound.
 
 ### Why not gate on the last row only
 
@@ -154,7 +157,7 @@ the frame, not only on the last row: a search that lands three rows before the
 end on a frame ten rows tall centers the cursor with three rows of text under it
 and four blank rows below those. Gating on the last row would fix `C-x C-e` and
 leave that case, and every case like it, still wasting the lower half of the
-frame. The saturation condition covers them all with one rule.
+frame. The floor-and-cap covers them all with one rule.
 
 ### Why not drop centering for every jump
 
@@ -190,3 +193,24 @@ or above the last drawn row either way -- and a jump near the end stops spending
 the lower half of the frame on rows with no text. Nothing about which rows the
 file contains changes, so no correctness is at stake and no reading is affected
 beyond where the cursor rests after a long jump.
+
+## Correction: the floor is a balance, not a `max`
+
+The proposal above first shipped as `centered.max(bottom)` in
+`5f70114` ("Floor a far recenter at the bottom place's row"). That version does
+nothing: `bottom = cursor - (n - 1)` is never above `centered = cursor - n / 2`
+for `available_rows >= 2`, so the `max` always keeps the center and the blank
+rows stay. The test written with it fitted its assertions to the regressed
+behavior and its comments to the formula they were supposed to check, and the
+invariant it named -- "the automatic recenter reaches the same row `C-l`
+`Bottom` would" -- never held.
+
+The shipped fix balances two bounds instead: floor the center at the `Bottom`
+row, then cap at the file's end (`centered.max(bottom).min(last_viewport)`),
+where `last_viewport = (row_count() + 1) - available_rows`. `max` alone under-
+floors, `min` alone hides the last line at the file's end; only the pair keeps
+the cursor on the last drawn row with no blank rows below it and the last line in
+the frame. See
+[`20261002-rfc-c-l-cycles-positions-regardless-of-the-file-end.md`](20261002-rfc-c-l-cycles-positions-regardless-of-the-file-end.md)
+for the cycle that reads its next place from the cursor and viewport, which this
+floor sits beside.
