@@ -18,8 +18,10 @@ bound the automatic recenter already uses. A manual `C-l` near an end then shows
 no blank rows, mirroring the start. The cost is stated up front and accepted:
 because the places collapse onto the same page at an end, a press there may land
 on a place other than the one it names, or on the page it was already showing
-and move nothing. The press's message changes with it, from naming the place
-asked for to naming where the cursor landed, so the line stays true.
+and move nothing. The manual press's message is dropped: with the places
+collapsing at the ends the line would either be redundant (the ordinary move,
+visible on screen) or false (naming a place the cursor did not reach), and a line
+kept only for the case it gets wrong is worse than no line.
 
 ## Background
 
@@ -93,6 +95,16 @@ Two consequences are accepted, not hidden:
   the same last page, consecutive presses can leave the viewport where it was.
   Again this is what the start already does against `0`.
 
+The cap removes only the blank rows a place *asks for* by naming a page below the
+last one. When the file is shorter than the text area --
+`row_count() + 1 <= available_rows` -- there is no page below row `0` to move
+down to, `last_viewport` saturates to `0`, and the rows under the last line are
+the file simply not filling the screen. Those rows stay: they are not a place
+reaching past the file, they are the file being shorter than the area, and every
+editor shows them. The cap is about the case where the file has the rows and the
+place dips below the last page; it says nothing about a file that ends on
+screen.
+
 ## Design
 
 The change is one bound in `State::adjust_viewport`, beside the automatic
@@ -116,47 +128,32 @@ The change is to cap the manual branch with the same bound -- `row.min(last_view
 owning it alone. The places, the cycle in `recenter_place()`, and the choice of
 which branch runs are unchanged.
 
-### Message: name the landing, not the request
+### Message: drop it
 
 Today the press's message comes from `RecenterPlace::message()`, which names the
 place the reader *asked for* (`Cursor centered` / `Cursor at top` / `Cursor at
 bottom`). With the cap, the request and the landing can differ -- a `Top` near
-the end lands on the bottom -- so the requested-place message would report a
-place the cursor is not at.
+the end lands on the bottom -- so a request-naming line reports a place the
+cursor is not at.
 
-The message is replaced by a free function that names where the cursor *landed*,
-read from the viewport after the height-settling loop:
+The line is dropped rather than corrected. `RecenterPlace::message()` is removed,
+and `handle_view_recenter` no longer arms any message for the press; startup and
+the automatic recenter never spoke and are unchanged.
 
-```rust
-fn recenter_message(cursor_screen_row: usize, available_rows: usize) -> &'static str {
-    if cursor_screen_row == 0 {
-        "Cursor at top"
-    } else if cursor_screen_row + 1 == available_rows {
-        "Cursor at bottom"
-    } else {
-        "Cursor centered"
-    }
-}
-```
+The reason is that the line's only honest use is the case it exists to get
+wrong. On an ordinary press the cursor moves to the place, and the reader sees
+that on screen -- the line repeats what is already visible. The line would earn
+its place only when the cap sends the cursor somewhere other than the named place
+or leaves it where it was, and those are exactly the presses for which no short
+line is both true and useful. Naming the landing instead was tried first: it
+keeps every line true, but it speaks on the common move (redundant) and stays
+silent or says something obvious on the odd one, so it trades one fault for
+another. A line kept only for the case it cannot help with is worse than no
+line, so the line goes.
 
-Called as `recenter_message(self.cursor.row - self.viewport.row, available_rows)`
-when `recenter` is set, after the loop -- the landing is only known once the
-viewport has settled against the summary rows. The decisions behind it:
-
-- **The request is not a parameter.** The function sees only where the cursor
-  ended up. Comparing request to landing, and so adding a note like "(top not
-  reachable)", was considered and dropped: it needs the requested place, and
-  carrying it to say the request failed is surface the line does not earn -- the
-  reader can see the cursor did not reach the top.
-- **A no-op is not its own message.** A press that moves nothing still names the
-  landing. A separate "did not move" line would change what the message means
-  for a case the reader can already see.
-- **Order is top, then bottom, then center.** A one-row area makes `0 ==`
-  `available_rows - 1`, so the top test wins there and no degenerate-height rule
-  is needed.
-
-The startup position and the automatic recenter still say nothing, as they do
-today; only the manual press speaks, and it now names where the cursor ended up.
+This also settles the question the earlier draft left open (whether to keep a
+landing-naming message): no line is kept. A future change that wants to speak can
+do so deliberately -- see Future possibilities.
 
 ## Alternatives
 
@@ -172,11 +169,18 @@ today; only the manual press speaks, and it now names where the cursor ended up.
   every later feature, so the direction was dropped. This RFC is the other arm
   of the same mirror, and the smaller one.
 
-- **Drop the manual `C-l` message entirely.** The cursor's motion is what shows
-  the move, and the automatic recenter and the startup position never speak, so
-  the manual line is already the odd one out. Rejected because at the ends the
-  motion can be nil (the collapse), and the line is then the only sign of where
-  the press put the cursor. Recorded so the choice is visible.
+- **Keep the message, naming where the cursor landed.** A free function reads
+  the viewport after the height-settling loop and says `Cursor at top` /
+  `Cursor at bottom` / `Cursor centered` from the landing (`cursor.row -
+  viewport.row`), so no line ever names a place the cursor is not at. This was
+  the draft's proposal and is now rejected: it keeps the line true on every
+  press, but the common press (the cursor moving to the place it named) is the
+  one where the line only repeats the screen, and the odd press (the cap moving
+  the cursor elsewhere) is the one where a landing line says little that the
+  cursor's position does not already show. Paying a function and a call site for
+  a line whose honest use is the case it cannot make clearer is not worth it.
+  The name-the-request line it replaced was worse still, since it reports a
+  place the cursor is not at once the cap bites.
 
 - **Leave the ends as they are.** `Top`/`Center` near the end keep their blank
   rows and the message keeps naming the request. This is today's behavior; it is
@@ -185,20 +189,29 @@ today; only the manual press speaks, and it now names where the cursor ended up.
 
 ## Impact
 
-Ergonomics, with one bound added and one message rewritten under the hood. What
-a reader sees changes only near the ends of a file: a manual `C-l` there stops
-showing blank rows, lands on the last page, and the message names where the
-cursor landed rather than where it was asked to go. In the middle of a file
-nothing changes -- all three places are already where they say they are, the cap
-does not bite, and the landing equals the request.
+Ergonomics, with one bound added and one message removed. What a reader sees
+changes only near the ends of a file: a manual `C-l` there stops showing blank
+rows and lands on the last page, and the manual press no longer prints a line. In
+the middle of a file the motion is unchanged -- all three places are already
+where they say they are and the cap does not bite -- and the only change is the
+missing line, which the cursor's motion already told the reader.
 
 No correctness is at stake: the set of rows the file contains is untouched, and
 a cursor that lands on an end place is where the same press would have put it
 before the cycle existed. The manual and automatic paths now share one end
 bound, which removes the asymmetry that made the end behave unlike the start.
 
+## Future possibilities
+
+A later change could give `C-l` a line again, but only where a line carries its
+weight -- e.g. when the cap sends the cursor somewhere other than the named
+place, or when the file is short enough that the press cannot move at all. Any
+such line would have to be true on its own, without the screen behind it, and
+would replace the dropped request-naming line rather than sit beside it.
+
 ## Unresolved questions
 
-None. The message wording is unchanged from today's (`Cursor at top` and so on,
-read from the landing instead of the request), and whether the message should
-mention the collapse was settled no.
+None. The message is dropped rather than corrected: the request-naming line goes
+because the cap makes it false at the ends, and a landing-naming line goes
+because its only useful press is the one it cannot improve. Whether to speak
+again is left to a future change (see Future possibilities).
