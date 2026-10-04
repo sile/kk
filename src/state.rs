@@ -15,7 +15,7 @@ use crate::{
 ///
 /// The three are the places [`C-l`](crate::Action::ViewRecenter) cycles
 /// through. Which one a press asks for is read off the viewport it is pressed
-/// on; see [`State::recenter_place()`].
+/// on; see [`State::recenter_candidates()`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RecenterPlace {
     /// The cursor's row in the middle of the drawn rows.
@@ -325,14 +325,17 @@ impl State {
     /// columns, not rows, and does not scroll with the text.
     ///
     /// When [`recenter_viewport`](State::recenter_viewport) is set, the
-    /// requested place replaces the vertical rule and the request is taken. The
-    /// place is worked out here from the viewport the last adjustment left: the
-    /// row is centered when the viewport is already centered on the cursor, and
+    /// requested places replace the vertical rule and the request is taken. The
+    /// places are read off the viewport the last adjustment left: the row is
+    /// centered when the viewport is already centered on the cursor, and
     /// otherwise moved on from there -- see
     /// [`handle_view_recenter()`](State::handle_view_recenter) for the cycle.
-    /// The place's own row saturates at the file's first line; at the file's
+    /// Each place's own row saturates at the file's first line; at the file's
     /// end it is capped at the last page, the same bound the automatic recenter
-    /// uses, so a manual `C-l` near either end draws no blank rows. The column
+    /// uses, so a manual `C-l` near either end draws no blank rows. Near the
+    /// file's end two of the three places collapse onto the row already shown;
+    /// a place that moves nothing is stepped over for the next, so the press
+    /// still reaches the one place the file's end leaves room for. The column
     /// is centered for every place. The row is sized inside the height-settling
     /// loop below, so it lands against the drawn height the summary rows leave
     /// rather than one computed before they are known.
@@ -365,11 +368,20 @@ impl State {
         let recenter = self.recenter_viewport;
         self.recenter_viewport = false;
         let center_request = std::mem::take(&mut self.center_viewport);
+        // A keypress names the places to try, in order; a plain center request
+        // (from a search or a jump) names only the center. The place the press
+        // lands on is settled once, here, from the viewport as the last
+        // adjustment left it -- the viewport the reader is looking at, before
+        // any of this runs. It is not read inside the loop: the loop overwrites
+        // the viewport on its first pass, and a second pass reading the new
+        // value would step the cycle on a second time. Only the row the chosen
+        // place works out to is left for the loop, which re-evaluates it against
+        // each pass's height.
         let recenter_place = if center_request {
             Some(RecenterPlace::Center)
         } else if recenter {
             let available_rows = self.text_rows(text_area_size.rows);
-            Some(self.recenter_place(available_rows))
+            self.recenter_place(available_rows)
         } else {
             None
         };
@@ -982,9 +994,9 @@ impl State {
     /// Asks the next viewport adjustment to put the cursor somewhere, cycling
     /// `C-l` through the places there are to put it.
     ///
-    /// The cycle is center, top, bottom, center, and the next place is worked
-    /// out when the request is applied, from where the viewport already is --
-    /// not from a place remembered here. Pressing the key repeatedly therefore
+    /// The cycle is center, top, bottom, center, and the place is worked out
+    /// when the request is applied, from where the viewport already is -- not
+    /// from a place remembered here. Pressing the key repeatedly therefore
     /// visits the three places in turn: a viewport that is already centered is
     /// moved to the top, one on the top row to the bottom, and anything else is
     /// centered. Centering alone is idempotent, so without the cycle a second
@@ -1010,43 +1022,61 @@ impl State {
     /// The place the next recenter should land on, read off where the viewport
     /// is now.
     ///
-    /// The cycle turns on which of the three places the viewport is already at,
-    /// and the three are told apart by the row the viewport sits on:
+    /// The cycle is center, top, bottom, center. Which place comes next turns on
+    /// which of the three the viewport is already at, and the three are told
+    /// apart by the row the viewport sits on:
     ///
     /// - on the top row already -- the viewport's row is the one
-    ///   [`RecenterPlace::Top`] would use -- so the request moves on to
-    ///   [`RecenterPlace::Bottom`];
-    /// - centered already, so it moves on to [`RecenterPlace::Top`];
+    ///   [`RecenterPlace::Top`] would use -- so the place after it,
+    ///   [`RecenterPlace::Bottom`], is tried first;
+    /// - centered already, so [`RecenterPlace::Top`] is tried first;
     /// - anywhere else, including a viewport the buffer's first row clamped, so
-    ///   it centers.
+    ///   the center is tried first.
     ///
-    /// The top is tested first because the places overlap: a cursor in the
-    /// middle of the drawn rows sits on the top row *and* is centered at the
-    /// same time when the area's height has not changed since the last
-    /// adjustment. Testing the center first would leave the cycle there, and the
-    /// third press would never reach the bottom.
+    /// The places are tried in the cycle order center, top, bottom, starting
+    /// from the one after the place the viewport is already on, and the first
+    /// that the cap at the file's end leaves on a row other than the one the
+    /// viewport is on is the place the press lands on. The cap collapses a place
+    /// onto the row already shown near the file's end -- two of the three, with
+    /// a file that fits the whole area, collapse all three -- and a place that
+    /// would move nothing is stepped over rather than landed on. Reading the
+    /// place off the cap's own result, not off the place's name, is what keeps a
+    /// press near the file's end from landing on a fixed point and sticking
+    /// there; the cap is applied here the same way
+    /// [`adjust_viewport()`](State::adjust_viewport) applies it.
     ///
-    /// That makes the order center, top, bottom, center whenever the three
-    /// differ, which they do for any text area taller than one row. A one-row
-    /// area collapses them onto the cursor's own row, and the key then does
-    /// nothing -- there is nowhere else for the cursor to be drawn.
+    /// The top is tested first when telling the places apart because they
+    /// overlap: a cursor in the middle of the drawn rows sits on the top row
+    /// *and* is centered at the same time when the area's height has not changed
+    /// since the last adjustment. Testing the center first would leave the cycle
+    /// there, and the third press would never reach the bottom.
     ///
-    /// Reading the place off the viewport rather than remembering it keeps the
-    /// cycle honest about what the reader is looking at: a search step or a cut
-    /// between two presses moves the view, and the next press continues from
-    /// there rather than from a place that is no longer on screen.
-    fn recenter_place(&self, available_rows: usize) -> RecenterPlace {
-        let cursor_row = self.cursor.row;
-        let center_row = RecenterPlace::Center.row(cursor_row, available_rows);
-        let top_row = RecenterPlace::Top.row(cursor_row, available_rows);
+    /// The result is `None` when every place collapses onto the row the viewport
+    /// is already on. That is a file that fits the whole area, where there is
+    /// nowhere else for the cursor to be drawn and the key does nothing.
+    fn recenter_place(&self, available_rows: usize) -> Option<RecenterPlace> {
+        use RecenterPlace::{Bottom, Center, Top};
 
-        if self.viewport.row == top_row {
-            RecenterPlace::Bottom
+        let cursor_row = self.cursor.row;
+        let last_viewport = (self.row_count() + 1).saturating_sub(available_rows);
+        let center_row = Center.row(cursor_row, available_rows);
+        let top_row = Top.row(cursor_row, available_rows);
+
+        // The place after the one the viewport is on, then the other two in
+        // cycle order. The bottom is tested before the center for a viewport
+        // that is neither: a file's first line clamps where the start places
+        // would go, and the bottom is the one place the start cannot shadow.
+        let order = if self.viewport.row == top_row {
+            [Bottom, Center, Top]
         } else if self.viewport.row == center_row {
-            RecenterPlace::Top
+            [Top, Bottom, Center]
         } else {
-            RecenterPlace::Center
-        }
+            [Center, Top, Bottom]
+        };
+
+        order.into_iter().find(|place| {
+            place.row(cursor_row, available_rows).min(last_viewport) != self.viewport.row
+        })
     }
 
     /// Deletes from the cursor to the end of the line, or joins the next line

@@ -631,6 +631,11 @@ fn a_manual_recenter_near_the_end_leaves_no_blank_rows() {
     // 15..19, the last line on the last drawn row, so no blank row is drawn
     // under the file. The start already stops at row 0 without a cap; this is
     // the end's mirror.
+    //
+    // The cap collapses two of the three places here: `Top` (18) and `Center`
+    // (16) both come back as 15. A press from 15 would land on either and move
+    // nothing, so it steps over them to the one place the file's end still
+    // leaves room for, `Bottom`, at 14.
     let mut state = state_of(&"a\n".repeat(20));
     state.cursor = at(18, 0);
     state.viewport = at(18, 0); // on the cursor's row, so the first press reads `Bottom`
@@ -644,9 +649,9 @@ fn a_manual_recenter_near_the_end_leaves_no_blank_rows() {
 
     assert_eq!(
         rows,
-        vec![14, 15, 15],
-        "Bottom lands on 14; the `Center` after it asks for 16 but the cap \
-         holds it at 15, the last page"
+        vec![14, 15, 14],
+        "`Bottom` lands on 14, then the capped `Center`/`Top` at 15; from 15 \
+         both collapse back onto it, so the press steps over them to `Bottom`"
     );
 }
 
