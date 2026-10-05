@@ -1,6 +1,6 @@
 # RFC: C-l leaves no blank space at the file ends
 
-- Status: draft
+- Status: accepted
 
 ## Summary
 
@@ -249,3 +249,31 @@ None. The message is dropped rather than corrected: the request-naming line goes
 because the cap makes it false at the ends, and a landing-naming line goes
 because its only useful press is the one it cannot improve. Whether to speak
 again is left to a future change (see Future possibilities).
+
+## Outcome
+
+Implemented in [#15](https://github.com/sile/kk/pull/15) (merged as `0a94095`).
+
+Landed. `State::adjust_viewport` now caps the manual `C-l` branch at the last
+page, `(row_count() + 1).saturating_sub(available_rows)`, so a press within a
+page of the file's end lands on the last page and draws no blank rows below the
+file, mirroring the start. `RecenterPlace::message()` was deleted and
+`handle_view_recenter` no longer arms a line for the press.
+
+Capping the place's row alone left the cycle stranded: near the end `Top` and
+`Center` both collapse onto the last page, so the place the cycle named could
+equal the page already showing and a press would move nothing. `recenter_place()`
+was therefore rewritten to work out the next place from the cursor and viewport
+each call -- start at the place after the one the viewport is on, in the cycle
+order center, top, bottom, and take the first whose *capped* row differs from the
+current viewport -- skipping a place the cap collapses onto the current page and
+returning `None` only when every candidate collapses. The place is fixed before
+the height-settling loop; re-choosing it inside the loop made a press near the
+end jump between places. The `RecenterPlace` enum is kept but no longer carries
+the cycle's state.
+
+Tests were updated for the cap and the cycle walk, including a case near the end
+where the second press advances rather than sticking. `cargo test`, `cargo fmt
+--check`, and `cargo clippy --all-targets -- -D warnings` all pass.
+
+The scope is unchanged from what is described above.
