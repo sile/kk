@@ -1,6 +1,6 @@
 # RFC: A --tail flag opens at the file end
 
-- Status: open
+- Status: accepted
 
 ## Summary
 
@@ -156,3 +156,29 @@ Ergonomics. No new cursor position and no new editing behavior: the file opens
 at the position `FILE:MAX:MAX` already names, placed by the startup recenter
 that already handles every other opening position. The cost is one more flag on
 the command line and one more argument through `App::new`.
+
+## Outcome
+
+Implemented in [#16](https://github.com/sile/kk/pull/16) (merged as `7ae2806`).
+
+`--tail` / `-t` was added as a boolean flag in `src/main.rs`, taken before the
+positional like `--create-new`, and `open_position` (a new pure helper) maps
+the parsed position to the 0-based `tuinix::Position` the open needs: under
+`--tail` it is `usize::MAX, usize::MAX`, otherwise the parsed row and column
+shifted to 0-based. The flag does not reach `App::new` or the recenter; it is
+folded into the position, so the file end is reached by the clamp every
+out-of-range position already goes through, exactly as the RFC describes.
+
+The position is not overwritten before the shift but after it, so `--tail` is
+`usize::MAX` and not one short. The RFC's Design was tidied in the same pull
+request to match: `App::new` still takes only the position, and the "second
+signal for a non-centred placement" the text had sketched was dropped, since
+the capped startup centre already leaves no blank rows at the end.
+
+Tests: `split_position` and `open_position` unit tests in `src/main.rs` cover
+the flag and the shift, and a `tests/state.rs` test pins that
+`handle_cursor_to_position(usize::MAX, usize::MAX)` -- what `--tail` produces --
+lands at the end of the last line with no blank rows below. `cargo test`,
+`cargo fmt --check`, and `cargo clippy --all-targets -- -D warnings` pass.
+
+The scope is unchanged from what is described above.
