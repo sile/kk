@@ -75,11 +75,13 @@ let tail = noargs::flag("tail")
     .is_present();
 ```
 
-The flag is passed to `App::new` beside `create_new`. Inside, it is turned into
-the position to ask for: when `--tail` is set, the `LINE` and `COLUMN` from the
-command line are overwritten with `usize::MAX` before they become a
-`tuinix::Position`. The rest of the path is unchanged -- the position still goes
-to `State::handle_cursor_to_position`, which clamps it against the buffer:
+The flag does not reach `App::new`: it is applied in `src/main.rs`, before the
+position is 1-based-to-0-based and handed over. When `--tail` is set, the
+`LINE` and `COLUMN` from the command line are overwritten with `usize::MAX`
+there, so `App::new` still takes only the position and a `--tail` open reaches
+it as the position `FILE:MAX:MAX` would carry. The rest of the path is
+unchanged -- the position still goes to `State::handle_cursor_to_position`,
+which clamps it against the buffer:
 `row.min(...)` and `col.min(...)` bring a `usize::MAX` row to the last line and
 a `usize::MAX` column to the end of that line. So the file end is reached by
 the clamp the core already applies to every out-of-range position, not by a

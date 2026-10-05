@@ -1027,6 +1027,28 @@ fn an_automatic_recenter_near_the_end_leaves_no_blank_rows() {
 }
 
 #[test]
+fn an_open_at_the_file_end_lands_on_the_last_line_with_no_blank_rows() {
+    // What `--tail` asks for: the startup position `usize::MAX`, which the
+    // clamp brings to the end of the last line. The startup center is capped at
+    // the file's last page, so the cursor sits on the last drawn row with no
+    // blank rows below it -- the same placement `C-l` settles on at the end.
+    let mut state = state_of(&"a\n".repeat(20));
+
+    state.handle_cursor_to_position(usize::MAX, usize::MAX);
+    assert_eq!(
+        state.cursor,
+        at(19, 1),
+        "row 19 is the last line, column 1 is the end of it"
+    );
+
+    state.adjust_viewport(area(5, 10));
+    assert_eq!(
+        state.viewport.row, 15,
+        "20 - 5: the last line is the last drawn row, with no blank row under it"
+    );
+}
+
+#[test]
 fn a_cursor_above_the_viewport_a_screen_out_is_centered() {
     let mut state = state_of(&"a\n".repeat(20));
     state.viewport = at(12, 0);
