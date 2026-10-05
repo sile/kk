@@ -17,8 +17,12 @@ at the last page, `last_viewport = (row_count() + 1) - available_rows`, the same
 bound the automatic recenter already uses. A manual `C-l` near an end then shows
 no blank rows, mirroring the start. The cost is stated up front and accepted:
 because the places collapse onto the same page at an end, a press there may land
-on a place other than the one it names, or on the page it was already showing
-and move nothing. The manual press's message is dropped: with the places
+on a place other than the one it names. That collapse would also strand the
+cycle -- if the chosen place's capped row equals the page already showing, a
+press would move nothing and the reader could never reach the places that do
+land -- so the cycle is walked over the capped rows, skipping any place that
+collapses onto the current page (see `### The cycle at the ends`). The manual
+press's message is dropped: with the places
 collapsing at the ends the line would either be redundant (the ordinary move,
 visible on screen) or false (naming a place the cursor did not reach), and a line
 kept only for the case it gets wrong is worse than no line.
@@ -84,16 +88,20 @@ holds it at `0`. With the cap, a manual `C-l` within a page of the file end
 lands on the last page and shows no blank rows below the file, the way a press
 near the start already shows none above it.
 
-Two consequences are accepted, not hidden:
+One consequence is accepted, and one mechanism is added so the cap does not
+strand the cycle -- both stated here rather than hidden:
 
 - **The named place may be unreachable at an end.** `Top` near the end, asking
   for the cursor on the first drawn row, lands on the last drawn row instead,
   because the file does not have the rows below the cursor to push the frame
   down to that place. This is what the start already does to `Center` and
   `Bottom`.
-- **A press at an end may move nothing.** When all three places collapse onto
-  the same last page, consecutive presses can leave the viewport where it was.
-  Again this is what the start already does against `0`.
+- **The cycle is walked over the capped rows.** A place whose capped row would
+  leave the viewport where it is is skipped, and the next place in the cycle is
+  tried, so a press at an end still moves to the next place that has room to
+  land. Near the end only `Bottom` and the capped `Center` differ, so the cycle
+  becomes a two-way oscillation between them rather than a press that does
+  nothing. This goes beyond capping the place's row; the design below says how.
 
 The cap removes only the blank rows a place *asks for* by naming a page below the
 last one. When the file is shorter than the text area --
@@ -125,8 +133,32 @@ self.viewport.row = if automatic {
 
 The change is to cap the manual branch with the same bound -- `row.min(last_viewport)
 ` -- so the two branches share one end bound instead of the automatic path
-owning it alone. The places, the cycle in `recenter_place()`, and the choice of
-which branch runs are unchanged.
+owning it alone. The places and the choice of which branch runs are unchanged.
+
+The cycle in `recenter_place()` is changed, because capping the place's row alone
+turns the collapse at an end into a press that moves nothing: if the chosen
+place's capped row equals the page already showing, that press is a fixed point
+and the reader cannot reach the other places by pressing again. The cycle is
+therefore advanced over the capped rows instead of the uncapped ones.
+
+### The cycle at the ends
+
+`recenter_place()` no longer picks the next place from the current place alone.
+It works out the next place each call from the cursor and the viewport: it looks
+at which of `Top`/`Center`/`Bottom` the current viewport is on, starts at the
+place *after* it in the cycle order center, top, bottom, and takes the first
+place whose *capped* row differs from the current viewport. A place that a
+previous draft would have chosen but that the cap collapses onto the current
+page is stepped over, and the next candidate is tried. When every candidate
+collapses onto the current page the press moves nothing, which can only happen
+when the file is shorter than the area and there is no other page to reach.
+
+The comparison is on the capped value, so it agrees with where the viewport
+actually lands, and the chosen place is fixed before the height-settling loop
+rather than re-chosen inside it -- otherwise a press near an end would jump
+between places as the loop re-evaluated the cursor's row. The enum that names
+the places is kept, but it no longer carries the cycle's state; the state is the
+cursor and viewport the reader sees.
 
 ### Message: drop it
 
@@ -189,12 +221,14 @@ do so deliberately -- see Future possibilities.
 
 ## Impact
 
-Ergonomics, with one bound added and one message removed. What a reader sees
-changes only near the ends of a file: a manual `C-l` there stops showing blank
-rows and lands on the last page, and the manual press no longer prints a line. In
-the middle of a file the motion is unchanged -- all three places are already
-where they say they are and the cap does not bite -- and the only change is the
-missing line, which the cursor's motion already told the reader.
+Ergonomics, with one bound added, the cycle advanced over the capped rows, and
+one message removed. What a reader sees changes only near the ends of a file: a
+manual `C-l` there stops showing blank rows and lands on the last page, a press
+there that would have landed on the page already showing now advances to the
+next place that has room, and the manual press no longer prints a line. In the
+middle of a file the motion is unchanged -- all three places are already where
+they say they are and the cap does not bite -- and the only change is the missing
+line, which the cursor's motion already told the reader.
 
 No correctness is at stake: the set of rows the file contains is untouched, and
 a cursor that lands on an end place is where the same press would have put it
