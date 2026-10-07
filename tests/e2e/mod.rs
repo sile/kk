@@ -88,11 +88,28 @@ impl KkHarness {
         let cols = 80;
         let session = termnix::Session::new(&mut command, size(rows, cols))
             .expect("failed to start the kk binary behind a PTY");
-        Self {
+        let mut harness = Self {
             session,
             rows,
             cols,
-        }
+        };
+        // Wait for the first frame before handing the harness back, so no test
+        // races the child's startup. The status line (`[PATH:ROW:COL]`) is drawn
+        // in that first frame and stays put; the one-shot `Opened`/`Created`
+        // message is cleared by the very next render, so waiting on it could miss
+        // it entirely under load and spin to the timeout.
+        harness.wait_until_ready();
+        harness
+    }
+
+    /// Pumps until the first frame has been painted.
+    ///
+    /// Readiness is the status line's leading `[`, which every frame draws and
+    /// nothing clears. The transient startup message is deliberately not used:
+    /// it lives for one frame, so a slow first `pump` can miss it and never see
+    /// it again.
+    pub fn wait_until_ready(&mut self) {
+        self.wait_until("the first frame", |h| h.screen_contains("["));
     }
 
     /// Sends a plain character key with no modifiers.

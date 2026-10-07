@@ -10,7 +10,6 @@ fn search_enters_the_prompt_and_finds_a_later_match() {
     std::fs::write(&path, "alpha\nbeta\ngamma\n").expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     // `C-s` in Edit opens the query prompt, which shares the message line
     // rather than taking a row of its own. The direction is picked here, in the
@@ -45,7 +44,6 @@ fn search_can_be_cancelled_with_ctrl_g() {
     std::fs::write(&path, "alpha\nbeta\n").expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     kk.send_ctrl('s');
     kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
@@ -68,7 +66,6 @@ fn cancelling_a_search_returns_the_cursor_to_where_it_started() {
     // reading of the cursor, on screen whatever the scratch path is.
     let mut kk = KkHarness::open(&path);
     kk.resize(24, 200);
-    kk.wait_for_text("Opened");
     kk.wait_until("cursor at the start", |h| h.screen_contains(":1:1]"));
 
     // Search for a word on a later row and jump to it, which moves the cursor
@@ -97,7 +94,6 @@ fn finishing_a_search_leaves_the_cursor_on_the_hit() {
 
     let mut kk = KkHarness::open(&path);
     kk.resize(24, 200);
-    kk.wait_for_text("Opened");
 
     kk.send_ctrl('s');
     kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
@@ -122,7 +118,6 @@ fn cutting_from_the_query_shortens_it_without_touching_the_buffer() {
 
     let mut kk = KkHarness::open(&path);
     kk.resize(24, 200);
-    kk.wait_for_text("Opened");
 
     kk.send_ctrl('s');
     kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
@@ -166,7 +161,6 @@ fn the_gutter_shows_the_hits_while_searching_and_leaves_with_the_prompt() {
 
     let mut kk = KkHarness::open(&path);
     kk.resize(24, 200);
-    kk.wait_for_text("Opened");
 
     // Before searching there is no gutter: the first line reads with no count
     // cell or separator in front of it.
@@ -212,7 +206,6 @@ fn a_jump_to_a_hit_past_the_edge_leaves_the_cursor_visible() {
 
     let mut kk = KkHarness::open(&path);
     kk.resize(8, 200);
-    kk.wait_for_text("Opened");
 
     kk.send_ctrl('s');
     kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
@@ -259,7 +252,6 @@ fn a_jump_to_a_hit_at_the_edges_keeps_the_cursor_visible_with_totals() {
 
     let mut kk = KkHarness::open(&path);
     kk.resize(8, 200);
-    kk.wait_for_text("Opened");
 
     kk.send_ctrl('s');
     kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
@@ -306,7 +298,6 @@ fn the_gutter_summary_row_is_gone_at_the_top_of_the_buffer() {
 
     let mut kk = KkHarness::open(&path);
     kk.resize(24, 200);
-    kk.wait_for_text("Opened");
 
     kk.send_ctrl('s');
     kk.wait_until("query prompt", |h| h.screen_contains("Search:"));
@@ -337,7 +328,6 @@ fn resizing_repaints_at_the_new_size() {
     std::fs::write(&path, "hello\n").expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     kk.resize(40, 100);
 

@@ -14,7 +14,6 @@ fn escape_toggles_the_legend() {
     std::fs::write(&path, "body\n").expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     // The legend is visible on startup; a row unique to it is the marker.
     kk.wait_until("legend visible at startup", |h| {

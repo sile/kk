@@ -28,7 +28,6 @@ fn the_legend_hides_while_the_cursor_is_under_it() {
     std::fs::write(&path, format!("{}\n", long_line())).expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);
-    kk.wait_for_text("Opened");
     kk.wait_until("legend visible at startup", |h| {
         h.screen_contains(LEGEND_ROW)
     });
@@ -64,7 +63,6 @@ fn escape_still_toggles_the_legend_under_the_cursor() {
     std::fs::write(&path, format!("{}\n", long_line())).expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);
-    kk.wait_for_text("Opened");
     kk.wait_until("legend visible at startup", |h| {
         h.screen_contains(LEGEND_ROW)
     });
