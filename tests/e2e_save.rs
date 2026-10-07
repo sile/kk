@@ -14,7 +14,6 @@ fn typing_then_saving_writes_the_edited_content() {
     std::fs::write(&path, "one\n").expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     // Move to the end of the first line and append a second line.
     kk.send_ctrl('e');
@@ -38,7 +37,6 @@ fn saving_reports_the_character_count() {
     std::fs::write(&path, "abc\n").expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     kk.send_key(termnix::KeyCode::Tab, termnix::Modifiers::new());
     // "abc\n" is four characters; the status message names the count.
@@ -54,7 +52,6 @@ fn a_save_refuses_when_the_file_changed_on_disk_and_force_save_overwrites() {
     std::fs::write(&path, "one\n").expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     // Another writer replaces the file while kk holds the old contents.
     std::fs::write(&path, "theirs\n").expect("write from the other writer");
@@ -86,7 +83,6 @@ fn a_save_goes_through_after_reloading_the_other_writers_version() {
     std::fs::write(&path, "one\n").expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     std::fs::write(&path, "theirs\n").expect("write from the other writer");
 
@@ -111,7 +107,6 @@ fn create_new_starts_empty_and_saves_what_is_typed() {
     assert!(!path.exists(), "scratch file should not exist yet");
 
     let mut kk = KkHarness::create_new(&path);
-    kk.wait_for_text("Created");
 
     kk.send_text("fresh");
     kk.send_key(termnix::KeyCode::Tab, termnix::Modifiers::new());

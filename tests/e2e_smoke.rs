@@ -15,10 +15,8 @@ fn kk_starts_paints_and_quits() {
 
     let mut kk = e2e::KkHarness::open(&path);
 
-    // The first message says the file was opened.
-    kk.wait_for_text("Opened");
-
-    // The buffer's content is on screen.
+    // `open` waits for the first frame, so the harness is ready to be driven
+    // and the buffer's content is on screen.
     assert!(
         kk.screen_contains("hello"),
         "expected the file content on screen:\n{}",

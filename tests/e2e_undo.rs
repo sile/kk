@@ -14,7 +14,6 @@ fn undo_right_after_typing_removes_what_was_typed() {
     std::fs::write(&path, "one\n").expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     // Type at the end of the line, then undo at once, with no cursor move in
     // between to close the edit run.

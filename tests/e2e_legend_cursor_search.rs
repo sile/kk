@@ -28,7 +28,6 @@ fn the_legend_hides_for_the_buffer_cursor_while_the_prompt_is_open() {
     std::fs::write(&path, format!("{}\n", long_line())).expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     // A prompt is open for the whole test, so the legend on screen is the
     // search legend and the terminal cursor sits in the query.

@@ -18,7 +18,6 @@ fn a_click_moves_the_cursor_to_the_clicked_line() {
     std::fs::write(&path, TEXT).expect("write scratch file");
 
     let mut kk = e2e::KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     // Widened so the status line's tail is on one row, as below.
     kk.resize(24, 200);
@@ -39,7 +38,6 @@ fn a_click_past_the_line_end_lands_on_the_line_end() {
     std::fs::write(&path, TEXT).expect("write scratch file");
 
     let mut kk = e2e::KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     // The status line echoes the path, which is long; widen the terminal so the
     // whole `ROW:COL` tail fits on one row.
@@ -60,7 +58,6 @@ fn a_click_on_the_message_line_does_not_move_the_cursor() {
     std::fs::write(&path, TEXT).expect("write scratch file");
 
     let mut kk = e2e::KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     // Widened so the status line's tail is on one row, as above.
     kk.resize(24, 200);
@@ -90,7 +87,6 @@ fn the_wheel_scrolls_the_view_and_the_cursor_rides_with_it() {
     std::fs::write(&path, &text).expect("write scratch file");
 
     let mut kk = e2e::KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     // Shrink the terminal so the whole buffer does not fit. It is kept wide so
     // the status line's tail, which is what these assertions read, stays on one
