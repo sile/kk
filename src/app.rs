@@ -276,7 +276,20 @@ impl App {
             kk::Action::LineCutTail => self.state.handle_line_cut_tail(),
             kk::Action::MarkSet => self.state.handle_mark_set(),
             kk::Action::MarkCut => self.state.handle_mark_cut(),
-            kk::Action::MarkCopy => self.state.handle_mark_copy(),
+            kk::Action::MarkCopy => {
+                self.state.handle_mark_copy();
+                // A copy is the one command that also hands its text to the
+                // terminal's own clipboard (OSC 52), so the edge writes what the
+                // in-process clipboard now holds; `handle_mark_copy` has just
+                // replaced it with the copied text. A cut only fills kk's
+                // clipboard and asks the terminal for nothing.
+                //
+                // Whether the terminal accepts the sequence is not observable
+                // -- OSC 52 has no reply -- so that is not reported. Failing to
+                // write it is a different matter: it is the same kind of I/O
+                // failure as writing a frame, so it propagates and ends kk.
+                self.driver.set_clipboard(&self.state.clipboard.read())?;
+            }
             kk::Action::ClipboardPaste => self.state.handle_clipboard_paste(),
             kk::Action::ExtEnter => self.state.handle_ext_enter(),
             kk::Action::SearchEnter => self.state.handle_search_enter(),
@@ -285,20 +298,6 @@ impl App {
             kk::Action::SearchCutQuery => self.state.handle_search_cut_query(),
             kk::Action::SearchNextHit => self.state.handle_search_next_hit(),
             kk::Action::SearchPrevHit => self.state.handle_search_prev_hit(),
-        }
-
-        // A copy records a request to put its text on the terminal's clipboard
-        // (OSC 52). The take is `None` for every other action, so it is safe to
-        // ask after each one.
-        //
-        // Whether the terminal accepts the sequence is not observable -- OSC 52
-        // has no reply -- so that is not reported. Failing to write it is a
-        // different matter: it is the same kind of I/O failure as writing a
-        // frame, so it propagates and ends kk. The in-process clipboard already
-        // holds the text, but a terminal kk cannot write to is one it cannot
-        // draw to either.
-        if let Some(export) = self.state.take_clipboard_export() {
-            self.driver.set_clipboard(&export.text)?;
         }
 
         Ok(())

@@ -7,7 +7,7 @@
 
 use crate::{
     buffer::{TextBuffer, TextPosition},
-    clipboard::{Clipboard, ClipboardExport},
+    clipboard::Clipboard,
     search_prompt::{Highlight, SearchPrompt},
 };
 
@@ -106,18 +106,12 @@ pub struct State {
     pub mark: Option<TextPosition>,
 
     /// The clipboard text cut from or copied out of the buffer.
-    pub clipboard: Clipboard,
-
-    /// A pending request to hand text to the terminal's clipboard, set by a
-    /// copy and taken by the edge.
     ///
-    /// A copy fills [`clipboard`](State::clipboard) for kk's own `C-y` and
-    /// records the same text here so the edge can also send it to the
-    /// terminal (OSC 52). The core stays Sans I/O, so the request waits here
-    /// until [`take_clipboard_export()`](State::take_clipboard_export) hands it
-    /// to the edge, which performs the write. A cut fills the in-process
-    /// clipboard but records nothing here: only a copy reaches the terminal.
-    clipboard_export: Option<ClipboardExport>,
+    /// A copy is also handed to the terminal's own clipboard by the edge; a cut
+    /// is not. Nothing here records that: the edge knows a copy happened from
+    /// the action it just ran, so it reads this for the text (see the copy
+    /// command).
+    pub clipboard: Clipboard,
 
     /// The clipboard the search prompt keeps its own edits in.
     ///
@@ -185,7 +179,6 @@ impl State {
             mark: None,
             clipboard: Clipboard::default(),
             search_clipboard: Clipboard::default(),
-            clipboard_export: None,
             editing: false,
             cut_chained: false,
             history: Vec::new(),
@@ -199,16 +192,6 @@ impl State {
     /// Queues `message` to be shown once, on the next render.
     pub fn set_message<S: Into<String>>(&mut self, message: S) {
         self.message = Some(message.into());
-    }
-
-    /// Takes the pending terminal-clipboard export, if any, leaving none.
-    ///
-    /// The edge calls this after an action and writes what it gets, so a copy
-    /// reaches the terminal's clipboard exactly once. It is `None` when the
-    /// last action did not copy, which is why taking it after every action is
-    /// harmless.
-    pub fn take_clipboard_export(&mut self) -> Option<ClipboardExport> {
-        self.clipboard_export.take()
     }
 
     /// Returns the cursor's position relative to the visible text area, which
@@ -929,10 +912,6 @@ impl State {
 
         if let Some((start, _end, text)) = self.take_mark_region("No mark set", "Nothing to copy") {
             self.clipboard.write(&text);
-            // The in-process clipboard is for kk's own `C-y`; this is also what
-            // the edge sends on to the terminal's clipboard. Only a copy does
-            // this, so a cut stays inside kk.
-            self.clipboard_export = Some(ClipboardExport { text: text.clone() });
             self.cursor = start;
             self.mark = None;
             self.set_message(format!("Copied {} characters", text.chars().count()));

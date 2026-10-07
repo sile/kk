@@ -1,21 +1,5 @@
 //! A clipboard that lives in memory for the lifetime of the process.
 
-/// Text that should be handed to the terminal's clipboard.
-///
-/// The in-process [`Clipboard`] is where kk's own `C-y` paste reads from, but
-/// it lives and dies with the process. A copy also asks the terminal to put the
-/// text on the system clipboard (OSC 52), so it survives kk and can be pasted
-/// elsewhere. The core stays Sans I/O, so it records the request here and the
-/// edge takes it and writes it; nothing in this type touches the terminal.
-///
-/// Only a copy produces one: a cut fills kk's own clipboard but is not handed
-/// to the terminal (see the copy command).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ClipboardExport {
-    /// The text to hand to the terminal's clipboard.
-    pub text: String,
-}
-
 /// The editor's clipboard.
 ///
 /// It holds text copied or cut from the buffer. Nothing is persisted, so the

@@ -97,8 +97,8 @@ pub enum Action {
     /// Copies the marked region to the clipboard and leaves it in place.
     ///
     /// This is the one command that also hands the text to the terminal's own
-    /// clipboard, so it can be pasted outside kk (see
-    /// [`ClipboardExport`](crate::ClipboardExport)).
+    /// clipboard, so it can be pasted outside kk. The edge writes it when it
+    /// runs this action; a cut stays inside kk.
     MarkCopy,
 
     /// Inserts the clipboard's contents at the cursor.

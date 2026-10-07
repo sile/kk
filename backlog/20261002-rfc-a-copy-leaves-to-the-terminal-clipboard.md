@@ -88,44 +88,45 @@ same count `C-w` reports for the text it cut.
 
 `kk::Clipboard` (`src/clipboard.rs`) holds one string, written by `write` and
 `append`; a cut calls those and nothing leaves the process. `handle_mark_copy`
-writes the region to the in-process clipboard the same way, and also records a
-*pending export*: the text to send to the terminal.
+writes the region to the in-process clipboard the same way.
 
-The export is a plain value the edge can read, not a side effect, because the
-core is Sans I/O:
+What makes a copy the one thing that also reaches the terminal is the *action*,
+not a value the core records. The core stays Sans I/O -- it never touches the
+terminal -- and the edge is the one that knows which action just ran, so the
+export is decided at the edge rather than stored in `State`. No `ClipboardExport`
+type and no pending-export field are needed: the edge reads the clipboard's
+text when it handles `MarkCopy`.
 
-```rust
-/// Text that should be handed to the terminal's clipboard.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ClipboardExport {
-    pub text: String,
-}
-```
-
-`State` exposes it for the edge to take: `State::take_clipboard_export(&mut
-self) -> Option<ClipboardExport>`, which returns the value and clears it so one
-copy is sent once. There is no replace-or-append distinction: a copy always
-replaces, because it is the only thing that exports and it always writes the
-whole marked region. (kk's own clipboard has an `append`, used to accumulate a
-run of cuts; nothing about a copy uses it, and the terminal only ever needs the
-last, complete region.)
+There is no replace-or-append distinction to model either: a copy always
+replaces the in-process clipboard, because it is the only thing that exports and
+it always writes the whole marked region. (kk's own clipboard has an `append`,
+used to accumulate a run of cuts; nothing about a copy uses it, and the terminal
+only ever needs the last, complete region.)
 
 ### Edge: hand it to tuinix
 
-`src/app.rs` is the edge. After handling the action, it takes the pending export
-and writes it:
+`src/app.rs` is the edge. When the action is `MarkCopy` it writes what the
+in-process clipboard now holds:
 
 ```rust
-if let Some(export) = self.state.take_clipboard_export() {
+kk::Action::MarkCopy => {
+    self.state.handle_mark_copy();
+    // A copy is the one command that also hands its text to the terminal's
+    // clipboard (OSC 52). `handle_mark_copy` has just replaced the in-process
+    // clipboard with the copied text, so reading it here is enough.
+    //
     // A write failure is the same kind of I/O error as drawing a frame, so it
     // propagates and ends kk. What is not reported is delivery -- see below.
-    self.driver.set_clipboard(&export.text)?;
+    self.driver.set_clipboard(&self.state.clipboard.read())?;
 }
 ```
 
-The natural place is `handle_action`, after the `match` that runs the handler.
-Taking the export after every action is harmless because the take is `None` for
-every action but `MarkCopy`.
+Making `MarkCopy`'s arm decide this keeps the export next to the one action it
+belongs to, rather than a flag every action has to be checked against. A copy of
+an empty region leaves the clipboard as it was, so the edge re-sends whatever
+was already there; that is harmless -- it only re-syncs the terminal with kk's
+current clipboard -- and it keeps the edge from needing to know whether the copy
+succeeded.
 
 The translation from text to an OSC 52 byte string belongs in `tuinix`, not in
 kk. kk asks for "put this on the terminal's clipboard"; `tuinix` owns the
@@ -202,7 +203,7 @@ behavior honest.
 - A copy writes to the terminal, so it is not a purely in-process action. The
   write is one escape sequence, and a failure to write it ends kk; that is a new
   side effect, and a new way for a copy to fail.
-- kk gains a command (`C-x w`) and a `ClipboardExport` type with a take method.
+- kk gains a command (`C-x w`) and its arm in the edge reads and writes the clipboard.
 - Base64 encoding happens for a feature with no observable success, though the
   code lives in `tuinix` and is shared.
 
@@ -244,9 +245,9 @@ behavior honest.
 Ergonomics. A copy adds one chord and one clipboard path; a cut, `C-y`, the
 buffer, and the file are unchanged. The costs are the `MarkCopy` action, a
 binding and a legend line, `handle_mark_copy` (sharing the mark bookkeeping with
-`handle_mark_cut`), the `ClipboardExport` type and take method in the core, and
-one take-and-write in the edge. `tuinix::set_clipboard` and `termnix`'s OSC 52
-capture already exist, so nothing new is needed from them.
+`handle_mark_cut`), and the `MarkCopy` arm in the edge that reads the clipboard
+and writes it. `tuinix::set_clipboard` and `termnix`'s OSC 52 capture already
+exist, so nothing new is needed from them.
 
 ## Future possibilities
 

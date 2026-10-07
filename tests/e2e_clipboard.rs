@@ -1,10 +1,10 @@
 //! End-to-end clipboard export: `C-x w` (copy) reaches the terminal as OSC 52.
 //!
-//! The unit tests check that `State` records a [`kk::ClipboardExport`]; this
-//! checks the other half -- that the edge turns it into a sequence the terminal
-//! emulator recognises as a clipboard write, carrying exactly the copied text.
-//! Only a copy exports: a cut fills kk's own clipboard and asks the terminal for
-//! nothing.
+//! The unit tests check that a copy fills `State`'s in-process clipboard; this
+//! checks the other half -- that the edge turns that into a sequence the
+//! terminal emulator recognises as a clipboard write, carrying exactly the
+//! copied text. Only a copy exports: a cut fills kk's own clipboard and asks the
+//! terminal for nothing.
 
 mod e2e;
 

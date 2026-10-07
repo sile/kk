@@ -323,38 +323,34 @@ fn mark_copy_records_no_undo_step() {
 }
 
 #[test]
-fn mark_copy_records_a_clipboard_export_and_mark_cut_does_not() {
+fn mark_copy_writes_the_copied_text_to_the_clipboard_and_mark_cut_writes_the_cut_text() {
     let mut state = state_of("hello world\n");
     state.cursor = at(0, 6);
     state.handle_mark_set();
     state.cursor = at(0, 11);
 
     state.handle_mark_copy();
-    let export = state
-        .take_clipboard_export()
-        .expect("a copy exports its text");
-    assert_eq!(export.text, "world");
+    assert_eq!(state.clipboard.read(), "world");
 
-    // Taken once, it is gone.
-    assert!(state.take_clipboard_export().is_none());
-
-    // A cut fills the in-process clipboard but not the terminal's.
+    // A cut fills the in-process clipboard too, with the text it removed. The
+    // edge is what decides a cut stays inside kk; here only the clipboard's
+    // contents are at stake.
     state.cursor = at(0, 0);
     state.handle_mark_set();
     state.cursor = at(0, 5);
     state.handle_mark_cut();
     assert_eq!(state.clipboard.read(), "hello");
-    assert!(state.take_clipboard_export().is_none());
 }
 
 #[test]
-fn mark_copy_with_no_mark_says_so_and_exports_nothing() {
+fn mark_copy_with_no_mark_says_so_and_leaves_the_clipboard_alone() {
     let mut state = state_of("hello\n");
+    state.clipboard.write("kept");
 
     state.handle_mark_copy();
 
     assert_eq!(state.message.as_deref(), Some("No mark set"));
-    assert!(state.take_clipboard_export().is_none());
+    assert_eq!(state.clipboard.read(), "kept");
 }
 
 #[test]
@@ -366,7 +362,6 @@ fn mark_copy_of_an_empty_region_says_nothing_to_copy() {
     state.handle_mark_copy();
 
     assert_eq!(state.message.as_deref(), Some("Nothing to copy"));
-    assert!(state.take_clipboard_export().is_none());
 }
 
 #[test]
