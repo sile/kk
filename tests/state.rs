@@ -290,6 +290,86 @@ fn mark_cut_is_one_undo_step_of_its_own() {
 }
 
 #[test]
+fn mark_copy_leaves_the_region_in_place_and_moves_the_cursor_to_its_start() {
+    let mut state = state_of("hello world\n");
+    state.cursor = at(0, 6);
+    state.handle_mark_set();
+    state.cursor = at(0, 11);
+
+    state.handle_mark_copy();
+
+    assert_eq!(state.clipboard.read(), "world");
+    assert_eq!(saved_text(&state), "hello world\n", "the copy deleted text");
+    assert_eq!(state.cursor, at(0, 6));
+    assert_eq!(state.message.as_deref(), Some("Copied 5 characters"));
+}
+
+#[test]
+fn mark_copy_records_no_undo_step() {
+    // A copy changes no text, so it must not record an undo snapshot: undoing
+    // after a copy has to reach past it, not undo the copy.
+    let mut state = state_of("hello world\n");
+    state.cursor = at(0, 6);
+    state.handle_mark_set();
+    state.cursor = at(0, 11);
+
+    state.handle_mark_copy();
+    state.finish_editing();
+    state.handle_char_insert('!');
+    state.finish_editing();
+
+    state.handle_buffer_undo();
+    assert_eq!(saved_text(&state), "hello world\n");
+}
+
+#[test]
+fn mark_copy_records_a_clipboard_export_and_mark_cut_does_not() {
+    let mut state = state_of("hello world\n");
+    state.cursor = at(0, 6);
+    state.handle_mark_set();
+    state.cursor = at(0, 11);
+
+    state.handle_mark_copy();
+    let export = state
+        .take_clipboard_export()
+        .expect("a copy exports its text");
+    assert_eq!(export.text, "world");
+
+    // Taken once, it is gone.
+    assert!(state.take_clipboard_export().is_none());
+
+    // A cut fills the in-process clipboard but not the terminal's.
+    state.cursor = at(0, 0);
+    state.handle_mark_set();
+    state.cursor = at(0, 5);
+    state.handle_mark_cut();
+    assert_eq!(state.clipboard.read(), "hello");
+    assert!(state.take_clipboard_export().is_none());
+}
+
+#[test]
+fn mark_copy_with_no_mark_says_so_and_exports_nothing() {
+    let mut state = state_of("hello\n");
+
+    state.handle_mark_copy();
+
+    assert_eq!(state.message.as_deref(), Some("No mark set"));
+    assert!(state.take_clipboard_export().is_none());
+}
+
+#[test]
+fn mark_copy_of_an_empty_region_says_nothing_to_copy() {
+    let mut state = state_of("hello\n");
+    state.cursor = at(0, 3);
+    state.handle_mark_set();
+
+    state.handle_mark_copy();
+
+    assert_eq!(state.message.as_deref(), Some("Nothing to copy"));
+    assert!(state.take_clipboard_export().is_none());
+}
+
+#[test]
 fn pasting_clipboard_text_inserts_it_at_the_cursor() {
     let mut state = state_of("one\n");
     state.clipboard.write("a\nb");

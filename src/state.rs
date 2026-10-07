@@ -7,7 +7,7 @@
 
 use crate::{
     buffer::{TextBuffer, TextPosition},
-    clipboard::Clipboard,
+    clipboard::{Clipboard, ClipboardExport},
     search_prompt::{Highlight, SearchPrompt},
 };
 
@@ -108,6 +108,17 @@ pub struct State {
     /// The clipboard text cut from or copied out of the buffer.
     pub clipboard: Clipboard,
 
+    /// A pending request to hand text to the terminal's clipboard, set by a
+    /// copy and taken by the edge.
+    ///
+    /// A copy fills [`clipboard`](State::clipboard) for kk's own `C-y` and
+    /// records the same text here so the edge can also send it to the
+    /// terminal (OSC 52). The core stays Sans I/O, so the request waits here
+    /// until [`take_clipboard_export()`](State::take_clipboard_export) hands it
+    /// to the edge, which performs the write. A cut fills the in-process
+    /// clipboard but records nothing here: only a copy reaches the terminal.
+    clipboard_export: Option<ClipboardExport>,
+
     /// The clipboard the search prompt keeps its own edits in.
     ///
     /// The prompt's `C-k` cuts from the query, and the text it removed is not
@@ -174,6 +185,7 @@ impl State {
             mark: None,
             clipboard: Clipboard::default(),
             search_clipboard: Clipboard::default(),
+            clipboard_export: None,
             editing: false,
             cut_chained: false,
             history: Vec::new(),
@@ -187,6 +199,16 @@ impl State {
     /// Queues `message` to be shown once, on the next render.
     pub fn set_message<S: Into<String>>(&mut self, message: S) {
         self.message = Some(message.into());
+    }
+
+    /// Takes the pending terminal-clipboard export, if any, leaving none.
+    ///
+    /// The edge calls this after an action and writes what it gets, so a copy
+    /// reaches the terminal's clipboard exactly once. It is `None` when the
+    /// last action did not copy, which is why taking it after every action is
+    /// harmless.
+    pub fn take_clipboard_export(&mut self) -> Option<ClipboardExport> {
+        self.clipboard_export.take()
     }
 
     /// Returns the cursor's position relative to the visible text area, which
@@ -877,32 +899,77 @@ impl State {
     pub fn handle_mark_cut(&mut self) {
         self.finish_editing();
 
-        if let Some(mark_pos) = self.mark.take() {
-            let cursor_pos = self.cursor_position();
-            let (start, end) = if mark_pos <= cursor_pos {
-                (mark_pos, cursor_pos)
-            } else {
-                (cursor_pos, mark_pos)
-            };
+        if let Some((start, end, text)) = self.take_mark_region("No mark set", "Nothing to cut") {
+            // Open the edit run only once there is something to delete, so
+            // an empty region records no snapshot. The whole cut is one
+            // step: every change `delete_range` makes lands between these
+            // two calls.
+            self.start_editing();
+            self.buffer.delete_range(start, end);
+            self.cursor = start;
+            self.mark = None;
+            self.finish_editing();
 
-            if let Some(text) = self.buffer.text_in_range(start, end) {
-                // Open the edit run only once there is something to delete, so
-                // an empty region records no snapshot. The whole cut is one
-                // step: every change `delete_range` makes lands between these
-                // two calls.
-                self.start_editing();
-                self.buffer.delete_range(start, end);
-                self.cursor = start;
-                self.mark = None;
-                self.finish_editing();
+            self.clipboard.write(&text);
+            self.set_message(format!("Cut {} characters", text.chars().count()));
+        }
+    }
 
-                self.clipboard.write(&text);
-                self.set_message(format!("Cut {} characters", text.chars().count()));
-            } else {
-                self.set_message("Nothing to cut");
+    /// Copies the region between the mark and the cursor to the clipboard,
+    /// leaving the buffer and the region in place.
+    ///
+    /// This is kk's `copy`: the one command that also hands the text to the
+    /// terminal's own clipboard, so it can be pasted outside kk. The mark is
+    /// cleared and the cursor moves to the region's start, exactly as
+    /// [`handle_mark_cut()`](State::handle_mark_cut) leaves them, so a cut and a
+    /// copy differ only in whether the region is deleted. Reports `No mark set`
+    /// when there is no mark, and `Nothing to copy` when the region is empty.
+    pub fn handle_mark_copy(&mut self) {
+        self.finish_editing();
+
+        if let Some((start, _end, text)) = self.take_mark_region("No mark set", "Nothing to copy") {
+            self.clipboard.write(&text);
+            // The in-process clipboard is for kk's own `C-y`; this is also what
+            // the edge sends on to the terminal's clipboard. Only a copy does
+            // this, so a cut stays inside kk.
+            self.clipboard_export = Some(ClipboardExport { text: text.clone() });
+            self.cursor = start;
+            self.mark = None;
+            self.set_message(format!("Copied {} characters", text.chars().count()));
+        }
+    }
+
+    /// Takes the mark and returns the region it and the cursor bound, as the
+    /// start and end positions and the text between them.
+    ///
+    /// The mark is cleared. When there is no mark, or the region is empty, it
+    /// reports `no_mark_message` or `empty_message` and returns `None`; the two
+    /// are arguments so a cut talks about cutting and a copy about copying.
+    fn take_mark_region(
+        &mut self,
+        no_mark_message: &str,
+        empty_message: &str,
+    ) -> Option<(TextPosition, TextPosition, String)> {
+        let mark_pos = match self.mark.take() {
+            Some(mark_pos) => mark_pos,
+            None => {
+                self.set_message(no_mark_message);
+                return None;
             }
+        };
+        let cursor_pos = self.cursor_position();
+        let (start, end) = if mark_pos <= cursor_pos {
+            (mark_pos, cursor_pos)
         } else {
-            self.set_message("No mark set");
+            (cursor_pos, mark_pos)
+        };
+
+        match self.buffer.text_in_range(start, end) {
+            Some(text) if !text.is_empty() => Some((start, end, text)),
+            _ => {
+                self.set_message(empty_message);
+                None
+            }
         }
     }
 

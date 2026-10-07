@@ -288,6 +288,29 @@ impl KkHarness {
         self.wait_for_exit()
     }
 
+    /// Drains and returns every child request the terminal has received.
+    ///
+    /// `termnix` turns control sequences it does not act on for the child into
+    /// [`termnix::ChildRequest`]s; OSC 52 (clipboard) is one. The queue is
+    /// drained so a caller sees each request once. It pumps first, so the
+    /// requests from the bytes already read are available.
+    ///
+    /// Every event is taken from the queue, not just the requests: a copy also
+    /// repaints, so a `ScreenUpdated` sits ahead of `SetClipboard` and stopping
+    /// at the first non-request event would leave the request unread. Events
+    /// that are not requests are discarded here; this helper reads the queue for
+    /// requests and nothing else.
+    pub fn child_requests(&mut self) -> Vec<termnix::ChildRequest> {
+        self.pump();
+        let mut requests = Vec::new();
+        while let Some(event) = self.session.dequeue_event() {
+            if let termnix::Event::RequestReceived(request) = event {
+                requests.push(request);
+            }
+        }
+        requests
+    }
+
     /// Advances the session by one bounded pump plus a drain of pending work.
     fn pump(&mut self) {
         self.session

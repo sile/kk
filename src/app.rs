@@ -276,6 +276,7 @@ impl App {
             kk::Action::LineCutTail => self.state.handle_line_cut_tail(),
             kk::Action::MarkSet => self.state.handle_mark_set(),
             kk::Action::MarkCut => self.state.handle_mark_cut(),
+            kk::Action::MarkCopy => self.state.handle_mark_copy(),
             kk::Action::ClipboardPaste => self.state.handle_clipboard_paste(),
             kk::Action::ExtEnter => self.state.handle_ext_enter(),
             kk::Action::SearchEnter => self.state.handle_search_enter(),
@@ -284,6 +285,16 @@ impl App {
             kk::Action::SearchCutQuery => self.state.handle_search_cut_query(),
             kk::Action::SearchNextHit => self.state.handle_search_next_hit(),
             kk::Action::SearchPrevHit => self.state.handle_search_prev_hit(),
+        }
+
+        // A copy records a request to put its text on the terminal's clipboard
+        // (OSC 52). The take is `None` for every other action, so it is safe to
+        // ask after each one. The write is best-effort, like mouse reporting:
+        // OSC 52 has no reply, so a terminal that drops it is indistinguishable
+        // from one that accepts, and kk reports nothing either way. The
+        // in-process clipboard still holds the text, so `C-y` works regardless.
+        if let Some(export) = self.state.take_clipboard_export() {
+            let _ = self.driver.set_clipboard(&export.text);
         }
 
         Ok(())
