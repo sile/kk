@@ -46,9 +46,9 @@ checksum = "4b59efba88ff29e9fb1fea914a60aa69aea73f02f2bcbd76b369f7a07cdda95a"
 
 [[package]]
 name = "termnix"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f69cc0f517c5e22f46d678e333afc02fad3c8e2f38aed514bcc55982402a6f4b"
+checksum = "956c09677c185ed98cf492fc14c577df2c48c944cea8f6fc404b75ce7b26b06d"
 dependencies = [
  "libc",
  "unicode-width",
@@ -57,9 +57,9 @@ dependencies = [
 
 [[package]]
 name = "tuinix"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb1b08ce720a23a8b0cbdb3a5972ae37e59d0fb37ba8e721c58fbb8140449cf7"
+checksum = "fa7772f86c886b45c032786e2f2ce3a02c218e42e47c906f70928b39fe6d52eb"
 dependencies = [
  "libc",
 ]
