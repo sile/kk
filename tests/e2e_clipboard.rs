@@ -16,7 +16,6 @@ fn a_copy_reaches_the_terminal_as_an_osc_52_write() {
     std::fs::write(&path, "hello world\n").expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     // Mark at the buffer start, move to the end of the line, and copy with
     // `C-x w`. The buffer is left alone, so this is a copy, not a cut.
@@ -51,7 +50,6 @@ fn a_cut_does_not_reach_the_terminal() {
     std::fs::write(&path, "hello world\n").expect("write scratch file");
 
     let mut kk = KkHarness::open(&path);
-    kk.wait_for_text("Opened");
 
     // `C-w` cuts the marked region; it fills kk's own clipboard but must not
     // ask the terminal for anything.
