@@ -117,9 +117,9 @@ and writes it:
 
 ```rust
 if let Some(export) = self.state.take_clipboard_export() {
-    // Mouse reporting's precedent: a convenience a terminal may refuse.
-    // The failure is swallowed, not reported.
-    let _ = self.driver.set_clipboard(&export.text);
+    // A write failure is the same kind of I/O error as drawing a frame, so it
+    // propagates and ends kk. What is not reported is delivery -- see below.
+    self.driver.set_clipboard(&export.text)?;
 }
 ```
 
@@ -158,23 +158,34 @@ test terminal), so it is not part of kk's build or its running code; kk can
 implement and ship the export whether or not `termnix` can decode it, and here
 it can.
 
-### Failure is not reported
+### Delivery is not reported, but a write failure is
 
-Mouse reporting sets a message when it is unavailable. OSC 52 is weaker still:
-by the time kk writes it, there is no failure to report. The terminal either
-accepts the sequence or discards it, and *it cannot be asked which*. OSC 52 has
-no reply; DA1 and similar queries do not reliably report OSC 52 support, and a
-terminal that accepts the bytes may still have no clipboard to write to (a
-headless server, a terminal with the feature off). Under tmux, whether the
-sequence reaches the system clipboard depends on `set-clipboard`, which is
-invisible to the application.
+Two things can go wrong, and kk treats them differently.
 
-So kk does not try: it writes and moves on. No message, no error, no state
-change. This is stronger than mouse reporting's report-and-swallow, because
-mouse reporting at least has a failure to observe. Here there is nothing to
-observe, and inventing a message would be guessing. The in-process clipboard
-remains the source of truth for `C-y`, so a dropped sequence costs the user
-nothing inside kk.
+**Whether the terminal accepts the sequence cannot be observed.** By the time
+kk writes it, the terminal either takes it or discards it, and *it cannot be
+asked which*. OSC 52 has no reply; DA1 and similar queries do not reliably
+report OSC 52 support, and a terminal that accepts the bytes may still have no
+clipboard to write to (a headless server, a terminal with the feature off).
+Under tmux, whether the sequence reaches the system clipboard depends on
+`set-clipboard`, which is invisible to the application. So there is nothing to
+report here: kk writes and moves on, with no message and no state change. This
+is stronger than mouse reporting's report-and-swallow, because mouse reporting
+at least has a failure to observe, while here there is only a guess to invent.
+The in-process clipboard remains the source of truth for `C-y`, so a sequence a
+terminal drops costs the user nothing inside kk.
+
+**Whether the write itself succeeds can be observed, and is not swallowed.**
+Writing the sequence is an ordinary write to the terminal's output, the same
+kind of I/O as drawing a frame. If it fails -- the output is closed, the
+write returns an error -- that is a real failure, not the terminal declining a
+sequence it received, and it is not the sort of thing to hide behind `let _ =`.
+kk already treats a failed file write as fatal (a save that cannot write ends
+the action with an error), and a failed terminal write is the same shape: a
+terminal kk cannot write to is one it cannot draw to either. So the write
+propagates `io::Result` and ends kk, rather than being dropped. `set_clipboard`
+writes and flushes, so the error it returns is what the write reported, not a
+guess about delivery.
 
 ### Size
 
@@ -189,7 +200,8 @@ behavior honest.
 ## Drawbacks
 
 - A copy writes to the terminal, so it is not a purely in-process action. The
-  write is one escape sequence, ignored on failure, but it is a new side effect.
+  write is one escape sequence, and a failure to write it ends kk; that is a new
+  side effect, and a new way for a copy to fail.
 - kk gains a command (`C-x w`) and a `ClipboardExport` type with a take method.
 - Base64 encoding happens for a feature with no observable success, though the
   code lives in `tuinix` and is shared.
@@ -224,7 +236,7 @@ behavior honest.
   OSC 52 can name other selections. That is more surface than the first version
   needs; leave it to a follow-up.
 - **Detect support with a query and tell the user.** Not possible, as argued
-  under "Failure is not reported." A message saying "this terminal may not
+  under "Delivery is not reported." A message saying "this terminal may not
   support OSC 52" is noise on the terminals that do.
 
 ## Impact

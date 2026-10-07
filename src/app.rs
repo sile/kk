@@ -289,12 +289,16 @@ impl App {
 
         // A copy records a request to put its text on the terminal's clipboard
         // (OSC 52). The take is `None` for every other action, so it is safe to
-        // ask after each one. The write is best-effort, like mouse reporting:
-        // OSC 52 has no reply, so a terminal that drops it is indistinguishable
-        // from one that accepts, and kk reports nothing either way. The
-        // in-process clipboard still holds the text, so `C-y` works regardless.
+        // ask after each one.
+        //
+        // Whether the terminal accepts the sequence is not observable -- OSC 52
+        // has no reply -- so that is not reported. Failing to write it is a
+        // different matter: it is the same kind of I/O failure as writing a
+        // frame, so it propagates and ends kk. The in-process clipboard already
+        // holds the text, but a terminal kk cannot write to is one it cannot
+        // draw to either.
         if let Some(export) = self.state.take_clipboard_export() {
-            let _ = self.driver.set_clipboard(&export.text);
+            self.driver.set_clipboard(&export.text)?;
         }
 
         Ok(())
