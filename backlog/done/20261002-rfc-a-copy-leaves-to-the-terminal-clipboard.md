@@ -1,6 +1,6 @@
 # RFC: A copy leaves to the terminal's clipboard
 
-- Status: open
+- Status: accepted
 
 ## Summary
 
@@ -258,3 +258,21 @@ exist, so nothing new is needed from them.
 - Export other selections (primary), if the fixed `c` proves too narrow.
 - If a terminal ever grows a way to acknowledge OSC 52, the silent write can
   become a reported one; until then, silence is the correct behavior.
+
+## Outcome
+
+Implemented in [#17](https://github.com/sile/kk/pull/17) (merged as `6755b39`).
+
+`C-x w` copies the marked region without cutting it and, alone among kk's
+commands, writes the text to the terminal as OSC 52 so it reaches the system
+clipboard. A cut still fills only kk's own clipboard.
+
+The landing dropped the stored-export design the text above sketches. There is
+no `ClipboardExport` value and no pending-export field: the `MarkCopy` arm in
+`src/app.rs` is the edge, it decides the export, and it reads the in-process
+clipboard for the text. The arm exports only when `handle_mark_copy` returns
+true, so a copy that found no mark or an empty region -- which has already said
+`No mark set` or `Nothing to copy` -- leaves the terminal alone instead of
+re-sending the previous contents.
+
+The scope is unchanged from what is described above.
