@@ -106,11 +106,6 @@ pub struct State {
     pub mark: Option<TextPosition>,
 
     /// The clipboard text cut from or copied out of the buffer.
-    ///
-    /// A copy is also handed to the terminal's own clipboard by the edge; a cut
-    /// is not. Nothing here records that: the edge knows a copy happened from
-    /// the action it just ran, so it reads this for the text (see the copy
-    /// command).
     pub clipboard: Clipboard,
 
     /// The clipboard the search prompt keeps its own edits in.
