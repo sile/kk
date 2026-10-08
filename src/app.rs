@@ -276,6 +276,19 @@ impl App {
             kk::Action::LineCutTail => self.state.handle_line_cut_tail(),
             kk::Action::MarkSet => self.state.handle_mark_set(),
             kk::Action::MarkCut => self.state.handle_mark_cut(),
+            kk::Action::MarkCopy => {
+                // A copy is the one command that also hands its text to the
+                // terminal's own clipboard (OSC 52), so the edge writes the
+                // clipboard's text when the copy found a region to put there.
+                //
+                // Whether the terminal accepts the sequence is not observable
+                // -- OSC 52 has no reply -- so that is not reported. Failing to
+                // write it is a different matter: it is the same kind of I/O
+                // failure as writing a frame, so it propagates and ends kk.
+                if self.state.handle_mark_copy() {
+                    self.driver.set_clipboard(self.state.clipboard.as_str())?;
+                }
+            }
             kk::Action::ClipboardPaste => self.state.handle_clipboard_paste(),
             kk::Action::ExtEnter => self.state.handle_ext_enter(),
             kk::Action::SearchEnter => self.state.handle_search_enter(),

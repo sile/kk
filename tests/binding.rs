@@ -351,7 +351,7 @@ fn the_ext_mode_binds_its_chords_after_ctrl_x() {
     // The buffer-level commands live behind `C-x`, which is the way into the
     // Ext mode. Inside Ext the ctrl prefix is dropped, so each is a plain
     // letter that runs and returns to Edit.
-    for (ch, expected) in [('r', 0), ('a', 1), ('e', 2)] {
+    for (ch, expected) in [('r', 0), ('a', 1), ('e', 2), ('w', 3)] {
         let resolved = kk::Mode::Ext
             .resolve(&tuinix::Input::Key(char_key(ch)))
             .unwrap_or_else(|| panic!("{ch} is not bound in Ext"));
@@ -366,6 +366,7 @@ fn the_ext_mode_binds_its_chords_after_ctrl_x() {
                 (0, Some(kk::Action::BufferReload))
                     | (1, Some(kk::Action::CursorBufferStart))
                     | (2, Some(kk::Action::CursorBufferEnd))
+                    | (3, Some(kk::Action::MarkCopy))
             ),
             "{ch} carries out the wrong action: {:?}",
             resolved.action
