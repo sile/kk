@@ -288,7 +288,7 @@ impl App {
                 // -- OSC 52 has no reply -- so that is not reported. Failing to
                 // write it is a different matter: it is the same kind of I/O
                 // failure as writing a frame, so it propagates and ends kk.
-                self.driver.set_clipboard(&self.state.clipboard.read())?;
+                self.driver.set_clipboard(self.state.clipboard.as_str())?;
             }
             kk::Action::ClipboardPaste => self.state.handle_clipboard_paste(),
             kk::Action::ExtEnter => self.state.handle_ext_enter(),

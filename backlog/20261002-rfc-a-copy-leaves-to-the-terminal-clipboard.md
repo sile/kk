@@ -117,7 +117,7 @@ kk::Action::MarkCopy => {
     //
     // A write failure is the same kind of I/O error as drawing a frame, so it
     // propagates and ends kk. What is not reported is delivery -- see below.
-    self.driver.set_clipboard(&self.state.clipboard.read())?;
+    self.driver.set_clipboard(self.state.clipboard.as_str())?;
 }
 ```
 

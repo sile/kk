@@ -10,9 +10,14 @@ pub struct Clipboard {
 }
 
 impl Clipboard {
+    /// Returns the current contents.
+    pub fn as_str(&self) -> &str {
+        &self.content
+    }
+
     /// Returns a copy of the current contents.
     pub fn read(&self) -> String {
-        self.content.clone()
+        self.as_str().to_owned()
     }
 
     /// Replaces the contents with `content`.
