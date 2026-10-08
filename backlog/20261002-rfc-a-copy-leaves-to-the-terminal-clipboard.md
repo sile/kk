@@ -105,28 +105,30 @@ only ever needs the last, complete region.)
 
 ### Edge: hand it to tuinix
 
-`src/app.rs` is the edge. When the action is `MarkCopy` it writes what the
-in-process clipboard now holds:
+`src/app.rs` is the edge. When the action is `MarkCopy`, and the copy found a
+region, it writes what the in-process clipboard now holds:
 
 ```rust
 kk::Action::MarkCopy => {
-    self.state.handle_mark_copy();
-    // A copy is the one command that also hands its text to the terminal's
-    // clipboard (OSC 52). `handle_mark_copy` has just replaced the in-process
-    // clipboard with the copied text, so reading it here is enough.
+    // `handle_mark_copy` writes the region to the in-process clipboard and
+    // returns whether it did. On a copy with no mark, or nothing to copy, it
+    // has already reported so and copied nothing, so the edge leaves the
+    // terminal alone rather than re-sending the previous contents.
     //
     // A write failure is the same kind of I/O error as drawing a frame, so it
     // propagates and ends kk. What is not reported is delivery -- see below.
-    self.driver.set_clipboard(self.state.clipboard.as_str())?;
+    if self.state.handle_mark_copy() {
+        self.driver.set_clipboard(self.state.clipboard.as_str())?;
+    }
 }
 ```
 
 Making `MarkCopy`'s arm decide this keeps the export next to the one action it
-belongs to, rather than a flag every action has to be checked against. A copy of
-an empty region leaves the clipboard as it was, so the edge re-sends whatever
-was already there; that is harmless -- it only re-syncs the terminal with kk's
-current clipboard -- and it keeps the edge from needing to know whether the copy
-succeeded.
+belongs to, rather than a flag every action has to be checked against. Having
+`handle_mark_copy` return whether it copied is what keeps a failed copy in step
+with the message it already showed: it reports `No mark set` or `Nothing to
+copy` and records nothing, so re-sending the previous contents would contradict
+what the status line just said. The edge exports only when the copy happened.
 
 The translation from text to an OSC 52 byte string belongs in `tuinix`, not in
 kk. kk asks for "put this on the terminal's clipboard"; `tuinix` owns the

@@ -902,7 +902,10 @@ impl State {
     /// [`handle_mark_cut()`](State::handle_mark_cut) leaves them, so a cut and a
     /// copy differ only in whether the region is deleted. Reports `No mark set`
     /// when there is no mark, and `Nothing to copy` when the region is empty.
-    pub fn handle_mark_copy(&mut self) {
+    ///
+    /// Returns whether it copied a region; a copy that found no mark or an
+    /// empty region writes nothing and returns `false`.
+    pub fn handle_mark_copy(&mut self) -> bool {
         self.finish_editing();
 
         if let Some((start, _end, text)) = self.take_mark_region("No mark set", "Nothing to copy") {
@@ -910,6 +913,9 @@ impl State {
             self.cursor = start;
             self.mark = None;
             self.set_message(format!("Copied {} characters", text.chars().count()));
+            true
+        } else {
+            false
         }
     }
 

@@ -4,7 +4,8 @@
 //! checks the other half -- that the edge turns that into a sequence the
 //! terminal emulator recognises as a clipboard write, carrying exactly the
 //! copied text. Only a copy exports: a cut fills kk's own clipboard and asks the
-//! terminal for nothing.
+//! terminal for nothing, and a copy that found no region exports nothing rather
+//! than re-sending the previous contents.
 
 mod e2e;
 
@@ -64,6 +65,32 @@ fn a_cut_does_not_reach_the_terminal() {
             .iter()
             .any(|r| matches!(r, termnix::ChildRequest::SetClipboard { .. })),
         "a cut must not write to the terminal's clipboard: {requests:?}"
+    );
+
+    let status = kk.quit();
+    assert!(status.success(), "kk exited with {status:?}");
+}
+
+#[test]
+fn a_copy_without_a_mark_writes_nothing() {
+    let path = scratch_file("clipboard_empty.txt");
+    std::fs::write(&path, "hello world\n").expect("write scratch file");
+
+    let mut kk = KkHarness::open(&path);
+
+    // A copy that found no region reports so and records nothing, so it must
+    // not hand the terminal anything -- in particular not the previous
+    // contents, which an unconditional write would re-send.
+    kk.send_ctrl('x');
+    kk.send_char('w');
+    kk.wait_for_text("No mark set");
+
+    let requests = kk.child_requests();
+    assert!(
+        !requests
+            .iter()
+            .any(|r| matches!(r, termnix::ChildRequest::SetClipboard { .. })),
+        "an empty copy must not write to the terminal's clipboard: {requests:?}"
     );
 
     let status = kk.quit();
