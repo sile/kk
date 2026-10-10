@@ -1,6 +1,6 @@
 # RFC: `kk` reads a pipe as the initial buffer
 
-- Status: draft
+- Status: accepted
 
 ## Summary
 
@@ -372,3 +372,45 @@ the piped buffer opens with `Read stdin`, and the legend renderers take
 - **`-` for stdout** (`kk > out`), the output-side mirror. `tuinix` 0.7.2 makes
   only the input side selectable, so this would need an output-side constructor
   there first.
+
+## Outcome
+
+Implemented in [#18](https://github.com/sile/kk/pull/18) (merged as `b91c5f7`).
+
+`kk` now reads a pipe as its initial buffer. When stdin is not a terminal, the
+text is read to the end and opened with `None` behind it, and the keyboard comes
+from `/dev/tty` through `TerminalDriver::with_input` (`tuinix` is now required at
+0.7.2, the release that added it). With stdin a terminal nothing changes.
+
+The decision landed as a pure `plan_open(stdin_is_terminal, file, create_new)`
+returning an `Open` of `File` or `Stdin`, so the branch is tested without a
+terminal: `FILE` is required with a terminal and refused with a pipe,
+`--create-new` is refused with a pipe as the same kind of file-shaped input, and
+`--tail` is taken on both paths -- it only says where in the buffer the cursor
+goes, so it is not part of the decision. The refusals are returned as `&'static
+str` and reported through `noargs`, so a bad invocation exits 1 rather than 2;
+splitting exit codes by cause bought nothing a reader of the message did not
+already have.
+
+`App.path` is `Option<PathBuf>`, and the remembered text is a plain `String`
+rather than an `Option`: a piped buffer has no previously saved text, and the
+field is only ever compared against disk when a path exists, so an `Option`
+there would name a case that cannot arise. `handle_buffer_save` and
+`handle_buffer_reload` refuse before any `std::fs` call, which is where all three
+file chords (`Tab`, `C-x s`, `C-x r`) meet, so the three share one message
+without a duplicated `Action` arm.
+
+The legend renderers now take the rows to draw (`render_legend(rows, frame)`,
+`legend_size(rows, limit)`, `full_legend_size(rows)`) instead of a `Mode`, and
+the no-file rows are the constants `EDIT_LEGEND_NO_FILE` and
+`EXT_LEGEND_NO_FILE`, pinned by a test that derives each from its full list by
+dropping the same rows. The core is otherwise untouched; the change in `binding`
+and `render` is the legend only.
+
+Tests: the `plan_open` rules, the two derived no-file legends, and a state test
+pinning that `--tail`'s position (`usize::MAX, usize::MAX`) lands at the end of
+the last line with no blank rows below. The `printf a | kk` end-to-end case
+belongs to the harness that drives `kk` on a PTY; the error paths were checked
+by hand against the built binary.
+
+The scope is unchanged from what is described above.
