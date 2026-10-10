@@ -34,9 +34,10 @@ pub struct App {
     /// pipe-backed buffer has nowhere to save and nothing to reload from, so
     /// this is what the file commands are refused against.
     path: Option<PathBuf>,
-    /// The text this edge last read from or wrote to the file, or `None` when
-    /// there is no file to compare against.
-    saved_text: Option<String>,
+    /// The text this edge last read from or wrote to the file. Only a buffer
+    /// with a path is saved or reloaded, so this is only compared against the
+    /// disk then; a pipe-backed buffer never reads it.
+    saved_text: String,
     mode: kk::Mode,
     state: kk::State,
     legend_visible: bool,
@@ -80,13 +81,7 @@ impl App {
 
         let message = if create_new { "Created" } else { "Opened" };
         let driver = tuinix::TerminalDriver::new()?;
-        Self::build(
-            driver,
-            Some(path),
-            Some(text),
-            position,
-            message.to_string(),
-        )
+        Self::build(driver, Some(path), text, position, message.to_string())
     }
 
     /// Builds an editor over `text` read from a pipe, taking keys from `driver`.
@@ -105,7 +100,7 @@ impl App {
         driver: tuinix::TerminalDriver,
         position: tuinix::Position,
     ) -> std::io::Result<Self> {
-        Self::build(driver, None, Some(text), position, "Read stdin".to_string())
+        Self::build(driver, None, text, position, "Read stdin".to_string())
     }
 
     /// Fills the struct: one place knows the field list, and both constructors
@@ -113,11 +108,11 @@ impl App {
     fn build(
         mut driver: tuinix::TerminalDriver,
         path: Option<PathBuf>,
-        text: Option<String>,
+        text: String,
         position: tuinix::Position,
         message: String,
     ) -> std::io::Result<Self> {
-        let buffer = kk::TextBuffer::new(text.as_deref().unwrap_or(""));
+        let buffer = kk::TextBuffer::new(&text);
 
         let mut state = kk::State::new(buffer);
         state.handle_cursor_to_position(position.row, position.col);
@@ -361,10 +356,9 @@ impl App {
         };
         if check_disk {
             // A file that is not the text this edge last read or wrote counts as
-            // changed, and so does one this edge never recorded.
-            let unchanged = |disk: &str| self.saved_text.as_deref() == Some(disk);
+            // changed.
             match std::fs::read_to_string(path) {
-                Ok(disk) if !unchanged(&disk) => {
+                Ok(disk) if disk != self.saved_text => {
                     self.state
                         .set_message("Changed on disk; C-x s to overwrite");
                     return Ok(());
@@ -381,7 +375,7 @@ impl App {
         }
         let text = self.state.handle_buffer_save();
         std::fs::write(path, &text)?;
-        self.saved_text = Some(text.clone());
+        self.saved_text = text.clone();
         self.state.report_saved(text.chars().count());
         Ok(())
     }
@@ -393,7 +387,7 @@ impl App {
             return Ok(());
         };
         let text = std::fs::read_to_string(path)?;
-        self.saved_text = Some(text.clone());
+        self.saved_text = text.clone();
         self.state.handle_buffer_reload(&text);
         Ok(())
     }
