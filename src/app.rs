@@ -355,16 +355,16 @@ impl App {
     fn handle_buffer_save(&mut self, check_disk: bool) -> std::io::Result<()> {
         // The path and the remembered text are set and cleared together, so a
         // missing path means there is nothing to write *to* or compare against.
-        let (Some(path), Some(saved_text)) = (&self.path, &self.saved_text) else {
+        let Some(path) = &self.path else {
             self.state.set_message("No file for this buffer");
             return Ok(());
         };
-        let saved_text = saved_text.clone();
-        let path = path.clone();
-        let text = self.state.handle_buffer_save();
         if check_disk {
-            match std::fs::read_to_string(&path) {
-                Ok(disk) if disk != saved_text => {
+            // A file that is not the text this edge last read or wrote counts as
+            // changed, and so does one this edge never recorded.
+            let unchanged = |disk: &str| self.saved_text.as_deref() == Some(disk);
+            match std::fs::read_to_string(path) {
+                Ok(disk) if !unchanged(&disk) => {
                     self.state
                         .set_message("Changed on disk; C-x s to overwrite");
                     return Ok(());
@@ -379,7 +379,8 @@ impl App {
                 Err(e) => return Err(e),
             }
         }
-        std::fs::write(&path, &text)?;
+        let text = self.state.handle_buffer_save();
+        std::fs::write(path, &text)?;
         self.saved_text = Some(text.clone());
         self.state.report_saved(text.chars().count());
         Ok(())
@@ -387,11 +388,11 @@ impl App {
 
     /// Reads `path` back and hands the text to the core to reload from.
     fn handle_buffer_reload(&mut self) -> std::io::Result<()> {
-        let Some(path) = self.path.clone() else {
+        let Some(path) = &self.path else {
             self.state.set_message("No file for this buffer");
             return Ok(());
         };
-        let text = std::fs::read_to_string(&path)?;
+        let text = std::fs::read_to_string(path)?;
         self.saved_text = Some(text.clone());
         self.state.handle_buffer_reload(&text);
         Ok(())

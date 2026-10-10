@@ -56,13 +56,7 @@ fn main() -> noargs::Result<()> {
         return Ok(());
     }
 
-    let open = match plan_open(std::io::stdin().is_terminal(), file.as_deref(), create_new) {
-        Ok(open) => open,
-        Err(message) => {
-            eprintln!("{message}");
-            std::process::exit(2);
-        }
-    };
+    let open = plan_open(std::io::stdin().is_terminal(), file.as_deref(), create_new)?;
 
     match open {
         Open::File { arg, create_new } => {
@@ -107,27 +101,28 @@ enum Open {
 ///
 /// The decision is a pure function of the arguments and that one property of
 /// standard input, so the rules can be tested without a terminal or a pipe. The
-/// message is returned rather than printed, so the caller owns the exit.
+/// message is returned rather than printed, so the caller owns the error and
+/// `main` can hand it to the usual `noargs` reporting.
 fn plan_open(
     stdin_is_terminal: bool,
     file: Option<&str>,
     create_new: bool,
-) -> Result<Open, String> {
+) -> Result<Open, &'static str> {
     if stdin_is_terminal {
         return match file {
             Some(arg) => Ok(Open::File {
                 arg: arg.to_string(),
                 create_new,
             }),
-            None => Err("no FILE given".to_string()),
+            None => Err("no FILE given"),
         };
     }
 
     if file.is_some() {
-        return Err("FILE is given with piped input".to_string());
+        return Err("FILE is given with piped input");
     }
     if create_new {
-        return Err("--create-new is given with piped input".to_string());
+        return Err("--create-new is given with piped input");
     }
     Ok(Open::Stdin)
 }
