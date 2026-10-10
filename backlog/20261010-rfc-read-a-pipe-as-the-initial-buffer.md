@@ -182,7 +182,9 @@ delegating) and a constructor for the piped case that takes the text, the
 driver, and the startup position. Both funnel into one private constructor that
 fills the struct, so there is still a single place that knows the field list.
 The piped constructor receives the same `open_position(1, 1, tail)` the file
-path computes, so `--tail` needs no code of its own.
+path computes, so `--tail` needs no code of its own. `App::new` also builds the
+`TerminalDriver` itself, as it does today; only the piped constructor is handed
+one, since only it needs `with_input` over `/dev/tty`.
 
 `render` is unchanged in shape: the status line takes a display string from the
 edge (see `render_status_line`), so the piped buffer passes the constant
@@ -196,21 +198,22 @@ Save, force-save, and reload keep their `Action` variants and their lookups in
 `binding`: the binding table is keyed by chord, not by whether a file exists, and
 duplicating every table for the piped case would be far more code than the three
 dropped chords. Instead `App` refuses them at the edge it already owns, where the
-file actually lives:
+file actually lives. The refusal sits in the two file-touching methods
+(`handle_buffer_save`, `handle_buffer_reload`), which return early with a message
+when the path is `None`:
 
 ```rust
-kk::Action::BufferSave | kk::Action::BufferForceSave | kk::Action::BufferReload
-    if self.path.is_none() =>
-{
+let (Some(path), Some(saved_text)) = (&self.path, &self.saved_text) else {
     self.state.set_message("No file for this buffer");
-}
+    return Ok(());
+};
 ```
 
-`handle_buffer_save` and `handle_buffer_reload` already return early on `None`
-(above); this arm is what makes the *message* the same whether the chord arrives
-through `Tab` or through `C-x s`. The two are the same refusal; keeping it in one
-place would also be possible by letting the methods own the message and the match
-arm call them, which is the shape to prefer if the duplication shows.
+Every chord that reaches the file -- `Tab`, `C-x s`, `C-x r` -- goes through one
+of those two methods, so letting the methods own the message is enough to make
+the refusal the same for all three. A separate `Action` match arm was considered
+and is not needed: the methods already return before any `std::fs` call, so the
+message has exactly one home.
 
 ### The legend hides the file rows
 
@@ -239,10 +242,21 @@ that returns the rows to draw) is an implementation choice; the invariant is
 that there is exactly one list per legend and it is filtered at the edge where
 "is there a file?" is known.
 
+What landed is the `&[&str]` parameter: `render_legend(rows, frame)`,
+`legend_size(rows, limit)`, and `full_legend_size(rows)`. `Mode::legend()`
+still returns the full list, and the filtered lists are the two constants
+`EDIT_LEGEND_NO_FILE` and `EXT_LEGEND_NO_FILE` -- the same rows with the file
+commands taken out. They are kept honest by a test that derives each one from
+its full list by dropping the same rows, so they are not a second table to keep
+in step by hand.
+
 ### What does not change
 
-- The core (`src/lib.rs`, `state`, `buffer`, `search_prompt`, `clipboard`,
-  `render`) is untouched; none of it knows where the text came from.
+- The core (`src/lib.rs`, `state`, `buffer`, `search_prompt`, `clipboard`) is
+  untouched; none of it knows where the text came from. The two core modules
+  that do change are `binding` (the two no-file row constants) and `render`
+  (`render_legend` / `legend_size` now take the rows to draw), both for the
+  legend only.
 - The poll loop, raw mode, resize handling, mouse, and the `with_input` driver
   are all `tuinix`'s and are used as-is.
 - `--create-new` and `--tail` keep their meaning on the terminal path; on the
@@ -258,6 +272,9 @@ that there is exactly one list per legend and it is filtered at the edge where
   forces the sites to be visited, but the type gets looser.
 - The legend gains a second shape, and `render_legend`'s signature has to move
   off `Mode` alone. That is the cost of not having two hand-kept tables.
+- The usage line still reads `Usage: kk [OPTIONS] FILE`, since `noargs` has no
+  way to spell "required unless stdin is a pipe". The refusal message is what
+  tells a piped user what went wrong, not the usage text.
 - A pipe-backed buffer has no way to keep its edits. That is intrinsic (there is
   no path), and the message says so, but a user who edits first and thinks about
   saving second loses the text. `C-x w` (copy to the terminal clipboard) is the
@@ -315,30 +332,33 @@ is added or moved.
 The decision in `main` -- is stdin a terminal, and is `FILE` present -- and the
 refusals in `App` are the testable parts.
 
-- `main`'s branch can be tested as a pure function if the check is written as
-  one: a helper that takes `(stdin_is_terminal, file: Option<...>, create_new,
-  tail)` and returns either "open this file at this position" or "read stdin at
-  this position" or an error. The `if` in `main` then calls it. This is where
-  "`FILE` with a pipe is an error", "`--create-new` with a pipe is an error (the
-  same refusal, not a generic unknown flag)", "`--tail` with a pipe is fine", and
-  "no `FILE` without a pipe is an error" are pinned, without a real terminal.
-- `App`'s file-command refusal can be tested at the core/edge boundary if the
-  arm is factored so the decision ("is there a path?") is a small function, not
-  buried in a `match` with I/O beside it.
+- `main`'s branch was written as one: `plan_open(stdin_is_terminal, file:
+  Option<&str>, create_new)` returns `Open::File` / `Open::Stdin` / an error
+  message, and `main` calls it. This is where "`FILE` with a pipe is an error",
+  "`--create-new` with a pipe is an error (the same refusal, not a generic
+  unknown flag)", and "no `FILE` without a pipe is an error" are pinned, without
+  a real terminal; a test covers each rule. `--tail` is not part of it -- it
+  only says where in the buffer the cursor goes -- so it is not a parameter,
+  and both branches apply it the same way.
+- The no-file legends are pinned by a test that derives each `_NO_FILE` constant
+  from its full list by dropping the same rows, so the two cannot drift.
+- `App`'s file-command refusal is the two handlers' `None` path, which is not
+  reachable from a test without a terminal; the decision it turns on ("is there
+  a path?") is a field read, not a function of its own.
 - An end-to-end test (`printf a | kk`) needs a PTY and the built binary; it is
-  the natural test for the harness that already drives `kk` end to end, and it is
-  there, not here, that the pipe actually meets the keyboard.
+  the natural test for the harness that already drives `kk` end to end, and it
+  is there, not here, that the pipe actually meets the keyboard. The two error
+  paths were also checked by hand against the built binary.
 
 ## Unresolved questions
 
-- **The first message for a piped buffer.** `Opened` / `Created` are the file
-  words; the pipe wants its own (`Read stdin` is the first choice), or none.
-- **The exact `render_legend` split.** Passing `&[&str]` rows, passing
-  `(Mode, hide_file_rows: bool)`, or a `Mode` method that returns the rows to
-  draw. The constraint is one table, filtered at the edge; the shape is open.
 - **Whether `render_status_line`'s `path` becomes `Option<&str>`.** Today the
-  edge hands over a display string; the piped case can hand over a constant, so
-  the signature may not need to change. Worth confirming when implementing.
+  edge hands over a display string; the piped case hands over the constant
+  `"STDIN"`, so the signature did not need to change.
+
+The first message and the `render_legend` split were settled while implementing:
+the piped buffer opens with `Read stdin`, and the legend renderers take
+`&[&str]` rows.
 
 ## Future possibilities
 
