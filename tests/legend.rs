@@ -13,10 +13,7 @@ const HORIZONTAL: &str = "\u{2500}";
 
 /// The size the legend of `mode` needs in an ample frame.
 fn full_size(mode: kk::Mode) -> tuinix::Size {
-    mode.legend_size(tuinix::Size {
-        rows: 60,
-        cols: 200,
-    })
+    kk::full_legend_size(mode.legend())
 }
 
 /// A frame exactly the size of `mode`'s legend.
@@ -27,7 +24,7 @@ fn exact_frame(mode: kk::Mode) -> tuinix::Frame {
 #[test]
 fn a_frame_too_small_for_the_legend_shows_nothing() {
     let mut frame = tuinix::Frame::new(tuinix::Size { rows: 1, cols: 1 });
-    kk::render_legend(kk::Mode::Edit, &mut frame);
+    kk::render_legend(kk::Mode::Edit.legend(), &mut frame);
     assert_eq!(row_text(&frame, 0, 1), " ");
 }
 
@@ -38,7 +35,7 @@ fn a_frame_one_row_short_of_the_legend_shows_nothing() {
         rows: size.rows - 1,
         cols: size.cols,
     });
-    kk::render_legend(kk::Mode::Ext, &mut frame);
+    kk::render_legend(kk::Mode::Ext.legend(), &mut frame);
     for row in 0..size.rows - 1 {
         assert_eq!(row_text(&frame, row, size.cols).trim(), "");
     }
@@ -51,7 +48,7 @@ fn a_frame_one_column_short_of_the_legend_shows_nothing() {
         rows: size.rows,
         cols: size.cols - 1,
     });
-    kk::render_legend(kk::Mode::Ext, &mut frame);
+    kk::render_legend(kk::Mode::Ext.legend(), &mut frame);
     for row in 0..size.rows {
         assert_eq!(row_text(&frame, row, size.cols - 1).trim(), "");
     }
@@ -61,7 +58,7 @@ fn a_frame_one_column_short_of_the_legend_shows_nothing() {
 fn the_ext_legend_fills_a_frame_exactly_its_size() {
     let mut frame = exact_frame(kk::Mode::Ext);
     let cols = frame.size().cols;
-    kk::render_legend(kk::Mode::Ext, &mut frame);
+    kk::render_legend(kk::Mode::Ext.legend(), &mut frame);
     assert_eq!(row_text(&frame, 0, cols), "\u{2502}C-g cancel    ");
     assert_eq!(row_text(&frame, 1, cols), "\u{2502}s   force-save");
     assert_eq!(row_text(&frame, 2, cols), "\u{2502}r   reload    ");
@@ -78,7 +75,7 @@ fn the_ext_legend_fills_a_frame_exactly_its_size() {
 fn the_edit_legend_is_exactly_this_text() {
     let mut frame = exact_frame(kk::Mode::Edit);
     let cols = frame.size().cols;
-    kk::render_legend(kk::Mode::Edit, &mut frame);
+    kk::render_legend(kk::Mode::Edit.legend(), &mut frame);
 
     // The very same strings `kk::legend` lists, with the box painted around
     // them; a row that disagrees with the table is a rendering bug.
@@ -116,7 +113,7 @@ fn the_edit_legend_is_exactly_this_text() {
 fn the_search_legend_is_exactly_this_text() {
     let mut frame = exact_frame(kk::Mode::Search);
     let cols = frame.size().cols;
-    kk::render_legend(kk::Mode::Search, &mut frame);
+    kk::render_legend(kk::Mode::Search.legend(), &mut frame);
 
     let expected = [
         "\u{2502}C-g cancel  ",
@@ -182,7 +179,7 @@ fn every_row_of_the_box_is_the_same_width() {
     for mode in [kk::Mode::Edit, kk::Mode::Search, kk::Mode::Ext] {
         let size = full_size(mode);
         let mut frame = exact_frame(mode);
-        kk::render_legend(mode, &mut frame);
+        kk::render_legend(mode.legend(), &mut frame);
 
         for row in 0..size.rows {
             let text = row_text(&frame, row, size.cols);
@@ -200,7 +197,7 @@ fn every_row_paints_its_table_row_and_never_closes_with_a_border() {
     for mode in [kk::Mode::Edit, kk::Mode::Search, kk::Mode::Ext] {
         let size = full_size(mode);
         let mut frame = exact_frame(mode);
-        kk::render_legend(mode, &mut frame);
+        kk::render_legend(mode.legend(), &mut frame);
 
         for (row, table_row) in mode.legend().iter().enumerate() {
             let text = row_text(&frame, row, size.cols);
@@ -258,10 +255,10 @@ fn the_legend_is_painted_against_the_right_edge() {
         rows: size.rows + 3,
         cols,
     });
-    kk::render_legend(kk::Mode::Ext, &mut frame);
+    kk::render_legend(kk::Mode::Ext.legend(), &mut frame);
 
     let mut exact = exact_frame(kk::Mode::Ext);
-    kk::render_legend(kk::Mode::Ext, &mut exact);
+    kk::render_legend(kk::Mode::Ext.legend(), &mut exact);
     for row in 0..size.rows {
         let text = row_text(&frame, row, cols);
         assert_eq!(
@@ -295,7 +292,7 @@ fn the_legend_covers_what_was_painted_under_it() {
             );
         }
 
-        kk::render_legend(mode, &mut frame);
+        kk::render_legend(mode.legend(), &mut frame);
 
         let left = size.cols + 4 - size.cols;
         for row in 0..size.rows {
@@ -317,8 +314,8 @@ fn a_wider_frame_does_not_change_the_legend() {
             rows: size.rows,
             cols: size.cols + 30,
         });
-        kk::render_legend(mode, &mut narrow);
-        kk::render_legend(mode, &mut wide);
+        kk::render_legend(mode.legend(), &mut narrow);
+        kk::render_legend(mode.legend(), &mut wide);
 
         for row in 0..size.rows {
             let wide_text = row_text(&wide, row, size.cols + 30);
@@ -335,11 +332,11 @@ fn a_legend_clipped_by_its_limit_reports_the_clipped_size() {
     for mode in [kk::Mode::Edit, kk::Mode::Search, kk::Mode::Ext] {
         let full = full_size(mode);
         for cols in [full.cols, full.cols - 1, 1, 0] {
-            let size = mode.legend_size(tuinix::Size { rows: 60, cols });
+            let size = kk::legend_size(mode.legend(), tuinix::Size { rows: 60, cols });
             assert_eq!(size.cols, cols.min(full.cols), "{mode:?} cols {cols}");
         }
         for rows in [full.rows, full.rows - 1, 1, 0] {
-            let size = mode.legend_size(tuinix::Size { rows, cols: 200 });
+            let size = kk::legend_size(mode.legend(), tuinix::Size { rows, cols: 200 });
             assert_eq!(size.rows, rows.min(full.rows), "{mode:?} rows {rows}");
         }
     }
@@ -356,7 +353,7 @@ fn the_legend_never_paints_outside_its_frame() -> noprop::TestResult {
         let mut frame = tuinix::Frame::new(tuinix::Size { rows, cols });
 
         for mode in [kk::Mode::Edit, kk::Mode::Search, kk::Mode::Ext] {
-            kk::render_legend(mode, &mut frame);
+            kk::render_legend(mode.legend(), &mut frame);
         }
 
         for (position, _) in frame.chars() {
@@ -366,4 +363,56 @@ fn the_legend_never_paints_outside_its_frame() -> noprop::TestResult {
         Ok(())
     })?;
     Ok(())
+}
+
+/// The no-file edit legend is the ordinary one with the `Tab` save row gone.
+#[test]
+fn the_no_file_edit_legend_drops_only_the_save_row() {
+    let kept: Vec<&str> = kk::EDIT_LEGEND
+        .iter()
+        .copied()
+        .filter(|row| !row.contains("save"))
+        .collect();
+    assert_eq!(kk::EDIT_LEGEND_NO_FILE, kept.as_slice());
+}
+
+/// The no-file extension legend is the ordinary one with the file commands --
+/// force-save and reload -- gone.
+#[test]
+fn the_no_file_ext_legend_drops_only_the_file_rows() {
+    let kept: Vec<&str> = kk::EXT_LEGEND
+        .iter()
+        .copied()
+        .filter(|row| !row.contains("force-save") && !row.contains("reload"))
+        .collect();
+    assert_eq!(kk::EXT_LEGEND_NO_FILE, kept.as_slice());
+}
+
+/// The search legend lists no file command, so it is the same with or without a
+/// file behind the buffer.
+#[test]
+fn the_search_legend_keeps_every_row_without_a_file() {
+    let rows: Vec<&str> = kk::SEARCH_LEGEND
+        .iter()
+        .copied()
+        .filter(|row| {
+            !row.contains("force-save") && !row.contains("reload") && !row.contains("save")
+        })
+        .collect();
+    assert_eq!(kk::SEARCH_LEGEND, rows.as_slice());
+}
+
+/// A no-file legend is still drawn as a box of its own rows.
+#[test]
+fn the_no_file_edit_legend_paints_its_rows() {
+    let mut frame = tuinix::Frame::new(kk::full_legend_size(kk::EDIT_LEGEND_NO_FILE));
+    let cols = frame.size().cols;
+    kk::render_legend(kk::EDIT_LEGEND_NO_FILE, &mut frame);
+    for (row, table_row) in kk::EDIT_LEGEND_NO_FILE.iter().enumerate() {
+        let text = row_text(&frame, row, cols);
+        assert!(
+            text.starts_with(table_row),
+            "row {row} does not open with its table row: {text:?}"
+        );
+    }
 }

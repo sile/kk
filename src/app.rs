@@ -30,8 +30,13 @@ pub struct App {
     driver: tuinix::TerminalDriver,
     input: tuinix::InputDecoder,
     prev_frame: Option<tuinix::Frame>,
-    path: PathBuf,
-    saved_text: String,
+    /// The file behind the buffer, or `None` for one read from a pipe. A
+    /// pipe-backed buffer has nowhere to save and nothing to reload from, so
+    /// this is what the file commands are refused against.
+    path: Option<PathBuf>,
+    /// The text this edge last read from or wrote to the file, or `None` when
+    /// there is no file to compare against.
+    saved_text: Option<String>,
     mode: kk::Mode,
     state: kk::State,
     legend_visible: bool,
@@ -73,12 +78,50 @@ impl App {
             std::fs::read_to_string(&path)?
         };
 
-        let buffer = kk::TextBuffer::new(&text);
+        let message = if create_new { "Created" } else { "Opened" };
+        let driver = tuinix::TerminalDriver::new()?;
+        Self::build(
+            driver,
+            Some(path),
+            Some(text),
+            position,
+            message.to_string(),
+        )
+    }
+
+    /// Builds an editor over `text` read from a pipe, taking keys from `driver`.
+    ///
+    /// There is no file behind the buffer: the text arrived on standard input
+    /// and there is nowhere to save it back to, so the buffer opens with the
+    /// file commands dropped. `driver` is the one the caller built -- a
+    /// [`TerminalDriver::with_input`](tuinix::TerminalDriver::with_input) over
+    /// the controlling terminal, because standard input is the data here rather
+    /// than the keyboard.
+    ///
+    /// `position` is where to leave the cursor, 0-based, exactly as for a file.
+    /// The first message says where the buffer came from.
+    pub fn from_stdin(
+        text: String,
+        driver: tuinix::TerminalDriver,
+        position: tuinix::Position,
+    ) -> std::io::Result<Self> {
+        Self::build(driver, None, Some(text), position, "Read stdin".to_string())
+    }
+
+    /// Fills the struct: one place knows the field list, and both constructors
+    /// funnel through it.
+    fn build(
+        mut driver: tuinix::TerminalDriver,
+        path: Option<PathBuf>,
+        text: Option<String>,
+        position: tuinix::Position,
+        message: String,
+    ) -> std::io::Result<Self> {
+        let buffer = kk::TextBuffer::new(text.as_deref().unwrap_or(""));
 
         let mut state = kk::State::new(buffer);
         state.handle_cursor_to_position(position.row, position.col);
-        state.set_message(if create_new { "Created" } else { "Opened" });
-        let mut driver = tuinix::TerminalDriver::new()?;
+        state.set_message(message);
         // Mouse reporting is a convenience, not a requirement: a terminal that
         // refuses it (or a redirect that never asks for it) still edits fine, so
         // the failure is reported and swallowed rather than fatal.
@@ -310,10 +353,18 @@ impl App {
     /// last read or wrote, so another writer's version is never silently lost;
     /// the refusal names the chord that saves anyway.
     fn handle_buffer_save(&mut self, check_disk: bool) -> std::io::Result<()> {
+        // The path and the remembered text are set and cleared together, so a
+        // missing path means there is nothing to write *to* or compare against.
+        let (Some(path), Some(saved_text)) = (&self.path, &self.saved_text) else {
+            self.state.set_message("No file for this buffer");
+            return Ok(());
+        };
+        let saved_text = saved_text.clone();
+        let path = path.clone();
         let text = self.state.handle_buffer_save();
         if check_disk {
-            match std::fs::read_to_string(&self.path) {
-                Ok(disk) if disk != self.saved_text => {
+            match std::fs::read_to_string(&path) {
+                Ok(disk) if disk != saved_text => {
                     self.state
                         .set_message("Changed on disk; C-x s to overwrite");
                     return Ok(());
@@ -328,16 +379,20 @@ impl App {
                 Err(e) => return Err(e),
             }
         }
-        std::fs::write(&self.path, &text)?;
-        self.saved_text = text;
-        self.state.report_saved(self.saved_text.chars().count());
+        std::fs::write(&path, &text)?;
+        self.saved_text = Some(text.clone());
+        self.state.report_saved(text.chars().count());
         Ok(())
     }
 
     /// Reads `path` back and hands the text to the core to reload from.
     fn handle_buffer_reload(&mut self) -> std::io::Result<()> {
-        let text = std::fs::read_to_string(&self.path)?;
-        self.saved_text = text.clone();
+        let Some(path) = self.path.clone() else {
+            self.state.set_message("No file for this buffer");
+            return Ok(());
+        };
+        let text = std::fs::read_to_string(&path)?;
+        self.saved_text = Some(text.clone());
         self.state.handle_buffer_reload(&text);
         Ok(())
     }
@@ -360,8 +415,9 @@ impl App {
     /// means there is nothing for the cursor to share and nothing to hide.
     fn legend_region(&self, mode: kk::Mode) -> Option<tuinix::Region> {
         let size = self.driver.size();
-        let legend = mode.legend_size(size);
-        if legend != kk::full_legend_size(mode) {
+        let rows = self.legend_rows(mode);
+        let legend = kk::legend_size(rows, size);
+        if legend != kk::full_legend_size(rows) {
             return None;
         }
 
@@ -372,6 +428,25 @@ impl App {
             },
             size: legend,
         })
+    }
+
+    /// Returns the legend rows to paint for `mode`.
+    ///
+    /// A pipe-backed buffer has no file, so the rows for the file commands are
+    /// dropped from the legend it shows. The rows come from [`Mode::legend`]
+    /// (the one table per mode) and are filtered here, where "is there a file?"
+    /// is known; the renderer is handed a plain list and never learns why it is
+    /// shorter.
+    fn legend_rows(&self, mode: kk::Mode) -> &'static [&'static str] {
+        let rows = mode.legend();
+        if self.path.is_some() {
+            return rows;
+        }
+        match mode {
+            kk::Mode::Edit => kk::EDIT_LEGEND_NO_FILE,
+            kk::Mode::Ext => kk::EXT_LEGEND_NO_FILE,
+            kk::Mode::Search => rows,
+        }
     }
 
     fn render(&mut self) -> std::io::Result<()> {
@@ -389,7 +464,10 @@ impl App {
         let frame_region = frame.size().to_region();
 
         let status_region = frame_region.take_bottom(2).take_top(1);
-        let path = self.path.display().to_string();
+        let path = match &self.path {
+            Some(path) => path.display().to_string(),
+            None => "STDIN".to_string(),
+        };
         self.render_region(&mut frame, status_region, |frame| {
             kk::render_status_line(&self.state, &path, frame)
         });
@@ -421,7 +499,7 @@ impl App {
         if let Some(legend_region) = self.legend_region(self.mode) {
             let buffer_cursor = self.state.terminal_cursor_position();
             if self.legend_visible && !legend_region.contains(buffer_cursor) {
-                kk::render_legend(self.mode, &mut frame);
+                kk::render_legend(self.legend_rows(self.mode), &mut frame);
             }
         }
 
