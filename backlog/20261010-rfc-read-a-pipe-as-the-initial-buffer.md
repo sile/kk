@@ -11,8 +11,9 @@ works, but the *file* commands -- save, force-save, reload -- have nothing to
 act on and are dropped from the bindings and the legend while such a buffer is
 open. `kk` takes `TerminalDriver::with_input` for the terminal, so nothing about
 the core or the renderers changes shape. `FILE` and `--create-new` are errors
-with a pipe (there is nothing to name or create); `--tail` still applies, opening
-the piped text at its end.
+with a pipe: both name a file to open or make, and a pipe has none, so they are
+turned away together as the one kind of "there is no file here" input; `--tail`
+still applies, opening the piped text at its end.
 
 ## Motivation
 
@@ -70,9 +71,13 @@ text to the terminal's own clipboard) or pasted elsewhere, exactly as for a file
 `kk` reports it rather than guessing which of the two the user meant.
 
 `--tail` still applies: `git show HEAD:src/main.rs | kk --tail` opens the piped
-text at its end, the same way it opens a file at its end. `--create-new` does
-not: there is no file to create, so `cat f | kk --create-new` is an error rather
-than a flag that quietly does nothing.
+text at its end, the same way it opens a file at its end.
+
+`--create-new` is the other file-shaped input, and it goes the way of `FILE`:
+there is no file to create, so `cat f | kk --create-new` is an error rather than
+a flag that quietly does nothing. It is refused for the same reason and with a
+message that says so, not with a generic "unknown flag": the flag exists, and it
+is the pipe that makes it meaningless.
 
 The two shapes are one decision in `main`: is stdin a terminal?
 
@@ -112,9 +117,21 @@ the branch rather than in the argument library:
   FILE" error, reported by `kk`. The `--create-new` / `--tail` flags and
   `split_position` work exactly as they do today.
 - **stdin is not a terminal**: `file` must be `None`. `Some` is an error ("FILE
-  is given with piped input"), reported by `kk`. `--create-new` is likewise an
-  error (there is no file to create). `--tail` is *not* an error: it keeps its
-  meaning (open at the end), applied to the text read from stdin.
+  is given with piped input"), reported by `kk`. `--create-new` is an error for
+  the same reason ("--create-new is given with piped input", or the same message
+  as `FILE`): both are file-shaped input, and a pipe has no file for them to act
+  on. `--tail` is *not* an error: it keeps its meaning (open at the end), applied
+  to the text read from stdin.
+
+`FILE` and `--create-new` are treated as one kind of input -- a file to open or
+make -- so the piped branch turns them away together, and the terminal branch
+hands them both to `App::new` as it does today. Giving `--create-new` its own
+error arm rather than dropping it from the argument list is what keeps the
+message specific. If `--create-new` were simply not registered when stdin is a
+pipe, `noargs` would answer a piped `--create-new` with its generic "unknown
+flag" text, which says nothing about *why* -- the flag is not unknown, the pipe
+is what makes it meaningless. Registering it and refusing it in the branch costs
+one more arm and buys the right explanation, so that is the shape to take.
 
 This keeps the terminal/non-terminal split in one place -- a plain `if` in
 `main` -- instead of threading an `Option<FILE>` through `App` and asking "is
@@ -229,8 +246,8 @@ that there is exactly one list per legend and it is filtered at the edge where
 - The poll loop, raw mode, resize handling, mouse, and the `with_input` driver
   are all `tuinix`'s and are used as-is.
 - `--create-new` and `--tail` keep their meaning on the terminal path; on the
-  piped path `--tail` keeps its meaning too, while `--create-new` becomes an
-  error.
+  piped path `--tail` keeps its meaning too, while `--create-new` is refused
+  alongside `FILE` as file-shaped input, with a message that names the pipe.
 
 ## Drawbacks
 
@@ -259,6 +276,13 @@ that there is exactly one list per legend and it is filtered at the edge where
 - **Keep `FILE` required, and reject the pipe.** Then `cat f | kk` cannot work
   at all, and the file commands stay. Rejected: the whole point is the pager
   shape, and the file commands are exactly what has no meaning without a file.
+- **Drop `--create-new` (and `FILE`) from the argument list on the piped path.**
+  Cheaper to write -- the flag is never registered, so `noargs` rejects it for
+  free -- but the message is `noargs`'s generic "unknown flag", which is the
+  wrong explanation. The flag is known and valid on the terminal path; it is the
+  pipe that makes it meaningless, and that is what the message has to say.
+  Rejected for the message, not the code: the flag is registered and refused in
+  the piped branch instead.
 - **Duplicate the binding tables for the no-file case.** Rejected above: it
   doubles a hand-kept table and lets the chords and the legend drift apart.
 - **Refuse the file chords with "No action found" instead of a message.** That
@@ -295,9 +319,9 @@ refusals in `App` are the testable parts.
   one: a helper that takes `(stdin_is_terminal, file: Option<...>, create_new,
   tail)` and returns either "open this file at this position" or "read stdin at
   this position" or an error. The `if` in `main` then calls it. This is where
-  "`FILE` with a pipe is an error", "`--create-new` with a pipe is an error",
-  "`--tail` with a pipe is fine", and "no `FILE` without a pipe is an error" are
-  pinned, without a real terminal.
+  "`FILE` with a pipe is an error", "`--create-new` with a pipe is an error (the
+  same refusal, not a generic unknown flag)", "`--tail` with a pipe is fine", and
+  "no `FILE` without a pipe is an error" are pinned, without a real terminal.
 - `App`'s file-command refusal can be tested at the core/edge boundary if the
   arm is factored so the decision ("is there a path?") is a small function, not
   buried in a `match` with I/O beside it.
