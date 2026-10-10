@@ -25,12 +25,15 @@ mod state;
 mod terminal;
 
 pub use action::Action;
-pub use binding::{Mode, Resolved};
+pub use binding::{
+    EDIT_LEGEND, EDIT_LEGEND_NO_FILE, EXT_LEGEND, EXT_LEGEND_NO_FILE, Mode, Resolved, SEARCH_LEGEND,
+};
 pub use buffer::{TextBuffer, TextLine, TextPosition};
 pub use clipboard::Clipboard;
 pub use fmt::display_input;
 pub use render::{
-    full_legend_size, render_legend, render_message_line, render_status_line, render_text_area,
+    full_legend_size, legend_size, render_legend, render_message_line, render_status_line,
+    render_text_area,
 };
 pub use search_prompt::{Highlight, HighlightItem, SearchPrompt};
 pub use state::State;

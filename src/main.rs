@@ -2,6 +2,11 @@
 //!
 //! The Sans I/O core lives in the `kk` library; the edge (raw mode, the poll
 //! loop, and file access) lives in [`app`].
+//!
+//! Two shapes are decided here: the usual one, where the keyboard is standard
+//! input and `FILE` names the buffer, and the pager one, `cat f | kk`, where
+//! standard input is the text and the keyboard comes from the controlling
+//! terminal instead.
 
 // The edge waits for readiness with `libc::poll`, which needs `unsafe`. That is
 // the one call that cannot avoid it, so the binary relaxes the library's
@@ -10,6 +15,7 @@
 
 mod app;
 
+use std::io::{IsTerminal, Read};
 use std::path::PathBuf;
 
 fn main() -> noargs::Result<()> {
@@ -38,23 +44,87 @@ fn main() -> noargs::Result<()> {
         .take(&mut args)
         .is_present();
 
-    let arg: String = noargs::arg("FILE")
+    // `FILE` may be missing without that being an error by itself: whether it is
+    // required is decided below, by whether standard input is a terminal.
+    let file: Option<String> = noargs::arg("FILE")
         .example("/path/to/file")
         .doc("A file, optionally followed by :LINE to start at, or :LINE:COLUMN")
         .take(&mut args)
-        .then(|a| a.value().parse())?;
+        .present_and_then(|a| a.value().parse())?;
     if let Some(help) = args.finish()? {
         print!("{help}");
         return Ok(());
     }
 
-    let (path, row, col) = split_position(&arg);
-    let position = open_position(row, col, tail);
+    let open = plan_open(std::io::stdin().is_terminal(), file.as_deref(), create_new)?;
 
-    let app = app::App::new(path, create_new, position)?;
-    app.run()?;
+    match open {
+        Open::File { arg, create_new } => {
+            let (path, row, col) = split_position(&arg);
+            let position = open_position(row, col, tail);
+            let app = app::App::new(path, create_new, position)?;
+            app.run()?;
+        }
+        Open::Stdin => {
+            let mut text = String::new();
+            std::io::stdin().read_to_string(&mut text)?;
+            let tty = std::fs::File::open("/dev/tty")?;
+            let driver = tuinix::TerminalDriver::with_input(tty)?;
+            let position = open_position(1, 1, tail);
+            let app = app::App::from_stdin(text, driver, position)?;
+            app.run()?;
+        }
+    }
 
     Ok(())
+}
+
+/// Where the initial buffer comes from, once the arguments and standard input
+/// have been read together.
+#[derive(Debug, PartialEq, Eq)]
+enum Open {
+    /// Open the file the argument names.
+    File { arg: String, create_new: bool },
+
+    /// Read standard input as the buffer, taking keys from the terminal.
+    Stdin,
+}
+
+/// Decides where the initial buffer comes from.
+///
+/// The two shapes are one decision: standard input is either the keyboard or
+/// the text. When it is a terminal, `FILE` names the buffer and must be present;
+/// when it is a pipe, the pipe is the buffer and `FILE` -- or the other
+/// file-shaped input, `--create-new` -- has nothing to act on and is refused.
+/// `--tail` is not part of this decision: it says *where in* the buffer to put
+/// the cursor, which both shapes have, so the caller applies it either way.
+///
+/// The decision is a pure function of the arguments and that one property of
+/// standard input, so the rules can be tested without a terminal or a pipe. The
+/// message is returned rather than printed, so the caller owns the error and
+/// `main` can hand it to the usual `noargs` reporting.
+fn plan_open(
+    stdin_is_terminal: bool,
+    file: Option<&str>,
+    create_new: bool,
+) -> Result<Open, &'static str> {
+    if stdin_is_terminal {
+        return match file {
+            Some(arg) => Ok(Open::File {
+                arg: arg.to_string(),
+                create_new,
+            }),
+            None => Err("no FILE given"),
+        };
+    }
+
+    if file.is_some() {
+        return Err("FILE is given with piped input");
+    }
+    if create_new {
+        return Err("--create-new is given with piped input");
+    }
+    Ok(Open::Stdin)
 }
 
 /// The 0-based position to open at: the parsed one, or the file's end under
@@ -125,7 +195,7 @@ fn split_number(arg: &str) -> (&str, Option<usize>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{open_position, split_position};
+    use super::{Open, open_position, plan_open, split_position};
     use std::path::PathBuf;
 
     /// The path and 1-based position a `FILE` argument parses to.
@@ -202,5 +272,43 @@ mod tests {
                 col: usize::MAX
             }
         );
+    }
+
+    /// A terminal on stdin keeps the file shape: `FILE` names the buffer.
+    #[test]
+    fn a_terminal_takes_the_named_file() {
+        assert_eq!(
+            plan_open(true, Some("a.txt"), false),
+            Ok(Open::File {
+                arg: "a.txt".to_string(),
+                create_new: false,
+            })
+        );
+        assert_eq!(
+            plan_open(true, Some("a.txt"), true),
+            Ok(Open::File {
+                arg: "a.txt".to_string(),
+                create_new: true,
+            })
+        );
+    }
+
+    /// A terminal on stdin still needs a `FILE`, as before the pipe existed.
+    #[test]
+    fn a_terminal_without_a_file_is_rejected() {
+        assert!(plan_open(true, None, false).is_err());
+    }
+
+    /// A pipe on stdin is the buffer, and neither file-shaped input fits it.
+    #[test]
+    fn a_pipe_refuses_the_file_inputs() {
+        assert!(plan_open(false, Some("a.txt"), false).is_err());
+        assert!(plan_open(false, None, true).is_err());
+    }
+
+    /// A pipe with no `FILE` reads standard input.
+    #[test]
+    fn a_pipe_reads_standard_input() {
+        assert_eq!(plan_open(false, None, false), Ok(Open::Stdin));
     }
 }

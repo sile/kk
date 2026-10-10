@@ -6,7 +6,6 @@
 //! state between calls, so there is nothing for a struct to hold.
 
 use crate::{
-    binding::Mode,
     buffer::{TextLine, TextPosition},
     state::{HIT_GUTTER_COLS, State},
     terminal::put_str,
@@ -282,23 +281,26 @@ fn calculate_line_marked_region(
 ///
 /// The legend sits in the frame's top-right corner: one binding per row, and
 /// under them a bottom border with the mode title centered in it. Every row
-/// is painted as it is written in [`legend()`](Mode::legend), border strokes
-/// and all, so the box needs no drawing arithmetic. It paints nothing when the
-/// frame cannot hold the legend whole: a legend clipped to fit would show chords
-/// without their labels.
+/// is painted as it is written in `rows` -- border strokes and all -- so the box
+/// needs no drawing arithmetic. It paints nothing when the frame cannot hold the
+/// legend whole: a legend clipped to fit would show chords without their labels.
+///
+/// `rows` is the list to draw, not a mode: the edge picks it (dropping the
+/// rows for commands a buffer has nothing to act on) and the renderer never needs
+/// to know why one list is shorter than another.
 ///
 /// The legend is drawn into a frame of its own and then pasted in whole, so the
 /// cells its rows leave unwritten are painted as blanks. Drawing the rows
 /// straight into the frame would leave whatever was underneath showing through
 /// the gaps beside them.
-pub fn render_legend(mode: Mode, frame: &mut tuinix::Frame) {
-    let legend = mode.legend_size(frame.size());
-    if legend != full_legend_size(mode) {
+pub fn render_legend(rows: &[&str], frame: &mut tuinix::Frame) {
+    let legend = legend_size(rows, frame.size());
+    if legend != full_legend_size(rows) {
         return;
     }
 
     let mut box_frame = tuinix::Frame::new(legend);
-    for (row, text) in mode.legend().iter().enumerate() {
+    for (row, text) in rows.iter().enumerate() {
         let at = tuinix::Position { row, col: 0 };
         put_str(&mut box_frame, at, text, tuinix::Style::new());
     }
@@ -310,12 +312,44 @@ pub fn render_legend(mode: Mode, frame: &mut tuinix::Frame) {
     frame.put_frame(origin, &box_frame);
 }
 
-/// The size the legend of `mode` needs, with room to spare.
-pub fn full_legend_size(mode: Mode) -> tuinix::Size {
-    mode.legend_size(tuinix::Size {
-        rows: usize::MAX,
-        cols: usize::MAX,
-    })
+/// The size the legend rows need, limited to `limit`.
+///
+/// The width is the widest row and the height is the number of rows, the bottom
+/// border included. Every row of the box is this wide, so a caller can size a
+/// frame to hold it whole. A limit smaller than the legend reports the limit, so
+/// a caller that compares the result against the limit can tell the legend was
+/// clipped.
+///
+/// # Examples
+///
+/// ```
+/// let room = tuinix::Size { rows: 40, cols: 100 };
+/// let ext = kk::legend_size(kk::EXT_LEGEND, room);
+/// assert_eq!(ext.rows, 7);
+/// assert_eq!(ext.cols, 15);
+/// ```
+pub fn legend_size(rows: &[&str], limit: tuinix::Size) -> tuinix::Size {
+    let height = rows.len();
+    let width = rows
+        .iter()
+        .map(|row| crate::terminal::str_cols(row))
+        .max()
+        .unwrap_or(0);
+    tuinix::Size {
+        rows: height.min(limit.rows),
+        cols: width.min(limit.cols),
+    }
+}
+
+/// The size the legend rows need, with room to spare.
+pub fn full_legend_size(rows: &[&str]) -> tuinix::Size {
+    legend_size(
+        rows,
+        tuinix::Size {
+            rows: usize::MAX,
+            cols: usize::MAX,
+        },
+    )
 }
 
 /// Paints the file path, cursor position, search progress, and clipboard

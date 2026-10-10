@@ -65,6 +65,41 @@ pub const EXT_LEGEND: &[&str] = &[
     "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
+/// [`EDIT_LEGEND`] with the `Tab` save row dropped: the rows to show while a
+/// buffer read from a pipe is open, which has no file to save.
+pub const EDIT_LEGEND_NO_FILE: &[&str] = &[
+    "\u{2502}C-c quit",
+    "\u{2502}C-g cancel",
+    "\u{2502}C-x ext",
+    "\u{2502}C-s search",
+    "\u{2502}C-  mark",
+    "\u{2502}C-w cut",
+    "\u{2502}C-k cut-tail",
+    "\u{2502}C-y paste",
+    "\u{2502}C-u undo",
+    "\u{2502}C-a bol",
+    "\u{2502}C-e eol",
+    "\u{2502}C-p \u{2191} up",
+    "\u{2502}C-n \u{2193} down",
+    "\u{2502}C-b \u{2190} left",
+    "\u{2502}C-f \u{2192} right",
+    "\u{2502}C-h \u{232b} bs",
+    "\u{2502}C-d \u{2326} delete",
+    "\u{2502}C-l recenter",
+    "\u{2502}C-j \u{23ce} newline",
+    "\u{2514}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+];
+
+/// [`EXT_LEGEND`] with the `s   force-save` and `r   reload` rows dropped: the
+/// rows to show while a buffer read from a pipe is open, which has no file.
+pub const EXT_LEGEND_NO_FILE: &[&str] = &[
+    "\u{2502}C-g cancel",
+    "\u{2502}w   copy",
+    "\u{2502}a   bof",
+    "\u{2502}e   eof",
+    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+];
+
 /// Identifies one of the built-in input modes.
 ///
 /// A mode selects which binding table an input is resolved against, and a
@@ -91,36 +126,6 @@ impl Mode {
             Mode::Edit => EDIT_LEGEND,
             Mode::Search => SEARCH_LEGEND,
             Mode::Ext => EXT_LEGEND,
-        }
-    }
-
-    /// Returns the size the legend of the mode needs, limited to `limit`.
-    ///
-    /// The width is the widest legend row and the height is the number of rows,
-    /// the bottom border included. Every row of the box is this wide, so a caller
-    /// can size a frame to hold it whole. A limit smaller than the legend reports
-    /// the limit, so a caller that compares the result against the limit can tell
-    /// the legend was clipped.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let room = tuinix::Size { rows: 40, cols: 100 };
-    /// let ext = kk::Mode::Ext.legend_size(room);
-    /// assert_eq!(ext.rows, 7);
-    /// assert_eq!(ext.cols, 15);
-    /// ```
-    pub fn legend_size(self, limit: tuinix::Size) -> tuinix::Size {
-        let rows = self.legend().len();
-        let cols = self
-            .legend()
-            .iter()
-            .map(|row| crate::terminal::str_cols(row))
-            .max()
-            .unwrap_or(0);
-        tuinix::Size {
-            rows: rows.min(limit.rows),
-            cols: cols.min(limit.cols),
         }
     }
 
