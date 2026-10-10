@@ -83,7 +83,7 @@ fn main() -> noargs::Result<()> {
 /// have been read together.
 #[derive(Debug, PartialEq, Eq)]
 enum Open {
-    /// Open the file the argument names, as today.
+    /// Open the file the argument names.
     File { arg: String, create_new: bool },
 
     /// Read standard input as the buffer, taking keys from the terminal.
