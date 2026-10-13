@@ -44,6 +44,12 @@ fn main() -> noargs::Result<()> {
         .take(&mut args)
         .is_present();
 
+    // Before the positional, like the other flags. `KK_HIDE_LEGEND`, set to
+    // anything non-empty, makes the same bit true through `noargs`'s `env` name,
+    // so the flag and the variable are one spec and `is_present()` already means
+    // "either of them".
+    let hide_legend = hide_legend_flag().take(&mut args).is_present();
+
     // `FILE` may be missing without that being an error by itself: whether it is
     // required is decided below, by whether standard input is a terminal.
     let file: Option<String> = noargs::arg("FILE")
@@ -58,11 +64,16 @@ fn main() -> noargs::Result<()> {
 
     let open = plan_open(std::io::stdin().is_terminal(), file.as_deref(), create_new)?;
 
+    // The flag names the action (`hide`), the constructor takes the field's
+    // value (`visible`), so the one negation happens here, where the flag's name
+    // is in view.
+    let legend_visible = !hide_legend;
+
     match open {
         Open::File { arg, create_new } => {
             let (path, row, col) = split_position(&arg);
             let position = open_position(row, col, tail);
-            let app = app::App::new(path, create_new, position)?;
+            let app = app::App::new(path, create_new, position, legend_visible)?;
             app.run()?;
         }
         Open::Stdin => {
@@ -71,7 +82,7 @@ fn main() -> noargs::Result<()> {
             let tty = std::fs::File::open("/dev/tty")?;
             let driver = tuinix::TerminalDriver::with_input(tty)?;
             let position = open_position(1, 1, tail);
-            let app = app::App::from_stdin(text, driver, position)?;
+            let app = app::App::from_stdin(text, driver, position, legend_visible)?;
             app.run()?;
         }
     }
@@ -125,6 +136,21 @@ fn plan_open(
         return Err("--create-new is given with piped input");
     }
     Ok(Open::Stdin)
+}
+
+/// The spec of the flag that starts the legend hidden, with its environment
+/// name.
+///
+/// The flag and `KK_HIDE_LEGEND` are one decision, so they are one spec: the
+/// variable name is handed to `noargs`'s `env`, which makes the flag present
+/// when the variable is set to anything non-empty, so reading the flag is
+/// reading both spellings. Named here rather than built inline in `main` so that
+/// its registration -- the part `kk` owns, the flag being present -- is
+/// testable.
+fn hide_legend_flag() -> noargs::FlagSpec {
+    noargs::flag("hide-legend")
+        .doc("Start with the key-binding legend hidden")
+        .env("KK_HIDE_LEGEND")
 }
 
 /// The 0-based position to open at: the parsed one, or the file's end under
@@ -195,12 +221,30 @@ fn split_number(arg: &str) -> (&str, Option<usize>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Open, open_position, plan_open, split_position};
+    use super::{Open, hide_legend_flag, open_position, plan_open, split_position};
     use std::path::PathBuf;
 
     /// The path and 1-based position a `FILE` argument parses to.
     fn parsed(arg: &str) -> (PathBuf, usize, usize) {
         split_position(arg)
+    }
+
+    /// Parses `argv` for the hide-legend flag alone, as `main` registers it.
+    fn hide_legend(argv: &[&str]) -> bool {
+        let mut args = noargs::RawArgs::new(argv.iter().map(|a| (*a).to_string()));
+        hide_legend_flag().take(&mut args).is_present()
+    }
+
+    /// Whether the flag is present is what `kk` owns here; that the environment
+    /// name sets it is `noargs`'s rule, covered by its own tests. The variable
+    /// is process-wide, so a test that set it would race the other tests.
+    #[test]
+    fn the_hide_legend_flag_is_read_from_the_command_line() {
+        assert!(hide_legend(&["kk", "--hide-legend", "src/main.rs"]));
+        assert!(!hide_legend(&["kk", "src/main.rs"]));
+        // A trailing flag must not be bound as the path, which is why it is
+        // taken before the positional.
+        assert!(hide_legend(&["kk", "src/main.rs", "--hide-legend"]));
     }
 
     #[test]

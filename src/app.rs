@@ -64,10 +64,15 @@ impl App {
     /// position is clamped by the core rather than rejected. The cursor is
     /// centered in the first frame, so a named line lands in the middle of the
     /// text area instead of against an edge.
+    ///
+    /// `legend_visible` is the legend's starting state, normally `true`; it is
+    /// `false` under `--hide-legend`, which begins the session in the state
+    /// `Esc` reaches.
     pub fn new<P: AsRef<Path>>(
         path: P,
         create_new: bool,
         position: tuinix::Position,
+        legend_visible: bool,
     ) -> std::io::Result<Self> {
         let path = path.as_ref().to_path_buf();
         // `create_new` leaves the buffer empty without a read: the call only
@@ -81,7 +86,14 @@ impl App {
 
         let message = if create_new { "Created" } else { "Opened" };
         let driver = tuinix::TerminalDriver::new()?;
-        Self::build(driver, Some(path), text, position, message.to_string())
+        Self::build(
+            driver,
+            Some(path),
+            text,
+            position,
+            message.to_string(),
+            legend_visible,
+        )
     }
 
     /// Builds an editor over `text` read from a pipe, taking keys from `driver`.
@@ -94,23 +106,33 @@ impl App {
     /// than the keyboard.
     ///
     /// `position` is where to leave the cursor, 0-based, exactly as for a file.
-    /// The first message says where the buffer came from.
+    /// The first message says where the buffer came from, and `legend_visible`
+    /// is the legend's starting state, exactly as for a file.
     pub fn from_stdin(
         text: String,
         driver: tuinix::TerminalDriver,
         position: tuinix::Position,
+        legend_visible: bool,
     ) -> std::io::Result<Self> {
-        Self::build(driver, None, text, position, "Read stdin".to_string())
+        Self::build(
+            driver,
+            None,
+            text,
+            position,
+            "Read stdin".to_string(),
+            legend_visible,
+        )
     }
 
     /// Fills the struct: one place knows the field list, and both constructors
-    /// funnel through it.
+    /// funnel through it, each passing its own `legend_visible`.
     fn build(
         mut driver: tuinix::TerminalDriver,
         path: Option<PathBuf>,
         text: String,
         position: tuinix::Position,
         message: String,
+        legend_visible: bool,
     ) -> std::io::Result<Self> {
         let buffer = kk::TextBuffer::new(&text);
 
@@ -132,7 +154,7 @@ impl App {
             saved_text: text,
             state,
             mode: kk::Mode::Edit,
-            legend_visible: true,
+            legend_visible,
             exit: false,
         })
     }
