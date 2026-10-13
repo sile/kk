@@ -114,14 +114,19 @@ what keeps the flag and the variable one setting.
 
 The flag is registered in `main` beside the ones already there, and is taken
 before the `FILE` positional for the same reason as `--create-new` and `--tail`:
-a trailing `--hide-legend` must be read as a flag, not bound as the path.
+a trailing `--hide-legend` must be read as a flag, not bound as the path. The
+spec is named rather than built inline, so that its registration -- the part
+`kk` owns, the flag being present -- can be tested:
 
 ```rust
-let hide_legend = noargs::flag("hide-legend")
-    .doc("Start with the key-binding legend hidden")
-    .env("KK_HIDE_LEGEND")
-    .take(&mut args)
-    .is_present();
+fn hide_legend_flag() -> noargs::FlagSpec {
+    noargs::flag("hide-legend")
+        .doc("Start with the key-binding legend hidden")
+        .env("KK_HIDE_LEGEND")
+}
+
+// in `main`:
+let hide_legend = hide_legend_flag().take(&mut args).is_present();
 ```
 
 The `.env("KK_HIDE_LEGEND")` is the whole of the variable's support: it makes the
@@ -235,13 +240,13 @@ the binary parses with. `App`'s two constructors take one more parameter, and
   environment name; the flag/env merge is `noargs`'s `is_present()`, so the
   testable part of our code is the argument registration and the value reaching
   `App`.
-- A test pins that `--hide-legend` makes the flag present, taking
-  `KK_HIDE_LEGEND` unset. Whether the variable also makes it present is
-  `noargs`'s rule and is
-  covered by its own tests; pinning it here would mean an `unsafe`
-  `std::env::set_var` in the test process, which races with the other tests
-  running in parallel (the variable is process-wide), so `kk` does not do that
-  for a rule it does not own.
+- A test parses a synthetic `argv` through `hide_legend_flag()` and pins that
+  `--hide-legend` makes the flag present, and that it is still a flag when it
+  trails the `FILE`. The test takes `KK_HIDE_LEGEND` unset. Whether the variable
+  also makes it present is `noargs`'s rule and is covered by its own tests;
+  pinning it here would mean an `unsafe` `std::env::set_var` in the test process,
+  which races with the other tests running in parallel (the variable is
+  process-wide), so `kk` does not do that for a rule it does not own.
 - `App`'s starting `legend_visible` is a constructor argument and is not
   reachable from a test without a terminal, so it is not unit-tested; the value
   is passed through `build` unchanged, which the type makes hard to get wrong.
@@ -249,10 +254,11 @@ the binary parses with. `App`'s two constructors take one more parameter, and
 ## Unresolved questions
 
 - **Whether the `--help` block in `README.md` is updated in the same change.**
-  The block already omits `--tail` (it shows only `--version`, `--help`, and
-  `--create-new`), so it is stale independently of this RFC. The new flag
-  belongs in it, and so does `--tail`; whether that is one cleanup or two
-  commits is not decided here.
+  The block already omitted `--tail` (it showed only `--version`, `--help`, and
+  `--create-new`), so it was stale independently of this RFC. Settled while
+  implementing: the stale `--tail` row was added first, on its own, and this
+  flag's row was added here, so the two are two commits and the block now shows
+  every flag.
 - **Whether `--hide-legend` should also be settable per invocation *and* per
   session by the same name**, which is what is proposed (one name, two places).
   If a future setting wants a different spelling per scope, the one-name rule
