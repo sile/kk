@@ -51,8 +51,9 @@ Arguments:
   FILE A file, optionally followed by :LINE to start at, or :LINE:COLUMN
 
 Options:
-      --version    Print version
-  -h, --help       Print help ('--help' for full help, '-h' for summary)
-  -c, --create-new Create the file, which must not already exist
-  -t, --tail       Open at the end of the file
+      --version     Print version
+  -h, --help        Print help ('--help' for full help, '-h' for summary)
+  -c, --create-new  Create the file, which must not already exist
+  -t, --tail        Open at the end of the file
+      --hide-legend Start with the key-binding legend hidden [env: KK_HIDE_LEGEND]
 ```
