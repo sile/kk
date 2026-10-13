@@ -56,4 +56,5 @@ Options:
   -c, --create-new  Create the file, which must not already exist
   -t, --tail        Open at the end of the file
       --hide-legend Start with the key-binding legend hidden [env: KK_HIDE_LEGEND]
+      --hide-legend Start with the key-binding legend hidden [env: KK_HIDE_LEGEND]
 ```
