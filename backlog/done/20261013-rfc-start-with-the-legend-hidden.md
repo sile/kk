@@ -1,6 +1,6 @@
 # RFC: The legend can start hidden
 
-- Status: draft
+- Status: accepted
 
 ## Summary
 
@@ -274,3 +274,22 @@ the binary parses with. `App`'s two constructors take one more parameter, and
   room for.
 - **`--show-legend` as an explicit "on"** if a future default ever changes to
   hidden; not worth having while hidden is the narrower request.
+
+## Outcome
+
+Implemented in [#19](https://github.com/sile/kk/pull/19) (merged as `60ea683`).
+
+`--hide-legend` and `KK_HIDE_LEGEND` are one `noargs` flag spec, the variable
+name given to `env`, so the flag is present when the variable is set to anything
+non-empty. The flag is taken beside `--create-new` and `--tail`, before the
+`FILE` positional; both `App::new` and `App::from_stdin` take the legend's
+starting state as one more argument and the shared `build` stores it, with the
+one negation from the flag's `hide` to the field's `visible` happening in `main`.
+
+The flag's spec is a named `hide_legend_flag()` rather than built inline, so its
+registration can be tested by parsing a synthetic `argv`; that is the one test
+added. The `--help` block in `README.md` gained the row and the column width it
+needed. The `--help` block also turned out to be missing `--tail`, which was
+added first, on its own.
+
+The scope is unchanged from what is described above.
