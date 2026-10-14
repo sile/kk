@@ -898,19 +898,20 @@ impl State {
     ///
     /// This is kk's `copy`: the one command that also hands the text to the
     /// terminal's own clipboard, so it can be pasted outside kk. The mark is
-    /// cleared and the cursor moves to the region's start, exactly as
-    /// [`handle_mark_cut()`](State::handle_mark_cut) leaves them, so a cut and a
-    /// copy differ only in whether the region is deleted. Reports `No mark set`
-    /// when there is no mark, and `Nothing to copy` when the region is empty.
+    /// cleared, but the cursor stays where it is: a copy changes no text, so
+    /// there is no "where the text began" to settle on, unlike
+    /// [`handle_mark_cut()`](State::handle_mark_cut), which leaves the cursor at
+    /// the start of the region it removed. Reports `No mark set` when there is
+    /// no mark, and `Nothing to copy` when the region is empty.
     ///
     /// Returns whether it copied a region; a copy that found no mark or an
     /// empty region writes nothing and returns `false`.
     pub fn handle_mark_copy(&mut self) -> bool {
         self.finish_editing();
 
-        if let Some((start, _end, text)) = self.take_mark_region("No mark set", "Nothing to copy") {
+        if let Some((_start, _end, text)) = self.take_mark_region("No mark set", "Nothing to copy")
+        {
             self.clipboard.write(&text);
-            self.cursor = start;
             self.mark = None;
             self.set_message(format!("Copied {} characters", text.chars().count()));
             true
