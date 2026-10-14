@@ -74,9 +74,11 @@ self.clipboard.write(&text);
 self.mark = None;
 ```
 
-`start` is still needed for the message's character count and for the empty-region
-check (both come from `take_mark_region`), but it is no longer written back to the
-cursor. The `_end` binding and the rest of the handler are unaffected.
+`start` (`take_mark_region`'s first return value) is bound for nothing once the
+cursor stops using it, so the pattern's first binding is renamed `_start` and sits
+next to the already-unused `_end`. The character count the message reports comes
+from `text`, not from `start`, and `take_mark_region` still owns the empty-region
+check, so neither needs the position back. The rest of the handler is unaffected.
 
 The mark is still cleared, exactly as it is today: only `self.cursor = start` is
 removed, and `self.mark = None` stays. The cursor move and the mark-clear happen
@@ -97,8 +99,11 @@ handler stops writing to `self.cursor`.
   handlers differ by one line (a side effect) as well as by the delete. That is
   the intended difference, but it is one more place to explain why a copy and a
   cut are not the same shape.
-- The doc comment on `handle_mark_copy` and the copy RFC both describe the
-  old "moves to the region's start" behavior and must be updated to match.
+- The copy RFC (`backlog/done/20261002-rfc-a-copy-leaves-to-the-terminal-clipboard.md`)
+  describes the old "moves to the region's start" behavior, so its text is
+  superseded here for the cursor. That is a record of what was decided then,
+  not something to edit; the doc comment on `handle_mark_copy` is updated as
+  part of the change.
 
 ## Rationale and alternatives
 
