@@ -290,7 +290,7 @@ fn mark_cut_is_one_undo_step_of_its_own() {
 }
 
 #[test]
-fn mark_copy_leaves_the_region_in_place_and_moves_the_cursor_to_its_start() {
+fn mark_copy_leaves_the_region_in_place_and_leaves_the_cursor_where_it_is() {
     let mut state = state_of("hello world\n");
     state.cursor = at(0, 6);
     state.handle_mark_set();
@@ -303,7 +303,7 @@ fn mark_copy_leaves_the_region_in_place_and_moves_the_cursor_to_its_start() {
 
     assert_eq!(state.clipboard.read(), "world");
     assert_eq!(saved_text(&state), "hello world\n", "the copy deleted text");
-    assert_eq!(state.cursor, at(0, 6));
+    assert_eq!(state.cursor, at(0, 11), "the copy moved the cursor");
     assert_eq!(state.message.as_deref(), Some("Copied 5 characters"));
 }
 
