@@ -1,6 +1,6 @@
 # RFC: A copy keeps the cursor where it is
 
-- Status: draft
+- Status: accepted
 
 ## Summary
 
@@ -149,3 +149,19 @@ None. No new dependency and no change outside `src/state.rs` (plus tests).
 
 None. The mark is cleared (unchanged from today) and the message stays
 `Copied N characters`; both are settled in "Reference-level explanation".
+
+## Outcome
+
+Implemented in [#20](https://github.com/sile/kk/pull/20) (merged as `1d7ea49`).
+
+`handle_mark_copy` no longer writes `self.cursor = start`. The mark is still
+cleared, and the clipboard write, the `Copied N characters` message, and the
+`No mark set` / `Nothing to copy` reports are unchanged. The unused `start`
+binding in the `take_mark_region` pattern became `_start`, and the handler's doc
+comment was rewritten to say the cursor stays put, unlike a cut.
+
+The state test that pinned the old position now asserts the cursor is unchanged:
+it reads `at(0, 11)` -- where the copy started from -- not the region start
+`at(0, 6)`.
+
+The scope is unchanged from what is described above.
