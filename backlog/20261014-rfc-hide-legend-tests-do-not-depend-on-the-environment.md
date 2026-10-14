@@ -1,16 +1,19 @@
-# RFC: The hide-legend test does not depend on the environment
+# RFC: The hide-legend tests do not depend on the environment
 
 - Status: draft
 
 ## Summary
 
-The test that pins `--hide-legend` reads the process environment: it calls
-`noargs`'s `is_present()`, which is true when the flag is on the command line
-*or* when `KK_HIDE_LEGEND` is set. A developer or CI job with that variable
-standing sees the test fail on an assertion that never involved the variable, and
-the failure says nothing about `kk`. This proposal has the test assert what `kk`
-owns -- that `--hide-legend` on `argv` sets the flag -- and leaves the
-variable-to-flag link to `noargs`, which already tests it.
+Two tests read `KK_HIDE_LEGEND` without meaning to. The unit test that pins
+`--hide-legend` calls `noargs`'s `is_present()`, which is true when the flag is
+on the command line *or* when the variable is set; the end-to-end test that
+starts `kk` behind a PTY lets the child inherit the variable from the test
+process. A developer or CI job with `KK_HIDE_LEGEND` exported sees both fail on
+assertions that never involved the variable, and the failures say nothing about
+`kk`. This proposal makes the unit test assert what `kk` owns -- that
+`--hide-legend` on `argv` sets the flag, leaving the variable-to-flag link to
+`noargs`, which already tests it -- and gives the harness a known environment by
+dropping the variable before it starts `kk`.
 
 ## Motivation
 
@@ -29,29 +32,46 @@ no flag, still reports `true`, and the test fails:
 assertion failed: !hide_legend(&["kk", "src/main.rs"])
 ```
 
-Nothing about `kk` is broken when this happens; the process the test runs in just
-happens to have the variable set. A test whose result changes with the caller's
-environment is not testing the code, it is testing the environment, and the
-failure it produces sends the reader to the wrong place.
+The same variable reaches the end-to-end harness by a different road: it starts
+`kk` as a child process with the usual `Command`, and a child inherits the
+parent's environment unless told otherwise. With the variable exported,
+`escape_toggles_the_legend` (in `tests/e2e_legend.rs`) times out waiting for the
+legend it expects on startup, because `kk` came up with it already hidden:
 
-The current test already knows this is a hazard: its own comment says "the
-variable is process-wide, so a test that set it would race the other tests". It
-avoided one race (setting the variable) by leaving the other (reading it) in
-place.
+```text
+wait_until: legend visible at startup
+```
+
+Neither failure is about `kk`. The process the tests run in just happens to have
+the variable set. A test whose result changes with the caller's environment is
+not testing the code, it is testing the environment, and the failure it produces
+sends the reader to the wrong place.
+
+The unit test already knows this is a hazard: its own comment says "the variable
+is process-wide, so a test that set it would race the other tests". It avoided
+one race (setting the variable) by leaving the other (reading it) in place.
 
 ## Guide-level explanation
 
 Nothing a user sees changes. `--hide-legend` and `KK_HIDE_LEGEND` still mean the
 same thing to `kk`, and the help still shows the variable beside the flag.
 
-What changes is what the unit test claims. Today it answers "is the flag
+What changes is what the tests claim. The unit test today answers "is the flag
 present?", which folds in the environment; after the change it answers "did the
 command line ask for it?", which is the part `kk` controls. The environment
 mapping is `noargs`'s, and `noargs` has its own test for it (`env_flag` in
 `flag.rs`, which sets the variable and expects `Flag::Env`).
 
-A developer running `cargo test` with `KK_HIDE_LEGEND` exported sees it pass,
-as they should: their shell has no bearing on whether `kk` parses `--hide-legend`.
+The end-to-end harness changes which environment it hands its child. Today it
+passes whatever the test process has; after the change it drops `KK_HIDE_LEGEND`,
+so a test that wants the legend visible on startup gets it, and a test that wants
+it hidden asks for it on the command line with `--hide-legend`. The harness still
+inherits everything else -- `PATH`, the locale, and so on -- because those are
+not part of what a test is deciding.
+
+A developer running `cargo test` with `KK_HIDE_LEGEND` exported sees everything
+pass, as they should: their shell has no bearing on whether `kk` parses
+`--hide-legend`, nor on the startup state an isolated child begins in.
 
 ## Reference-level explanation
 
@@ -98,17 +118,42 @@ The `env` name stays on the spec in `main` -- it is what puts `[env:
 KK_HIDE_LEGEND]` in the help and what makes the variable work at all; only the
 *assertion* narrows.
 
+The end-to-end harness gets its known environment where it builds the child.
+`KkHarness::spawn` in `tests/e2e/mod.rs` constructs the `Command` and hands it to
+`termnix::Session::new`; the proposal adds one call before that:
+
+```rust
+let mut command = Command::new(kk_binary());
+command.env_remove("KK_HIDE_LEGEND");
+```
+
+`Command::env_remove` unsets the variable for the child only, with no lock and no
+change to the test process's own environment, so it does not have the race the
+unit test's set/unset alternative has. The rest of the inherited environment is
+left alone; only the one variable `kk` reads for a startup decision is cleared.
+Every `KkHarness` constructor funnels through `spawn`, so `open`, `create_new`,
+and `open_arg` all get the same treatment.
+
+This is the one place the fix is behavioral rather than test-only: a test that
+had been getting the legend hidden by accident now gets it visible, which is what
+it always meant to assert.
+
 ## Drawbacks
 
-- The test stops covering the case that `KK_HIDE_LEGEND` alone is enough to hide
+- The suite stops covering the case that `KK_HIDE_LEGEND` alone is enough to hide
 the legend. That behavior is real, and after this change `kk`'s own suite no
 longer fails if the `env` name were dropped from the spec. The help output would
 change with it, though, and `noargs` covers the mechanism, so the loss is the
 link between *this* spec and *this* variable -- which is exactly the part that
 cannot be tested without touching the process environment.
-- `Flag`'s variants become part of the test's expectations. If `noargs` renamed
-or reshaped them the test would not compile; that is a compile error, not a
-silent pass, so it is recoverable.
+- The harness now edits the child's environment, so a future test that *wants*
+to check how `kk` reads `KK_HIDE_LEGEND` at startup cannot do it through
+`KkHarness` as it stands; it would have to set the variable back on the command
+it builds. That is a fair trade for a startup state every other test can rely on,
+and the spot is one line in `spawn`.
+- `Flag`'s variants become part of the unit test's expectations. If `noargs`
+renamed or reshaped them the test would not compile; that is a compile error, not
+a silent pass, so it is recoverable.
 
 ## Rationale and alternatives
 
@@ -129,16 +174,24 @@ silent pass, so it is recoverable.
   the help line proves the spec was written, not that `take()` reads the flag off
   `argv`; parsing a synthetic `argv` still tests more. The help text is worth
   pinning for its own sake, but it does not stand in for this.
-- **Do nothing.** The test keeps failing for anyone with the variable exported,
-  and the failure keeps pointing at `kk` for an environment the test chose to
-  read. Rejected: the fix is a two-line change to how the helper folds the
-  result.
+- **Do nothing.** The tests keep failing for anyone with the variable exported,
+  and the failures keep pointing at `kk` for an environment the tests chose to
+  read. Rejected: the fix is two small changes, one per test shape.
+- **Have the harness clear the whole environment (`env_clear`).** Start the child
+  with nothing inherited at all. Rejected: `PATH` and the locale are not part of
+  what these tests decide, and stripping them makes the harness depend on knowing
+  everything `kk` needs to start -- more coupling than clearing one variable.
+- **Have the e2e test set `--hide-legend` off explicitly, or start from wherever
+  the environment puts it.** Rejected: it would have to accept either startup
+  state, so it would stop pinning the one `escape_toggles_the_legend` exists to
+  check. The harness dropping the variable keeps the test's expectation exact.
 
 ## Impact
 
-Small and local. One test helper in `src/main.rs` changes which part of the
-`Flag` it looks at, and the test's doc comment loses a note. No production code,
-no public API, no help text, no README.
+Small. The unit test's helper in `src/main.rs` changes which part of the `Flag`
+it looks at, and its doc comment loses a note. The e2e harness in
+`tests/e2e/mod.rs` drops one variable from the child's environment. No production
+code, no public API, no help text, no README.
 
 ## Dependencies
 
@@ -148,10 +201,16 @@ None. `noargs::Flag` is already a public type of a dependency `kk` already has.
 
 - `the_hide_legend_flag_is_read_from_the_command_line` keeps its three cases and
   passes with `KK_HIDE_LEGEND` set, unset, empty, and non-empty.
+- `escape_toggles_the_legend` (and every other e2e case) passes with
+  `KK_HIDE_LEGEND` set in the parent, because the harness drops it before
+  starting the child.
+- The whole suite is run both with `KK_HIDE_LEGEND=1` and with the variable
+  unset, and passes either way. That is the check that the fix did what it says:
+  the suite's result no longer depends on the shell.
 - The case that the variable alone hides the legend is covered by `noargs`'s
   `env_flag` test, not here; this item does not add one.
-- No end-to-end change: the help text and the runtime behavior are untouched, so
-  no e2e case moves.
+- No runtime behavior changes: the help text and how `kk` reads the variable are
+  untouched, so nothing a user sees moves.
 
 ## Unresolved questions
 
