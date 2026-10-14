@@ -229,15 +229,20 @@ mod tests {
         split_position(arg)
     }
 
-    /// Parses `argv` for the hide-legend flag alone, as `main` registers it.
+    /// Whether `argv` carries the hide-legend flag, as `main` registers it.
+    ///
+    /// Only the command line is read: the spec also names `KK_HIDE_LEGEND`, but
+    /// that is `noargs`'s mapping to test, and asking `is_present()` here would
+    /// fold the process environment into the answer, so the test would pass or
+    /// fail with the caller's shell.
     fn hide_legend(argv: &[&str]) -> bool {
         let mut args = noargs::RawArgs::new(argv.iter().map(|a| (*a).to_string()));
-        hide_legend_flag().take(&mut args).is_present()
+        matches!(
+            hide_legend_flag().take(&mut args),
+            noargs::Flag::Long { .. } | noargs::Flag::Short { .. }
+        )
     }
 
-    /// Whether the flag is present is what `kk` owns here; that the environment
-    /// name sets it is `noargs`'s rule, covered by its own tests. The variable
-    /// is process-wide, so a test that set it would race the other tests.
     #[test]
     fn the_hide_legend_flag_is_read_from_the_command_line() {
         assert!(hide_legend(&["kk", "--hide-legend", "src/main.rs"]));

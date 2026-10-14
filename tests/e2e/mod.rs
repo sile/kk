@@ -79,6 +79,13 @@ impl KkHarness {
     /// Launches `kk`, optionally with `--create-new`, over a FILE argument.
     fn spawn(file_arg: &str, create_new: bool) -> Self {
         let mut command = Command::new(kk_binary());
+        // The child inherits this process's environment, and `kk` reads
+        // `KK_HIDE_LEGEND` from it. A developer or CI job with that variable
+        // exported would start every `kk` here with the legend hidden, breaking
+        // tests that expect it visible on startup. The harness wants a known
+        // environment, so it drops the variable rather than inheriting it; a
+        // test that wants the legend hidden passes `--hide-legend` instead.
+        command.env_remove("KK_HIDE_LEGEND");
         if create_new {
             command.arg("--create-new");
         }
