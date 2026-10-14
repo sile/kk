@@ -1,6 +1,6 @@
 # RFC: The hide-legend tests do not depend on the environment
 
-- Status: draft
+- Status: accepted
 
 ## Summary
 
@@ -225,3 +225,28 @@ command line, `noargs` tests the variable, and no test reads the ambient
 environment. Should `noargs` ever offer a way to inject the environment (rather
 than reading `std::env` directly), the variable spelling could be pinned here
 too without the race -- but that is a change to `noargs`, not to `kk`.
+
+## Outcome
+
+Implemented in [#21](https://github.com/sile/kk/pull/21) (merged as `0546686`).
+
+The unit test's helper now matches on the `Flag` variant (`Long`/`Short`)
+that `take()` returns, so it reads only `argv` and no longer says `true` for
+`KK_HIDE_LEGEND` alone. That is the part `kk` owns; the variable-to-flag link
+stays `noargs`'s and stays covered by `noargs`'s own `env_flag` test. The test
+keeps its three assertions and its doc comment loses the note about the
+process-wide variable.
+
+The e2e harness added one line to `KkHarness::spawn` -- `env_remove` for
+`KK_HIDE_LEGEND` -- before it builds the child, so every constructor (`open`,
+`create_new`, `open_arg`) starts `kk` in a known state and
+`escape_toggles_the_legend` gets the visible legend it always meant to assert.
+The rest of the inherited environment is left alone, and the test process's own
+environment is untouched, so there is no race with other tests.
+
+The full suite was run both with `KK_HIDE_LEGEND=1` and with the variable
+unset, and passes either way; `cargo fmt --check` and `cargo clippy
+--all-targets -- -D warnings` are clean. No production code, public API, help
+text, or README changed.
+
+The scope is unchanged from what is described above.
