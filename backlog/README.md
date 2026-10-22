@@ -144,9 +144,10 @@ The prose is required, and the script stops if the file is empty. An outcome
 with nothing to say about the change it settled usually means it is being
 reconstructed from the item's own text rather than recalled from the change.
 
-The section has a fixed shape — the pull request that settled the item, the
-prose, and a closing line — and the script writes the parts the item cannot
-know (the pull request number and the merge commit) around your prose:
+The section has a fixed shape — a line naming the pull request that settled
+the item, the prose, and a closing line — and the script writes the parts the
+item cannot know (the pull request number and the merge commit) around your
+prose:
 
 ```markdown
 ## Outcome
@@ -161,6 +162,37 @@ The scope is unchanged from what is described above.
 That closing line is deliberate: an item describes the change it proposes, so
 the outcome states whether anything else moved with it. Write the reason when
 it did; leave the line alone when it did not.
+
+### Leave the rest of the item alone
+
+Settling edits exactly two things: the `Status` line and the end of the file.
+Everything above `## Outcome` stays as it was written when the item was open.
+
+An item's text records what was thought at the time, including what it got
+wrong — an RFC arguing for a design that was not the one built, a bug's Notes
+predicting where the fix belongs. That record is the reason the item exists;
+rewriting it in the past tense to match the change erases it and leaves two
+accounts of the same decision, one of which has quietly been corrected to
+agree with the other.
+
+So when the change differs from what the item predicted, the outcome says so
+in a sentence or two, and the prediction stays where it is. For example:
+
+> The Notes expected the fix in `TextLine`'s width rule; that is where it
+> went. The search prompt measures columns itself as well, so it had to move
+> onto the same rule, which the item did not anticipate.
+
+There is a practical consequence. `settle.sh` refuses to run on a dirty
+working tree precisely so that the commit it makes holds only the settle —
+if editing the item's prose were expected, every settle would need a commit
+of its own first, and the move to `done/` would arrive tangled in an
+unrelated edit. Editing the item to match the outcome is the step that makes
+settling awkward, and it is the step that should not be taken.
+
+One more consequence: while an item is open, its Notes are still proposals.
+"The fix belongs here" is a claim about where a change should go, not a
+statement of where it went, and it reads correctly in an open item. Leaving
+it in the past tense while the item is open would be the actual error.
 
 `## Outcome` goes at the end of the file, after every other section. Existing
 items vary in where they put it because the section was added by hand before
