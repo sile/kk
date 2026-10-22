@@ -37,4 +37,4 @@ pub use render::{
 };
 pub use search_prompt::{Highlight, HighlightItem, SearchPrompt};
 pub use state::State;
-pub use terminal::{char_cols, put_str, str_cols};
+pub use terminal::{TAB_WIDTH, char_cols, char_cols_at, put_str, str_cols};

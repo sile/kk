@@ -346,7 +346,7 @@ impl TextBuffer {
             // Return new cursor position
             TextPosition {
                 row: pos.row,
-                col: pos.col + crate::terminal::char_cols(ch),
+                col: pos.col + crate::terminal::char_cols_at(ch, pos.col),
             }
         } else {
             pos
@@ -463,11 +463,14 @@ impl TextLine {
     }
 
     /// Returns each character paired with the display column it starts at.
+    ///
+    /// A tab's width depends on where it starts, so each width is measured at
+    /// the column the character is placed at.
     pub fn char_cols(&self) -> impl Iterator<Item = (usize, char)> {
         let mut col = 0;
         self.0.iter().map(move |&ch| {
             let current_col = col;
-            col += crate::terminal::char_cols(ch);
+            col += crate::terminal::char_cols_at(ch, current_col);
             (current_col, ch)
         })
     }
@@ -481,7 +484,7 @@ impl TextLine {
             if current_col == col {
                 return Some(ch);
             }
-            current_col += crate::terminal::char_cols(ch);
+            current_col += crate::terminal::char_cols_at(ch, current_col);
             if current_col > col {
                 break;
             }
@@ -492,15 +495,20 @@ impl TextLine {
     /// Returns the line's display width in columns.
     ///
     /// Columns count display cells, not characters, so a wide character
-    /// contributes more than one.
+    /// contributes more than one and a tab contributes however many it takes
+    /// to reach the next tab stop.
     pub fn width(&self) -> usize {
-        self.0.iter().copied().map(crate::terminal::char_cols).sum()
+        let mut col = 0;
+        for &ch in self.0.iter() {
+            col += crate::terminal::char_cols_at(ch, col);
+        }
+        col
     }
 
     fn adjust_to_char_boundary(&self, col: usize, floor: bool) -> usize {
         let mut start = 0;
         for &ch in self.0.iter() {
-            let end = start + crate::terminal::char_cols(ch);
+            let end = start + crate::terminal::char_cols_at(ch, start);
             if start == col {
                 return col;
             } else if col < end {
@@ -518,7 +526,7 @@ impl TextLine {
                 Arc::make_mut(&mut self.0).remove(i);
                 return true;
             }
-            current_col += crate::terminal::char_cols(ch);
+            current_col += crate::terminal::char_cols_at(ch, current_col);
             if current_col > col {
                 break;
             }
@@ -529,7 +537,7 @@ impl TextLine {
     fn find_char_before(&self, col: usize) -> usize {
         let mut current_col = 0;
         for &ch in self.0.iter() {
-            let next_col = current_col + crate::terminal::char_cols(ch);
+            let next_col = current_col + crate::terminal::char_cols_at(ch, current_col);
             if next_col >= col {
                 return current_col;
             }
@@ -547,7 +555,7 @@ impl TextLine {
                 char_index = i;
                 break;
             }
-            current_col += crate::terminal::char_cols(existing_ch);
+            current_col += crate::terminal::char_cols_at(existing_ch, current_col);
             char_index = i + 1;
         }
 
@@ -567,7 +575,7 @@ impl TextLine {
             if current_col >= col {
                 return i;
             }
-            current_col += crate::terminal::char_cols(ch);
+            current_col += crate::terminal::char_cols_at(ch, current_col);
         }
         self.0.len()
     }
@@ -580,7 +588,7 @@ impl TextLine {
             if i >= char_index {
                 return col;
             }
-            col += crate::terminal::char_cols(ch);
+            col += crate::terminal::char_cols_at(ch, col);
         }
         col
     }

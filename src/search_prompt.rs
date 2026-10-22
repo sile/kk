@@ -187,7 +187,7 @@ impl Highlight {
             let chars: Vec<(usize, char)> = line
                 .char_cols()
                 .flat_map(|(col, ch)| {
-                    line_end_col = col + crate::terminal::char_cols(ch);
+                    line_end_col = col + crate::terminal::char_cols_at(ch, col);
                     ch.to_lowercase().map(move |lc| (col, lc))
                 })
                 .collect();

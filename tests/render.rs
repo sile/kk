@@ -86,6 +86,44 @@ fn the_text_area_paints_the_visible_slice_from_the_viewport() {
 }
 
 #[test]
+fn a_tab_pushes_the_text_after_it_to_the_next_tab_stop() {
+    let state = state_of("\tindented\n");
+    let mut frame = frame_of(1, 16);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // The tab is a run of blank columns up to the next tab stop, so `indented`
+    // starts at column 8 rather than at the left edge.
+    assert_eq!(row_text(&frame, 0, 16), "        indented");
+}
+
+#[test]
+fn a_tab_mid_line_pushes_the_rest_of_the_line_to_the_next_tab_stop() {
+    let state = state_of("a\tb\n");
+    let mut frame = frame_of(1, 10);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // `b` follows a tab that started at column 1, so it lands at column 8.
+    assert_eq!(row_text(&frame, 0, 10), "a       b ");
+}
+
+#[test]
+fn a_tab_keeps_its_columns_when_a_search_gutter_is_shown() {
+    let mut state = state_of("a\tb\n");
+    state.search_prompt = Some(kk::SearchPrompt::new());
+    state.cursor = kk::TextPosition { row: 0, col: 1 };
+    let mut frame = frame_of(1, 16);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // The prompt's gutter shifts the line right, and the tab still covers
+    // columns 1..8 of the text, so `b` starts at column 8 -- the same column
+    // it takes without a gutter, plus the gutter's width.
+    assert_eq!(row_text(&frame, 0, 16), "   | a       b  ");
+}
+
+#[test]
 fn a_search_bolds_and_underlines_the_matches() {
     let mut state = state_of("one two\n");
     state.search_prompt = Some(kk::SearchPrompt::new());
