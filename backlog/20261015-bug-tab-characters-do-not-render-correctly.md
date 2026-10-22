@@ -101,19 +101,18 @@ be typed in. Only the tabs already in the file reach the buffer.
 
 ## Notes
 
-- The fix belongs in `TextLine`'s width rule, not in `render_line`: if the
-  buffer counted a tab as eight columns, `render_line` would place the
-  following characters at those columns and `put_str` would have nothing to
-  advance over -- a tab would be painted as one glyph of some width, which is
-  not what characters past a tab stop need. The decision is *where the columns
-  are*, and that lives with `TextLine`.
-- The tab width is currently a literal `8` inside `put_str` and nowhere else;
-  the fix should name it once and have both the renderer and the column model
-  read it, so a later change to the width cannot split them again.
-- Related, but separate: the search highlight and the gutter count columns
-  through the same `char_cols()` and `contains()`/`count_up_to()`, so they
-  inherit the same shift. Fixing the width rule fixes them together, since
-  they compare `TextPosition`s built from the one column model.
+- The fix was made in the width rule the column model reads, not in
+  `render_line`: `render_line` still positions every character from the
+  column the buffer reports, so the two agree by sharing one definition
+  rather than by teaching the renderer a second one. `render_line` was left
+  alone.
+- The tab width was a literal `8` inside `put_str` and nowhere else; it is
+  now named once and both the renderer and the column model read it, so a
+  later change to the width cannot split them again.
+- The search highlight and the gutter count columns through the same
+  `char_cols()` and `contains()`/`count_up_to()`, and they inherited the same
+  shift. The search prompt measures columns itself as well, so it had to be
+  moved onto the new rule directly, not only the buffer.
 - Whether the tab should be *drawn* (as `^I`, or a `→` up to the stop) rather
   than as blanks is a presentation choice. It is not needed to make the columns
   agree; if it is wanted, it is a follow-up rather than part of this bug.
