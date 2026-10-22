@@ -1,6 +1,6 @@
 # Bug: Tab characters do not render correctly
 
-- Status: open
+- Status: fixed
 
 ## Summary
 
@@ -116,3 +116,37 @@ be typed in. Only the tabs already in the file reach the buffer.
 - Whether the tab should be *drawn* (as `^I`, or a `→` up to the stop) rather
   than as blanks is a presentation choice. It is not needed to make the columns
   agree; if it is wanted, it is a follow-up rather than part of this bug.
+
+## Outcome
+
+Fixed in [#22](https://github.com/sile/kk/pull/22) (merged as `6ccee36`).
+
+`src/terminal.rs` now names the tab width once, in `TAB_WIDTH`, and
+`put_str` reads it instead of a literal `8`. A new `char_cols_at(ch, col)`
+returns a tab's width as the distance from `col` to the next tab stop and any
+other character's width from `char_cols`, so a tab is the columns up to the
+next multiple of the width wherever it starts. Both are public, since the
+buffer needs the same rule the renderer draws with.
+
+Every place the buffer asked `char_cols` how wide a character is now asks
+`char_cols_at` with the column the character starts at -- all of `TextLine`'s
+column-aware methods (`char_cols()`, `width()`, `char_at_col()`,
+`adjust_to_char_boundary()`, `delete_char_at()`, `find_char_before()`,
+`insert_char_at()`, `char_index_at_col()`, `col_at_char_index()`) and the
+cursor advance in `TextBuffer::insert_char_at_internal`. Column arithmetic
+that is already per-character is unaffected; only the width lookups moved.
+The search prompt measured columns for its highlight with the same call and
+moved with them, so the highlight and the gutter's totals follow a tab to the
+same columns the text is drawn at.
+
+`render_line` was not touched: it places each character at the column the
+buffer reports and `put_str` writes nothing for a tab, so a tab now leaves
+the blank columns it takes and the characters after it land where the cursor
+and the marks put them.
+
+`tests/render.rs` gained three cases: a line that begins with a tab draws its
+text eight columns in, a tab mid-line moves the rest of the line to the next
+stop, and the cursor on the tab's first column paints there -- the cell the
+tab claims, which the buffer and the renderer now both agree is the tab's.
+
+The scope is unchanged from what is described above.
