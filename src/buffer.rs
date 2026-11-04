@@ -266,8 +266,9 @@ impl TextBuffer {
     /// which lets repeated presses eat a file's trailing blank lines.
     ///
     /// The end row -- one past the last line -- has no character, no line of its
-    /// own and no line after it, so a position there deletes nothing. Returns
-    /// `true` if anything was deleted.
+    /// own and no line after it, so a position there deletes nothing, blank last
+    /// line above it or not: the row is a place to type, not a handle on the
+    /// line before it. Returns `true` if anything was deleted.
     pub fn delete_char_at(&mut self, pos: TextPosition) -> bool {
         // Store the character for undo before deleting
         if let Some(line) = self.text.get(pos.row)

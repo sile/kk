@@ -790,25 +790,6 @@ impl State {
         }
 
         self.start_editing();
-
-        // On the end row there is no character under the cursor to delete. What
-        // a press can still reach is the blank last line above: dropping it
-        // shortens the buffer and leaves the cursor on the end row again, so
-        // presses from here eat the trailing blank lines the same way presses
-        // from the first of them do. A last line with text on it stays: that is
-        // content, and the press is not on it.
-        if self.cursor.row == self.buffer.rows()
-            && self.buffer.cols(self.buffer.last_row()) == 0
-            && self.buffer.rows() > 1
-        {
-            self.buffer.delete_char_at(TextPosition {
-                row: self.buffer.last_row(),
-                col: 0,
-            });
-            self.cursor.row = self.buffer.rows();
-            return;
-        }
-
         self.buffer.delete_char_at(self.cursor);
 
         // Dropping a blank last line shortens the buffer under the cursor, so

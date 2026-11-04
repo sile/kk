@@ -1314,20 +1314,20 @@ fn forward_delete_on_the_end_row_deletes_nothing() {
 }
 
 #[test]
-fn forward_delete_on_the_end_row_drops_a_blank_last_line() {
-    // `abc\n\n` is two lines: `abc` and one blank line. From the end row the
-    // press reaches the blank line above it -- that is how a reader opening at
-    // the end clears the tail -- and the cursor stays on the end row, one row
-    // up.
+fn forward_delete_on_the_end_row_leaves_a_blank_last_line_alone() {
+    // `abc\n\n` is two lines: `abc` and one blank line. The end row is past
+    // both, and the blank line above it is not under the cursor -- a delete that
+    // moved the cursor to another row to reach it would be a cursor motion, not
+    // a delete. To clear the blank line the reader stands on it.
     let mut state = state_of("abc\n\n");
     assert_eq!(state.buffer.rows(), 2);
     state.handle_cursor_buffer_end();
 
     state.handle_char_delete_forward();
 
-    assert_eq!(saved_text(&state), "abc\n", "the blank line goes");
-    assert_eq!(state.buffer.rows(), 1);
-    assert_eq!(state.cursor, at(1, 0));
+    assert_eq!(saved_text(&state), "abc\n\n", "the blank line stays");
+    assert_eq!(state.buffer.rows(), 2);
+    assert_eq!(state.cursor, at(2, 0), "the cursor stays on the end row");
 }
 
 #[test]
@@ -1359,31 +1359,19 @@ fn forward_delete_eats_the_trailing_blank_lines_one_press_at_a_time() {
 }
 
 #[test]
-fn forward_delete_from_the_end_row_eats_the_trailing_blank_lines() {
-    // `--tail` and `C-x C-e` open on the end row, so a reader who starts there
-    // must be able to clear the file's tail without moving up first. Each press
-    // drops the blank last line above the cursor and leaves the cursor on the
-    // end row, one row higher.
+fn forward_delete_from_the_end_row_eats_nothing() {
+    // A reader who opens at the file's end with `--tail` or `C-x C-e` stands on
+    // the end row. Every press there does nothing, however blank the last line
+    // above it is: the blank line is cleared from the blank line, one row up.
     let mut state = state_of("a\n\n\n\n");
     state.handle_cursor_buffer_end();
     assert_eq!(state.cursor, at(4, 0));
 
-    state.handle_char_delete_forward();
-    assert_eq!(saved_text(&state), "a\n\n\n", "one blank line goes");
-    assert_eq!(state.cursor, at(3, 0), "the cursor follows the end row");
-
-    state.handle_char_delete_forward();
-    assert_eq!(saved_text(&state), "a\n\n");
-
-    state.handle_char_delete_forward();
-    assert_eq!(saved_text(&state), "a\n");
-    assert_eq!(state.buffer.rows(), 1);
-
-    // `a` is all that is left and it holds a character: the press stops rather
-    // than eating it, and the cursor stays on the end row.
-    state.handle_char_delete_forward();
-    assert_eq!(saved_text(&state), "a\n", "the line holding 'a' stays");
-    assert_eq!(state.cursor, at(1, 0));
+    for _ in 0..4 {
+        state.handle_char_delete_forward();
+        assert_eq!(saved_text(&state), "a\n\n\n\n");
+        assert_eq!(state.cursor, at(4, 0), "the cursor stays on the end row");
+    }
 }
 
 #[test]
