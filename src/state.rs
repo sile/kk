@@ -737,6 +737,12 @@ impl State {
     /// press there deletes the newline. At the buffer's first row there is no
     /// previous line and nothing to delete.
     ///
+    /// On the end row -- the empty row after the last line -- there is nothing
+    /// to delete either, since no line is under the cursor. The press still
+    /// answers: it leaves that row of no text for the last line's end, the
+    /// nearest column a character backs. A cursor with nothing to delete moves
+    /// to text rather than sitting past all of it.
+    ///
     /// While a search prompt is open, this deletes from the query instead and
     /// re-runs it.
     pub fn handle_char_delete_backward(&mut self) {
@@ -744,6 +750,16 @@ impl State {
             if search.delete_char_backward() {
                 self.rerun_query();
             }
+            return;
+        }
+
+        if self.cursor.row > self.buffer.last_row() {
+            // The end row: no line to delete around, so step back onto the
+            // last line's end. `last_row()` saturates, so an empty buffer
+            // (row 0, no lines) is not the end row and is left alone.
+            self.cursor.row = self.buffer.last_row();
+            self.cursor.col = self.buffer.cols(self.cursor.row);
+            self.finish_editing();
             return;
         }
 
@@ -755,12 +771,9 @@ impl State {
 
     /// Deletes the character under the cursor.
     ///
-    /// On the end row, the empty row after the last line, this deletes the blank
-    /// last line and the newline that ends it -- the forward direction of the
-    /// backspace that joins a line onto the one before. A last line with text on
-    /// it is left alone: the end row is a place to type, not a handle on the
-    /// character above it. The cursor keeps its row, which is the end row again
-    /// one row higher.
+    /// On the end row, the empty row after the last line, there is no character
+    /// and no line after it, so the press does nothing: the row is a place to
+    /// type, not a handle on the line above it.
     ///
     /// While a search prompt is open, this deletes from the query instead and
     /// re-runs it.
@@ -773,9 +786,6 @@ impl State {
         }
 
         self.start_editing();
-        // The cursor stays where it was. On the end row the deletion took the
-        // blank last line with it, so the row the cursor is on is the end row
-        // again -- one row higher, which is not a move.
         self.buffer.delete_char_at(self.cursor);
     }
 

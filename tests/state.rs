@@ -1212,7 +1212,7 @@ fn scrolling_down_stops_on_the_row_after_the_last_line() {
 }
 
 #[test]
-fn backspace_at_the_buffer_end_joins_the_last_two_lines() {
+fn backspace_on_the_end_row_steps_back_onto_the_last_lines_end() {
     let mut state = state_of("abc\nxyz\n");
 
     state.handle_cursor_buffer_end();
@@ -1222,21 +1222,53 @@ fn backspace_at_the_buffer_end_joins_the_last_two_lines() {
         "the buffer end is the empty row after the last line"
     );
 
-    // On the end row there is no line to join and nothing before column 0, so
-    // the press does nothing -- the row after the last line is where the file
-    // quietly ends, with no newline to delete.
+    // The end row holds no characters of its own, so there is nothing to
+    // delete and the text stays as it was. The press answers by moving the
+    // cursor off the row of no text, onto the last line's end.
     state.handle_char_delete_backward();
-    assert_eq!(saved_text(&state), "abc\nxyz\n");
-    assert_eq!(state.cursor, at(2, 0), "the cursor stays on the end row");
+    assert_eq!(saved_text(&state), "abc\nxyz\n", "no text is deleted");
+    assert_eq!(
+        state.cursor,
+        at(1, 3),
+        "the cursor steps onto the last line's end"
+    );
 
-    // Up one row onto the last line, then backspace at the start of it joins it
-    // onto the previous line: the newline that is really there goes.
+    // From there a further press deletes the 'z': the cursor is on a line now,
+    // so this is an ordinary backward delete.
+    state.handle_char_delete_backward();
+    assert_eq!(saved_text(&state), "abc\nxy\n");
+    assert_eq!(state.cursor, at(1, 2));
+}
+
+#[test]
+fn backspace_at_the_start_of_a_line_joins_it_onto_the_previous_one() {
+    let mut state = state_of("abc\nxyz\n");
+
+    state.handle_cursor_buffer_end();
     state.handle_cursor_up();
     state.handle_cursor_line_start();
     state.handle_char_delete_backward();
 
     assert_eq!(saved_text(&state), "abcxyz\n");
     assert_eq!(state.cursor, at(0, 3), "the cursor joins the previous line");
+}
+
+#[test]
+fn backspace_on_the_end_row_of_an_empty_buffer_does_nothing() {
+    let mut state = state_of("");
+
+    // An empty buffer has no lines, so `rows()` is 0 and the cursor stands on
+    // row 0 with nothing under it. That row is not the end row -- there is no
+    // last line to step back onto -- so the press leaves both alone.
+    assert_eq!(state.buffer.rows(), 0);
+
+    let before = saved_text(&state);
+
+    state.handle_char_delete_backward();
+
+    assert_eq!(saved_text(&state), before, "nothing is deleted");
+    assert_eq!(state.buffer.rows(), 0, "still no lines");
+    assert_eq!(state.cursor, at(0, 0), "the cursor keeps its place");
 }
 
 #[test]
@@ -1266,29 +1298,35 @@ fn a_newline_on_the_row_after_the_last_line_leaves_a_trailing_empty_line() {
 }
 
 #[test]
-fn forward_delete_on_the_row_after_the_last_line_removes_it() {
+fn forward_delete_on_the_end_row_deletes_nothing() {
     let mut state = state_of("abc\nxyz\n");
     state.handle_cursor_buffer_end();
 
-    // The row has no character, but the blank line before it does have a
-    // newline. Deleting it drops that blank line -- the reverse of the
-    // backspace that joins a line onto its predecessor. The end row moves up
-    // with the line that went, and the cursor stays on the end row.
+    // The end row has no character and no line after it, so there is nothing
+    // for the press to delete, and nothing above it is reachable from here: the
+    // row is a place to type, not a handle on the line before it. The text and
+    // the cursor both stay as they were.
     state.handle_char_delete_forward();
 
     assert_eq!(saved_text(&state), "abc\nxyz\n");
-    assert_eq!(state.buffer.rows(), 2, "the blank last line goes");
-    assert_eq!(
-        state.cursor,
-        at(2, 0),
-        "the cursor stays on the end row, now one row up"
-    );
+    assert_eq!(state.buffer.rows(), 2);
+    assert_eq!(state.cursor, at(2, 0), "the cursor stays on the end row");
+}
 
-    // A last line with text on it is not a blank line to drop: the end row is a
-    // place to type, not a handle on the character above it.
+#[test]
+fn forward_delete_on_the_end_row_leaves_a_blank_last_line_alone() {
+    // `abc\n\n` is two lines: `abc` and one blank line. The end row is row 2,
+    // and the blank line at row 1 is real text with a newline to its right --
+    // but it is not the row the cursor is on, so the press does not reach it.
+    let mut state = state_of("abc\n\n");
+    assert_eq!(state.buffer.rows(), 2);
+    state.handle_cursor_buffer_end();
+
     state.handle_char_delete_forward();
-    assert_eq!(saved_text(&state), "abc\nxyz\n");
-    assert_eq!(state.buffer.rows(), 2, "the line holding 'xyz' stays");
+
+    assert_eq!(saved_text(&state), "abc\n\n", "the blank line stays");
+    assert_eq!(state.buffer.rows(), 2);
+    assert_eq!(state.cursor, at(2, 0));
 }
 
 #[test]
