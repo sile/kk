@@ -206,14 +206,19 @@ impl State {
         self.buffer.adjust_to_char_boundary(self.cursor, true)
     }
 
-    /// Returns the last row a cursor can stand on: the buffer's last line.
+    /// Returns the last row a cursor can stand on: the empty row after the
+    /// buffer's last line.
     ///
     /// Every handler that bounds a cursor row draws it from here, so the bound
-    /// is written once. [`TextBuffer::rows()`](crate::TextBuffer::rows) is the
-    /// number of lines, one past this, and is the wrong bound for a cursor: a
-    /// cursor on it would stand on a row no line backs.
+    /// is written once. It is
+    /// [`TextBuffer::rows()`](crate::TextBuffer::rows) -- the number of lines,
+    /// one past the last line -- because that is the row a cursor may reach:
+    /// the same allowance that lets it stand one column past a line's last
+    /// character, applied to rows. `line()` is `None` there, so insertion
+    /// starts a new line, and a handler reading a row from outside (a reload)
+    /// uses [`TextBuffer::last_row()`](crate::TextBuffer::last_row) instead.
     fn row_count(&self) -> usize {
-        self.buffer.last_row()
+        self.buffer.rows()
     }
 
     /// Returns how many rows the gutter's summary rows take from a text area
@@ -406,8 +411,12 @@ impl State {
                 // than the area has no page below `0` to move to, the cap
                 // saturates to `0`, and the rows under the last line are the
                 // file not filling the screen -- shown, as every editor shows
-                // them, not removed.
-                let last_viewport = (self.row_count() + 1).saturating_sub(available_rows);
+                // them, not removed. The cap is measured over the rows a cursor
+                // can stand on, `0..=row_count()`, so the end row is a row the
+                // viewport can show when the cursor is on it.
+                let last_viewport = self
+                    .row_count()
+                    .saturating_sub(available_rows.saturating_sub(1));
                 self.viewport.row = place.row(cursor_pos.row, available_rows).min(last_viewport);
             } else {
                 // The distance from the cursor to the edge of the viewport, in
@@ -440,12 +449,15 @@ impl State {
                     // last drawn row, the same row a reader who then asks for
                     // "Cursor at bottom" would get. The file's end is the hard
                     // cap: the viewport cannot sit so low that a row past the
-                    // last line is asked for. `max` then `min` applies the floor
-                    // inside the cap. (The floor and the center are different
-                    // rows by construction -- `cursor - (n - 1)` against
-                    // `cursor - n / 2` -- so no single expression can be both.)
+                    // last one a cursor can stand on is asked for. `max` then
+                    // `min` applies the floor inside the cap. (The floor and
+                    // the center are different rows by construction --
+                    // `cursor - (n - 1)` against `cursor - n / 2` -- so no
+                    // single expression can be both.)
                     let bottom = RecenterPlace::Bottom.row(cursor_pos.row, available_rows);
-                    let last_viewport = (self.row_count() + 1).saturating_sub(available_rows);
+                    let last_viewport = self
+                        .row_count()
+                        .saturating_sub(available_rows.saturating_sub(1));
                     self.viewport.row = centered.max(bottom).min(last_viewport);
                 } else if cursor_pos.row < self.viewport.row {
                     // Cursor is above viewport, scroll up
@@ -585,12 +597,13 @@ impl State {
     /// moves the text by *drawn* rows.
     ///
     /// Only the bottom of the file breaks the rule that the cursor keeps its
-    /// screen row. When the viewport comes to rest on the last line and the
-    /// cursor still has screen rows left under it, keeping them would stop the
-    /// view a screen short of the file's end, so the cursor gives them up and
-    /// goes to the last row. That is what lets the reader bring the last line to
-    /// the frame's last row. Once both are at that edge a further notch down
-    /// changes nothing.
+    /// screen row. When the viewport comes to rest on the last page and the
+    /// cursor still has screen rows left under it, keeping them would leave the
+    /// cursor above the last row the viewport shows, so the cursor gives them up
+    /// and goes to the bottom row of that page -- the end row, the empty row
+    /// after the last line. That is what lets the reader bring the last line,
+    /// and the row after it, to the frame's last row. Once both are at that edge
+    /// a further notch down changes nothing.
     ///
     /// The top needs no such exception: the cursor's screen row is measured from
     /// the top of the text area, so a viewport at row `0` already draws the
@@ -598,7 +611,7 @@ impl State {
     pub fn handle_scroll(&mut self, rows: isize, text_area_size: tuinix::Size) {
         let drawn_rows = self.text_rows(text_area_size.rows);
         let last_row = self.row_count();
-        let last_viewport = (last_row + 1).saturating_sub(drawn_rows);
+        let last_viewport = last_row.saturating_sub(drawn_rows.saturating_sub(1));
         let start_row = self.viewport.row;
 
         // The cursor's row on screen before the notch. A cursor already off
@@ -617,10 +630,9 @@ impl State {
 
         // Phase two, at the bottom edge only: the viewport clamped at
         // `last_viewport` while the cursor still had screen rows left under it,
-        // so keeping them would leave the cursor short of the last line and the
-        // view stopped a screen short of the file's end. The cursor gives them
-        // up and goes to the last row, which is what lets the last line reach
-        // the frame's last row.
+        // so keeping them would leave the cursor short of the page's last drawn
+        // row. The cursor gives them up and goes to that row, which is what lets
+        // the last line and the end row after it reach the frame's last row.
         if target > last_viewport {
             self.cursor.row = last_row;
         }
@@ -706,7 +718,13 @@ impl State {
         self.finish_editing();
     }
 
-    /// Moves the cursor to the last line of the buffer.
+    /// Moves the cursor to the end row of the buffer: the empty row after the
+    /// last line, where typing starts a new line.
+    ///
+    /// This is the row `C-n` reaches from the last line, and the one `--tail`
+    /// opens on. "The end of the buffer" answers with the row a cursor can stand
+    /// on, the way "the end of a line" answers with the column past its last
+    /// character.
     pub fn handle_cursor_buffer_end(&mut self) {
         self.cursor.row = self.row_count();
         self.cursor.col = 0;
@@ -737,6 +755,13 @@ impl State {
 
     /// Deletes the character under the cursor.
     ///
+    /// On the end row, the empty row after the last line, this deletes the blank
+    /// last line and the newline that ends it -- the forward direction of the
+    /// backspace that joins a line onto the one before. A last line with text on
+    /// it is left alone: the end row is a place to type, not a handle on the
+    /// character above it. The cursor keeps its row, which is the end row again
+    /// one row higher.
+    ///
     /// While a search prompt is open, this deletes from the query instead and
     /// re-runs it.
     pub fn handle_char_delete_forward(&mut self) {
@@ -748,6 +773,9 @@ impl State {
         }
 
         self.start_editing();
+        // The cursor stays where it was. On the end row the deletion took the
+        // blank last line with it, so the row the cursor is on is the end row
+        // again -- one row higher, which is not a move.
         self.buffer.delete_char_at(self.cursor);
     }
 
@@ -786,11 +814,12 @@ impl State {
         self.buffer = TextBuffer::new(text);
 
         // Try to preserve the cursor position, but adjust if the file has
-        // changed. The row is clamped to the buffer's last line, so a cursor
-        // that survives keeps whatever fits of its column on that line; a
+        // changed. The row is clamped to the buffer's last line -- not to the
+        // end row a cursor may stand on: the text just changed under it, so a
         // cursor pulled back from past the end lands on the last line's end
-        // rather than at column 0 of nowhere.
-        self.cursor.row = self.cursor.row.min(self.row_count());
+        // rather than on a row no line backs. A cursor that survives keeps
+        // whatever fits of its column on its line.
+        self.cursor.row = self.cursor.row.min(self.buffer.last_row());
 
         let max_col = self.buffer.cols(self.cursor.row);
         self.cursor.col = self.cursor.col.min(max_col);
@@ -1106,7 +1135,9 @@ impl State {
         use RecenterPlace::{Bottom, Center, Top};
 
         let cursor_row = self.cursor.row;
-        let last_viewport = (self.row_count() + 1).saturating_sub(available_rows);
+        let last_viewport = self
+            .row_count()
+            .saturating_sub(available_rows.saturating_sub(1));
         let center_row = Center.row(cursor_row, available_rows);
         let top_row = Top.row(cursor_row, available_rows);
 

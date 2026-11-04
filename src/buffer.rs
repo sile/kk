@@ -42,21 +42,32 @@ impl TextBuffer {
         content
     }
 
-    /// Returns the number of lines.
+    /// Returns the number of lines, which is also the last row a cursor can
+    /// stand on: the empty row after the last line.
     ///
-    /// This is a count, not the last row: the last line is index
-    /// [`last_row()`](TextBuffer::last_row), one less than this. `rows()` is
-    /// what a slice end wants -- the rows of the whole buffer are
-    /// `0..rows()` -- and the cursor is never placed on it.
+    /// The value is the count -- the lines are `0..rows()`, and so is the
+    /// slice every renderer walks -- and it is also the one row past them,
+    /// which has no line. Both readings are meant: a cursor reaches one column
+    /// past a line's last character even though no character is there, and a
+    /// cursor reaches the row after the last line even though no line is
+    /// there. So [`line()`](TextBuffer::line) and [`cols()`](TextBuffer::cols)
+    /// answer `None` and `0` at `rows()`, and insertion there starts a new
+    /// line. This is the cursor's upper bound; the last real line is
+    /// [`last_row()`](TextBuffer::last_row).
     pub fn rows(&self) -> usize {
         self.text.len()
     }
 
-    /// Returns the index of the last line, which is also the last row a cursor
-    /// can stand on.
+    /// Returns the index of the last line: the last row that a line backs.
     ///
-    /// An empty buffer is one empty line, so this is `0` rather than an
-    /// underflow.
+    /// The cursor can also stand one row past this, on the empty row after the
+    /// last line -- see [`rows()`](TextBuffer::rows) for why. A caller that
+    /// reads a row from outside and must not invent one (a reload, which must
+    /// not leave the cursor below the text) wants this, not `rows()`.
+    ///
+    /// An empty buffer has no lines, so this saturates to `0` rather than
+    /// underflowing: row `0` is where its cursor stands, though no line is
+    /// there to back it.
     pub fn last_row(&self) -> usize {
         self.rows().saturating_sub(1)
     }
@@ -250,14 +261,30 @@ impl TextBuffer {
 
     /// Deletes the character at `pos`.
     ///
-    /// At the end of a line, the next line is joined onto this one. Returns
-    /// `true` if anything was deleted.
+    /// At the end of a line, the next line is joined onto this one. On the end
+    /// row -- one past the last line, where no character is -- this deletes the
+    /// newline that ends the last line, so the file's final empty line goes and
+    /// the row stops existing; the reverse of the backspace that joins a line
+    /// onto its predecessor. Returns `true` if anything was deleted.
     pub fn delete_char_at(&mut self, pos: TextPosition) -> bool {
         // Store the character for undo before deleting
         if let Some(line) = self.text.get(pos.row)
             && let Some(_ch) = line.char_at_col(pos.col)
         {
             self.delete_char_at_internal(pos);
+            return true;
+        }
+
+        // Forward delete on the end row: the row has no line, so there is no
+        // newline *after* it to join; what it deletes is the newline before it,
+        // which is the one ending the last line -- and the blank line that
+        // newline made. Only a blank last line is dropped: a last line with text
+        // on it is content that this press would otherwise delete unseen. The
+        // empty buffer has no end row to be on (`pos.row` is 0 there, the row a
+        // cursor stands on with no line under it), so `last()` covers it too.
+        if pos.row == self.text.len() && self.text.last().is_some_and(|line| line.char_count() == 0)
+        {
+            self.text.pop();
             return true;
         }
 
@@ -286,7 +313,9 @@ impl TextBuffer {
 
     /// Deletes the character before `pos`.
     ///
-    /// At the start of a line, this line is joined onto the previous one.
+    /// At the start of a line, this line is joined onto the previous one. On the
+    /// end row -- one past the last line -- there is no line to join and nothing
+    /// before the column, so this does nothing.
     /// Returns the position the cursor should move to, or `None` if there was
     /// nothing to delete.
     pub fn delete_char_before(&mut self, pos: TextPosition) -> Option<TextPosition> {
@@ -306,8 +335,10 @@ impl TextBuffer {
                     });
                 }
             }
-        } else if pos.row > 0 {
-            // Delete newline - merge with previous line
+        } else if pos.row > 0 && pos.row < self.text.len() {
+            // Delete newline - merge with previous line. The end row has no line
+            // to merge, so a position there is no position on a line to delete
+            // around and is left alone.
             let current_line = self.text.get(pos.row).cloned();
             if let Some(current_line) = current_line {
                 let prev_row = pos.row - 1;

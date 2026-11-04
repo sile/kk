@@ -20,14 +20,14 @@ number of lines" and `line(rows())` returns `None`, so a cursor at `rows()`
 was on a row no line backs. Undoing it is not free of that tension, but three
 things make the current bound the more awkward of the two choices.
 
-**An empty file.** An empty file is modelled as one empty line (`last_row()`
-returns `0` by saturating, and `line(0)` exists). The cursor there has a row of
-blank space below it on screen. If an empty file's row `0` is a"line" *and*
-the row below it is not a place the cursor can stand, then the smallest file
-and its first keystroke of `C-n` disagree about what a blank row means.
-Allowing the row after the last line makes the empty file ordinary: its row `0`
-is a line and row `1` is the place after it, the same shape every other file
-has.
+**An empty file.** An empty file has no lines at all: `rows()` is `0`, and
+`last_row()` saturates to `0` so the cursor has a row to stand on. The cursor
+there has a blank row below it on screen and no line behind either row. Today
+that is a file whose only addressable row is one no line backs. Allowing the row
+after the last line makes the empty file ordinary too: its row `0` is the row a
+cursor starts on and row `1` is the row after it, the same shape every other
+file has -- a whole file with no content is simply the case where both rows are
+blank.
 
 **The end of a line.** The cursor already reaches one column past the last
 character -- the end-of-line position where there is no character, drawn as a
@@ -76,12 +76,13 @@ returns today as a count. To make it a place the cursor can stand, the buffer
 gains a model of it:
 
 - **Model the buffer as `rows()` real lines plus one end row.** Concretely,
-  `rows()` keeps meaning "the number of real lines", `last_row()` keeps meaning
-  `rows() - 1`, and a new `end_row()` (or `rows()` redefined) answers"the row
-  after the last line" as `rows()`. The cursor bound in `State::row_count()`
-  becomes `end_row()` instead of `last_row()`, which is the one change every
-  cursor handler already draws its bound from (`src/state.rs`).
-- The row has no `TextLine`: `line(end_row())` returns `None`, `cols(end_row())`
+  `rows()` keeps meaning "the number of real lines" and `last_row()` keeps
+  meaning `rows() - 1` (saturating, so an empty file's is `0`). The row after
+  the last line is `rows()` itself, so no new accessor is needed: the cursor
+  bound in `State::row_count()` becomes `rows()` instead of `last_row()`, which
+  is the one change every cursor handler already draws its bound from
+  (`src/state.rs`).
+- The row has no `TextLine`: `line(rows())` returns `None`, `cols(rows())`
   returns `0`, and `adjust_to_char_boundary` leaves a position there at column
   `0`, exactly as they already do for a row that does not exist. So the existing
   accessors need no change; only the cursor's bound moves off `last_row()`.
@@ -90,53 +91,65 @@ This keeps the two accessors honest: `rows()` is still the count of real lines,
 and `line(rows())` is still `None`. The cursor is allowed onto a row with no
 line, in the same spirit as a column with no character.
 
+**Why not a separate `end_row()`.** It would be a second name for the same
+number, and the disagreement it was meant to name -- `rows()` "the count"
+against "the row a cursor may reach" -- is a disagreement about meaning, not
+about value. One name with a documented meaning is the smaller answer, and the
+reload is the one caller that needs `last_row()` instead.
+
 ### Handlers that change
 
 Every cursor handler that bounds a row through `State::row_count()` picks up
-`end_row()` with no per-handler change, which is the reason `row_count()` exists
-(the bug's Notes record that the same wrong bound was copied into seven
+the new bound with no per-handler change, which is the reason `row_count()`
+exists (the bug's Notes record that the same wrong bound was copied into seven
 handlers). The handlers whose *meaning* of the bound changes are:
 
-- `handle_cursor_down`: clamps at `end_row()` so the last line's down arrow
+- `handle_cursor_down`: clamps at the end row so the last line's down arrow
   reaches the empty row below it.
-- `handle_cursor_buffer_end` (`C-x C-e`): goes to `end_row()`, column `0` -- the
+- `handle_cursor_buffer_end` (`C-x C-e`): goes to the end row, column `0` -- the
   place typing appends a new line.
-- `handle_cursor_right`: wraps to the next line while `cursor.row < end_row()`,
-  so right at the end of the last line moves onto the empty row.
+- `handle_cursor_right`: wraps to the next line while `cursor.row < rows()`, so
+  right at the end of the last line moves onto the empty row.
 - `handle_cursor_to_screen_position` and `handle_cursor_to_position`: clamp to
-  `end_row()`, so a click below the text and an out-of-range position land on it.
+  the end row, so a click below the text and an out-of-range position land on
+  it.
 
-Decided: `C-x C-e` moves to the end row, at column 0. The test
-`an_open_at_the_file_end_lands_on_the_last_line_with_no_blank_rows` and
-`holding_down_stops_on_the_last_line` currently pin the old meaning and are
+Decided: `C-x C-e` moves to the end row, at column 0. The tests
+`an_open_at_the_file_end_lands_on_the_last_line_with_no_blank_rows`,
+`holding_down_stops_on_the_last_line`, `a_click_below_the_buffer_lands_on_the_last_line`,
+and `the_start_position_is_clamped_to_the_buffer` pin the old meaning and are
 inverted, not deleted, so the new bound is pinned.
 
 Handlers that read a row from outside and must not invent one are unchanged:
-`handle_buffer_reload` still clamps to `last_row()` (it must not leave the
-cursor below the text after the text changed), and the scroll bounds keep
-`+ 1` where they already account for one row past the last line
-(`row_count() + 1` in `src/state.rs`), whose meaning is unaffected.
+`handle_buffer_reload` clamps to `last_row()` (`row_count()` is the end row now,
+and a reload must not leave the cursor below the text after the text changed).
+The viewport caps change with it: every `(row_count() + 1) - available_rows`
+becomes `row_count() - (available_rows - 1)`, which is the same number once the
+bound has moved but says what the cap is -- the page that ends on the last row
+a cursor may stand on -- instead of adding a row the cursor could not reach.
 
 ### Editing on the empty end row
 
-Inserting text with the cursor on the end row appends a new line: the row has no
-line, so the insertion has to create one. `TextBuffer::insert_char_at` and the
-newline handling must handle `row == rows()` by pushing a new empty line first.
-This is the same shape as working at an empty buffer (one empty line that grows),
-so the rule is one, not two. Deleting backward on the end row joins nothing and
-is a no-op (there is no previous character on that row), which is consistent
-with backspace at the start of a line joining the previous one -- here the row
-is already the join point.
+Inserting text with the cursor on the end row appends a new line. `insert_char_at`
+and `insert_newline_at` already push empty lines while `pos.row >= len()`, so no
+buffer change is needed for insertion; the row becomes a real line and grows.
+
+Deleting is the new part. Backspace on the end row is a no-op: there is no line
+to join, and the existing `pos.row > 0` branch would otherwise try to join the
+phantom row onto the last line. Forward delete on the end row removes the
+newline that ends the last line -- its mirror -- but only when the last line is
+blank: a last line with text on it is content that this press would otherwise
+delete unseen. The cursor keeps its row, which is the end row again one row
+higher, so it does not appear to move.
 
 ### `--tail`
 
 `open_position` in `src/main.rs` returns `usize::MAX, usize::MAX` for `--tail`,
 and the clamp in `handle_cursor_to_position` brings it to the last line and that
-line's end. With the bound moved to `end_row()`, the row clamp lands on the empty
-row and the column clamp (`cols(end_row()) == 0`) lands at column `0`. So
-`--tail` opens on the empty row, not at the end of the last line. The flag's
-rustdoc, and the `--tail` tests that currently pin the end of the last line, must
-say so.
+line's end. With the bound moved, the row clamp lands on the empty row and the
+column clamp (`cols(rows()) == 0`) lands at column `0`. So `--tail` opens on the
+empty row, not at the end of the last line. The flag's rustdoc, and the `--tail`
+tests that currently pin the end of the last line, must say so.
 
 Decided: the flag moves. The docs that call `--tail` "the position a named
 `:MAX` already reaches" stay true -- `:MAX:MAX` moves with it, because both are
@@ -153,16 +166,22 @@ startup tests, not a second startup path.
   `render_text_area` walks `0..rows()` calling `line()` and skipping `None`, so
   the end row is not drawn by that loop. A search-open cursor on the end row
   needs a reversed blank painted at that row (column 0, plus the gutter when
-  shown). This is the one rendering addition the proposal needs.
+  shown). This is the one rendering addition the proposal needs: after the
+  loop, if the prompt is open and the cursor is on `rows()`, paint the gutter
+  row and one reversed blank at `HIT_GUTTER_COLS`. The loop's own end row
+  (a local `end_row` that meant "where the drawn slice stops") is renamed
+  `slice_end` so it cannot be mistaken for the buffer's.
 
 ### Recentering and scrolling
 
-The file-end cap on the viewport (`last_viewport = (row_count() + 1) -
-available_rows`, in `adjust_viewport` and `handle_scroll`) already reserves a
-row for one past the last line, so the empty row is a row the viewport can show.
-`C-l`'s "bottom" place and the automatic recenter keep their meaning; the one
-detail to confirm is that "the last drawn row" is the end row when the cursor is
-on it and the buffer's text otherwise, which the cap already implies.
+The file-end cap on the viewport is `last_viewport = row_count() -
+(available_rows - 1)`, in `adjust_viewport`, `handle_scroll`, and
+`recenter_place`. It says "the last page ends on the last row a cursor may stand
+on", which is now the end row, so the cap already lets the viewport show the
+empty row when the cursor is on it. The three places are written the same way on
+purpose -- they had to agree before, and still do. `C-l`'s "bottom" place and
+the automatic recenter keep their meaning; what changes is the number they land
+on near the end (the last page of a 20-line file in a 5-row area is 16, not 15).
 
 ## Drawbacks
 
@@ -171,9 +190,9 @@ on it and the buffer's text otherwise, which the cap already implies.
   explicitly rather than by pretending a line exists, but a reader who knows the
   old bug will have to read why it is now intended.
 - Every handler and test that was tightened against `last_row()` has to be
-  re-derived for `end_row()`, and a test that "the cursor cannot reach the row
-  after the last line" exists and must be inverted rather than deleted, so the
-  new bound is pinned rather than left implicit.
+  re-derived, and the tests that "the cursor cannot reach the row after the last
+  line" are inverted rather than deleted, so the new bound is pinned rather than
+  left implicit.
 - `--tail` changes behavior for existing users: a script or habit that opened
   with `--tail` and typed into the last line now types into a new line. That is
   the point of the proposal, but it is a visible break.

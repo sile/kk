@@ -22,7 +22,8 @@ use crate::{
 /// the last character: there is no character to paint there, so a reversed blank
 /// marks the cell instead. A cursor at the end of a line is a position the
 /// buffer really reaches -- `End`, `C-e`, and a hit or a click at the line's end
-/// all arrive there -- so it must be as visible as one mid-line.
+/// all arrive there -- so it must be as visible as one mid-line. The same holds
+/// one row past the last line, which has no line at all.
 ///
 /// While a search prompt is open a gutter is reserved on the left, showing how
 /// many hits each visible line holds and, above and below, how many sit outside
@@ -52,14 +53,16 @@ pub fn render_text_area(state: &State, frame: &mut tuinix::Frame) {
     // row.
     let gutter_shown = state.search_prompt.is_some();
     let text_height = state.text_rows(available_rows);
-    let end_row = (start_row + text_height).min(state.buffer.rows());
+    let slice_end = (start_row + text_height).min(state.buffer.rows());
 
     // The totals are measured over that same drawn slice, so every row the loop
     // below walks is either drawn beside its own count or is on the far side of
     // one of the two totals. A row between the last drawn line and the bottom
-    // total would be counted nowhere.
+    // total would be counted nowhere. The slice stops at `rows()`: the end row
+    // past it has no line, so no hit can start there, and it is painted by the
+    // cursor-only case at the end.
     let (above, below) = if gutter_shown {
-        state.hits_outside(start_row, end_row)
+        state.hits_outside(start_row, slice_end)
     } else {
         (0, 0)
     };
@@ -76,7 +79,7 @@ pub fn render_text_area(state: &State, frame: &mut tuinix::Frame) {
         render_gutter_row(frame, last, below, GUTTER_SEPARATOR_TOTAL, false);
     }
 
-    for (screen_row, buffer_row) in (start_row..end_row).enumerate() {
+    for (screen_row, buffer_row) in (start_row..slice_end).enumerate() {
         if let Some(line) = state.buffer.line(buffer_row) {
             let top = usize::from(top_summary);
             let gutter = gutter_shown.then(|| GutterCell {
@@ -86,6 +89,25 @@ pub fn render_text_area(state: &State, frame: &mut tuinix::Frame) {
                 reversed: state.cursor.row == buffer_row,
             });
             render_line(line, frame, state, buffer_row, top + screen_row, gutter);
+        }
+    }
+
+    // The cursor may stand on the end row -- one past the last line -- but that
+    // row has no line, so the loop above skips it. In edit mode the terminal's
+    // own cursor shows the position there, as it does everywhere outside a
+    // search. With a prompt open there is no such cursor to lean on, so the
+    // reversed blank the line-end case paints is painted here instead.
+    if gutter_shown && state.cursor.row == state.buffer.rows() {
+        let screen_row = usize::from(top_summary) + state.cursor.row.saturating_sub(start_row);
+        if screen_row < available_rows {
+            // No hit starts on a row with no line, so the count cell is blank;
+            // the cursor is on the row, so both cells are reversed.
+            render_gutter_row(frame, screen_row, 0, GUTTER_SEPARATOR_LINE, true);
+            let at = tuinix::Position {
+                row: screen_row,
+                col: HIT_GUTTER_COLS,
+            };
+            put_str(frame, at, " ", tuinix::Style::new().reverse());
         }
     }
 }
