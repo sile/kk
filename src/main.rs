@@ -40,7 +40,7 @@ fn main() -> noargs::Result<()> {
     // not the FILE.
     let tail = noargs::flag("tail")
         .short('t')
-        .doc("Open at the end of the file: the empty row after its last line")
+        .doc("Open at the end of the file, on the row after its last line")
         .take(&mut args)
         .is_present();
 
@@ -160,8 +160,7 @@ fn hide_legend_flag() -> noargs::FlagSpec {
 /// reaches: the core clamps a row to the empty row after the last line and a
 /// column to that row's end, which is column 0, so naming `usize::MAX` for both
 /// keeps the flag on the one startup path rather than adding a second place to
-/// put the cursor. That row is where typing starts a new line, which is what a
-/// reader opening at the end to append asked for.
+/// put the cursor.
 ///
 /// The position is 1-based on the command line and 0-based in the core; an
 /// out-of-range position is clamped by the core rather than rejected. `--tail`
