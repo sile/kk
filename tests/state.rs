@@ -1314,19 +1314,92 @@ fn forward_delete_on_the_end_row_deletes_nothing() {
 }
 
 #[test]
-fn forward_delete_on_the_end_row_leaves_a_blank_last_line_alone() {
-    // `abc\n\n` is two lines: `abc` and one blank line. The end row is row 2,
-    // and the blank line at row 1 is real text with a newline to its right --
-    // but it is not the row the cursor is on, so the press does not reach it.
+fn forward_delete_on_the_end_row_drops_a_blank_last_line() {
+    // `abc\n\n` is two lines: `abc` and one blank line. From the end row the
+    // press reaches the blank line above it -- that is how a reader opening at
+    // the end clears the tail -- and the cursor stays on the end row, one row
+    // up.
     let mut state = state_of("abc\n\n");
     assert_eq!(state.buffer.rows(), 2);
     state.handle_cursor_buffer_end();
 
     state.handle_char_delete_forward();
 
-    assert_eq!(saved_text(&state), "abc\n\n", "the blank line stays");
+    assert_eq!(saved_text(&state), "abc\n", "the blank line goes");
+    assert_eq!(state.buffer.rows(), 1);
+    assert_eq!(state.cursor, at(1, 0));
+}
+
+#[test]
+fn forward_delete_eats_the_trailing_blank_lines_one_press_at_a_time() {
+    // `a\n\n\n\n` is four lines: `a` and three blank ones. Standing on the
+    // first blank and pressing forward delete repeatedly drops them from the
+    // end down, until only the line holding `a` is left.
+    let mut state = state_of("a\n\n\n\n");
+    assert_eq!(state.buffer.rows(), 4);
+    state.cursor = at(1, 0);
+
+    state.handle_char_delete_forward();
+    assert_eq!(saved_text(&state), "a\n\n\n");
+    assert_eq!(state.buffer.rows(), 3, "one blank line goes");
+
+    state.handle_char_delete_forward();
+    assert_eq!(saved_text(&state), "a\n\n");
     assert_eq!(state.buffer.rows(), 2);
-    assert_eq!(state.cursor, at(2, 0));
+
+    state.handle_char_delete_forward();
+    assert_eq!(saved_text(&state), "a\n");
+    assert_eq!(state.buffer.rows(), 1, "the last blank line goes");
+
+    // `a` is the only line left and it holds a character: there is nothing
+    // under the cursor to delete and no line after it, so the press stops.
+    state.handle_char_delete_forward();
+    assert_eq!(saved_text(&state), "a\n");
+    assert_eq!(state.buffer.rows(), 1, "the line holding 'a' stays");
+}
+
+#[test]
+fn forward_delete_from_the_end_row_eats_the_trailing_blank_lines() {
+    // `--tail` and `C-x C-e` open on the end row, so a reader who starts there
+    // must be able to clear the file's tail without moving up first. Each press
+    // drops the blank last line above the cursor and leaves the cursor on the
+    // end row, one row higher.
+    let mut state = state_of("a\n\n\n\n");
+    state.handle_cursor_buffer_end();
+    assert_eq!(state.cursor, at(4, 0));
+
+    state.handle_char_delete_forward();
+    assert_eq!(saved_text(&state), "a\n\n\n", "one blank line goes");
+    assert_eq!(state.cursor, at(3, 0), "the cursor follows the end row");
+
+    state.handle_char_delete_forward();
+    assert_eq!(saved_text(&state), "a\n\n");
+
+    state.handle_char_delete_forward();
+    assert_eq!(saved_text(&state), "a\n");
+    assert_eq!(state.buffer.rows(), 1);
+
+    // `a` is all that is left and it holds a character: the press stops rather
+    // than eating it, and the cursor stays on the end row.
+    state.handle_char_delete_forward();
+    assert_eq!(saved_text(&state), "a\n", "the line holding 'a' stays");
+    assert_eq!(state.cursor, at(1, 0));
+}
+
+#[test]
+fn forward_delete_on_the_last_blank_line_keeps_the_line_above_it() {
+    // The last line has no next line to join, so the merge at the end of a line
+    // cannot drop it. A blank one goes by itself; the line before it is text and
+    // is not touched.
+    let mut state = state_of("a\nb\n\n");
+    assert_eq!(state.buffer.rows(), 3);
+    state.cursor = at(2, 0);
+
+    state.handle_char_delete_forward();
+
+    assert_eq!(saved_text(&state), "a\nb\n");
+    assert_eq!(state.buffer.rows(), 2);
+    assert_eq!(state.cursor, at(2, 0), "the cursor keeps its row");
 }
 
 #[test]

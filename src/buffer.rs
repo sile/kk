@@ -261,9 +261,13 @@ impl TextBuffer {
 
     /// Deletes the character at `pos`.
     ///
-    /// At the end of a line, the next line is joined onto this one. The end row
-    /// -- one past the last line -- has no character and no line after it, so a
-    /// position there deletes nothing. Returns `true` if anything was deleted.
+    /// At the end of a line, the next line is joined onto this one. The last
+    /// line has no next line to join, so a blank last line is dropped instead,
+    /// which lets repeated presses eat a file's trailing blank lines.
+    ///
+    /// The end row -- one past the last line -- has no character, no line of its
+    /// own and no line after it, so a position there deletes nothing. Returns
+    /// `true` if anything was deleted.
     pub fn delete_char_at(&mut self, pos: TextPosition) -> bool {
         // Store the character for undo before deleting
         if let Some(line) = self.text.get(pos.row)
@@ -283,6 +287,16 @@ impl TextBuffer {
                     return true;
                 }
             }
+        }
+
+        // Forward delete at the end of a blank last line: there is no next line
+        // to join, so the line itself goes, the way the merge above drops the
+        // line it joins. Only a blank one goes -- a last line with text on it is
+        // content, and nothing says the press is on it. The end row is past
+        // `last_row()`, and an empty buffer has none, so both fall through.
+        if pos.row == self.last_row() && pos.row > 0 && self.cols(pos.row) == 0 {
+            self.text.pop();
+            return true;
         }
 
         false

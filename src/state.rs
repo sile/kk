@@ -771,6 +771,10 @@ impl State {
 
     /// Deletes the character under the cursor.
     ///
+    /// On a blank last line this drops the line itself, since there is no next
+    /// line to join onto it, so holding the key eats a file's trailing blank
+    /// lines one press at a time.
+    ///
     /// On the end row, the empty row after the last line, there is no character
     /// and no line after it, so the press does nothing: the row is a place to
     /// type, not a handle on the line above it.
@@ -786,7 +790,31 @@ impl State {
         }
 
         self.start_editing();
+
+        // On the end row there is no character under the cursor to delete. What
+        // a press can still reach is the blank last line above: dropping it
+        // shortens the buffer and leaves the cursor on the end row again, so
+        // presses from here eat the trailing blank lines the same way presses
+        // from the first of them do. A last line with text on it stays: that is
+        // content, and the press is not on it.
+        if self.cursor.row == self.buffer.rows()
+            && self.buffer.cols(self.buffer.last_row()) == 0
+            && self.buffer.rows() > 1
+        {
+            self.buffer.delete_char_at(TextPosition {
+                row: self.buffer.last_row(),
+                col: 0,
+            });
+            self.cursor.row = self.buffer.rows();
+            return;
+        }
+
         self.buffer.delete_char_at(self.cursor);
+
+        // Dropping a blank last line shortens the buffer under the cursor, so
+        // the row it is on can now be past the end. It belongs on the end row,
+        // which is where a cursor with no line under it stands.
+        self.cursor.row = self.cursor.row.min(self.buffer.rows());
     }
 
     /// Recomputes the highlight for the query typed so far.
