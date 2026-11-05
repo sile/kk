@@ -1009,9 +1009,26 @@ impl State {
     /// reads [`search_clipboard`](State::search_clipboard), so what it pastes is
     /// what its own `C-k` cut and never the buffer's.
     pub fn handle_clipboard_paste(&mut self) {
-        if let Some(search) = &mut self.search_prompt {
-            let text = self.search_clipboard.read();
+        let text = if self.search_prompt.is_some() {
+            self.search_clipboard.read()
+        } else {
+            self.clipboard.read()
+        };
+        self.handle_text_paste(&text);
+    }
 
+    /// Inserts `text` at the cursor, as one paste.
+    ///
+    /// This is what both pastes run: the one kk's own clipboard feeds, and the
+    /// one the terminal hands over as [`Input::Paste`](tuinix::Input::Paste).
+    /// Newlines become line breaks, the whole insertion is one undo step, and a
+    /// search prompt takes the text as query characters rather than lines.
+    ///
+    /// The caller decides where `text` came from and what to say when it is
+    /// empty, since an empty terminal paste is a different event from an empty
+    /// clipboard.
+    pub fn handle_text_paste(&mut self, text: &str) {
+        if let Some(search) = &mut self.search_prompt {
             if text.is_empty() {
                 self.set_message("Clipboard is empty");
                 return;
@@ -1032,8 +1049,8 @@ impl State {
 
         self.finish_editing();
 
-        let text = self.clipboard.read();
-
+        // An empty paste says so before the split: `""` has no lines, and
+        // `Nothing to paste` is about text that had lines to lose.
         if text.is_empty() {
             self.set_message("Clipboard is empty");
             return;
