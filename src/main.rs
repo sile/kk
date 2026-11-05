@@ -40,7 +40,7 @@ fn main() -> noargs::Result<()> {
     // not the FILE.
     let tail = noargs::flag("tail")
         .short('t')
-        .doc("Open at the end of the file")
+        .doc("Open at the end of the file, on the row after its last line")
         .take(&mut args)
         .is_present();
 
@@ -157,9 +157,10 @@ fn hide_legend_flag() -> noargs::FlagSpec {
 /// `--tail`.
 ///
 /// `--tail` is the file end, which is the position a named `:MAX` already
-/// reaches: the core clamps a row to the last line and a column to the end of
-/// it, so naming `usize::MAX` for both keeps the flag on the one startup path
-/// rather than adding a second place to put the cursor.
+/// reaches: the core clamps a row to the empty row after the last line and a
+/// column to that row's end, which is column 0, so naming `usize::MAX` for both
+/// keeps the flag on the one startup path rather than adding a second place to
+/// put the cursor.
 ///
 /// The position is 1-based on the command line and 0-based in the core; an
 /// out-of-range position is clamped by the core rather than rejected. `--tail`

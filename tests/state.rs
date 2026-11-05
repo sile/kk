@@ -708,18 +708,18 @@ fn a_bottom_request_puts_the_cursor_on_the_last_drawn_row() {
 
 #[test]
 fn a_manual_recenter_near_the_end_leaves_no_blank_rows() {
-    // A place near the last line names a row past the file's last page --
-    // `Center` of row 18 in a five-row area asks for viewport 16, and `Top`
-    // would ask for 18 -- but the cap holds every manual place at
-    // `(row_count() + 1) - available_rows`, 20 - 5 = 15. Row 15 draws rows
-    // 15..19, the last line on the last drawn row, so no blank row is drawn
-    // under the file. The start already stops at row 0 without a cap; this is
+    // A place near the last line names a row the file's last page does not
+    // reach -- `Center` of row 18 in a five-row area asks for viewport 16, and
+    // `Top` would ask for 18 -- but the cap holds every manual place at
+    // `row_count() - (available_rows - 1)`, 20 - 4 = 16. Row 16 draws rows
+    // 16..=20: lines 16..19 and the end row 20 under them, the row the cursor
+    // may stand on. The start already stops at row 0 without a cap; this is
     // the end's mirror.
     //
-    // The cap collapses two of the three places here: `Top` (18) and `Center`
-    // (16) both come back as 15. A press from 15 would land on either and move
-    // nothing, so it steps over them to the one place the file's end still
-    // leaves room for, `Bottom`, at 14.
+    // The cap collapses two of the three places here: `Top` (18) and the
+    // capped `Center` (16) both come back as 16. A press from 16 would land on
+    // either and move nothing, so it steps over them to the one place the
+    // file's end still leaves room for, `Bottom`, at 14.
     let mut state = state_of(&"a\n".repeat(20));
     state.cursor = at(18, 0);
     state.viewport = at(18, 0); // on the cursor's row, so the first press reads `Bottom`
@@ -733,18 +733,22 @@ fn a_manual_recenter_near_the_end_leaves_no_blank_rows() {
 
     assert_eq!(
         rows,
-        vec![14, 15, 14],
-        "`Bottom` lands on 14, then the capped `Center`/`Top` at 15; from 15 \
+        vec![14, 16, 14],
+        "`Bottom` lands on 14, then the capped `Center`/`Top` at 16; from 16 \
          both collapse back onto it, so the press steps over them to `Bottom`"
     );
 }
 
 #[test]
-fn a_manual_recenter_on_the_last_line_is_capped_at_the_last_page() {
-    // The cursor on the last line: `Top` names its own row (19) and `Center`
-    // names 17, both of which would draw blank rows under the file, so the cap
-    // holds every press at the last page, 15, with the last line on the last
-    // drawn row and no blank row under it.
+fn a_manual_recenter_on_the_last_line_stops_at_the_last_page() {
+    // The cursor on the last line with the viewport on it too, so the first
+    // press reads `Bottom` (19 - 4 = 15). From there the viewport is on no
+    // place, so the cycle starts at `Center` (17), which the cap brings to the
+    // last page, 16. From 16 the viewport is on the capped center, so `Top`
+    // (19) is tested first and the cap holds it at 16 -- nothing to do -- and
+    // the press steps on to `Bottom`, 15. No press can draw a row below the
+    // end row 20: the last page shows rows 16..=20, lines 16..19 and the end
+    // row on the last drawn row.
     let mut state = state_of(&"a\n".repeat(20));
     state.cursor = at(19, 0);
     state.viewport = at(19, 0);
@@ -756,7 +760,11 @@ fn a_manual_recenter_on_the_last_line_is_capped_at_the_last_page() {
         rows.push(state.viewport.row);
     }
 
-    assert_eq!(rows, vec![15, 15, 15], "the last page is 20 - 5");
+    assert_eq!(
+        rows,
+        vec![15, 16, 15],
+        "`Bottom`, then the capped `Center` at 20 - 4, then back to `Bottom`"
+    );
 }
 
 #[test]
@@ -791,15 +799,16 @@ fn a_click_moves_the_cursor_through_the_viewport() {
 }
 
 #[test]
-fn a_click_below_the_buffer_lands_on_the_last_line() {
+fn a_click_below_the_buffer_lands_on_the_row_after_the_last_line() {
     let mut state = state_of("one\ntwo\n");
 
     state.handle_cursor_to_screen_position(20, 0);
 
     assert_eq!(
         state.cursor,
-        at(1, 0),
-        "row 1 is the last line, and no row past it exists"
+        at(2, 0),
+        "row 2 is the empty row after the last line, the furthest a cursor \
+         goes"
     );
 }
 
@@ -842,10 +851,13 @@ fn the_start_position_is_clamped_to_the_buffer() {
 
     state.handle_cursor_to_position(99, 99);
 
+    // The row clamp lands on the end row, which has no line, so the column
+    // clamp to that row's width brings the column to 0 rather than to the last
+    // line's end.
     assert_eq!(
         state.cursor,
-        at(1, 3),
-        "row 1 is the last line, clamped to the end of it"
+        at(2, 0),
+        "row 2 is the empty row after the last line, column 0 the only column"
     );
 }
 
@@ -967,21 +979,21 @@ fn a_notch_up_moves_the_view_without_moving_the_cursor_on_screen() {
 }
 
 #[test]
-fn a_notch_that_reaches_the_end_brings_the_last_line_to_the_bottom() {
-    // Twenty lines in a ten-row area: the buffer's last row is 19, so the
-    // furthest the viewport can go is 19 - 9 = 10. The cursor's screen row of 2
-    // cannot survive that, so it is pulled down to the last row -- the whole
-    // point of phase two.
+fn a_notch_that_reaches_the_end_brings_the_end_row_to_the_bottom() {
+    // Twenty lines in a ten-row area: the last row a cursor may stand on is the
+    // end row, 20, so the furthest the viewport can go is 20 - 9 = 11. The
+    // cursor's screen row of 2 cannot survive that, so it is pulled down to the
+    // page's last row -- the whole point of phase two.
     let mut state = state_of(&"a\n".repeat(20));
     state.viewport = at(0, 0);
     state.cursor = at(2, 0); // screen row 2
 
     state.handle_scroll(50, area(10, 10));
 
-    assert_eq!(state.viewport.row, 10, "the viewport stops at its last row");
+    assert_eq!(state.viewport.row, 11, "the viewport stops at its last row");
     assert_eq!(
-        state.cursor.row, 19,
-        "the cursor gives up its screen row and rides to the last line"
+        state.cursor.row, 20,
+        "the cursor gives up its screen row and rides to the end row"
     );
 }
 
@@ -1077,25 +1089,26 @@ fn an_automatic_recenter_near_the_end_leaves_no_blank_rows() {
     // A far jump to a row with less than half a frame of file below it: the
     // center is pulled back until the cursor sits on the area's last drawn row,
     // the same row a reader who then asks for "Cursor at bottom" would get. A
-    // centering that ran past the file's end would put the cursor against the
-    // bottom edge with blank rows under it; this pins that it does not.
+    // centering that ran past the end row would put the cursor against the
+    // bottom edge with rows below it that the cursor cannot reach; this pins
+    // that it does not.
     let mut some_rows_below = state_of(&"a\n".repeat(20));
     some_rows_below.viewport = at(0, 0);
     some_rows_below.handle_cursor_to_position(18, 0);
     some_rows_below.center_viewport = false; // drop the startup center
     some_rows_below.adjust_viewport(area(5, 10));
 
-    // The center would ask for viewport 16, drawing rows 16..20 -- but row 20
-    // does not exist, so the floor brings it to 15. Rows 15..19 are all backed
-    // by lines, with no blank row under the last one.
+    // The center would ask for viewport 16, drawing rows 16..21 -- but the
+    // last row a cursor may stand on is the end row, 20, so the floor brings it
+    // to 16. Rows 16..19 are lines and row 20 is the end row under them.
     assert_eq!(
-        some_rows_below.viewport.row, 15,
-        "20 - 5: the last drawn row is the last line, no blank rows under it"
+        some_rows_below.viewport.row, 16,
+        "20 - 4: the last drawn row is the end row"
     );
 
-    // The last row of the file itself, where centering would ask for a row past
-    // the end and the cap is what brings it back: the last line sits on the
-    // last drawn row with no blank row under it.
+    // The last line of the file itself, where centering would ask for a row past
+    // the end row and the cap is what brings it back: the end row sits on the
+    // last drawn row.
     let mut at_the_end = state_of(&"a\n".repeat(20));
     at_the_end.viewport = at(0, 0);
     at_the_end.handle_cursor_to_position(19, 0);
@@ -1103,32 +1116,32 @@ fn an_automatic_recenter_near_the_end_leaves_no_blank_rows() {
     at_the_end.adjust_viewport(area(5, 10));
 
     assert_eq!(
-        at_the_end.viewport.row, 15,
-        "20 - 5: the last line is the last drawn row, with no blank row under \
-         it"
+        at_the_end.viewport.row, 16,
+        "20 - 4: the end row is the last drawn row"
     );
     assert!(!at_the_end.recenter_viewport, "no request was involved");
 }
 
 #[test]
-fn an_open_at_the_file_end_lands_on_the_last_line_with_no_blank_rows() {
+fn an_open_at_the_file_end_lands_on_the_row_after_the_last_line() {
     // What `--tail` asks for: the startup position `usize::MAX`, which the
-    // clamp brings to the end of the last line. The startup center is capped at
-    // the file's last page, so the cursor sits on the last drawn row with no
-    // blank rows below it -- the same placement `C-l` settles on at the end.
+    // clamp brings to the end row -- the empty row after the last line, where
+    // typing starts a new line. The startup center is capped at the file's last
+    // page, so the end row sits on the last drawn row -- the same placement
+    // `C-l` settles on at the end.
     let mut state = state_of(&"a\n".repeat(20));
 
     state.handle_cursor_to_position(usize::MAX, usize::MAX);
     assert_eq!(
         state.cursor,
-        at(19, 1),
-        "row 19 is the last line, column 1 is the end of it"
+        at(20, 0),
+        "row 20 is the end row, column 0 the only column on it"
     );
 
     state.adjust_viewport(area(5, 10));
     assert_eq!(
-        state.viewport.row, 15,
-        "20 - 5: the last line is the last drawn row, with no blank row under it"
+        state.viewport.row, 16,
+        "20 - 4: the end row is the last drawn row"
     );
 }
 
@@ -1184,59 +1197,237 @@ fn scrolling_up_stops_at_the_first_line() {
 }
 
 #[test]
-fn scrolling_down_stops_at_the_last_line() {
+fn scrolling_down_stops_on_the_row_after_the_last_line() {
     let mut state = state_of("a\nb\n");
 
     state.handle_scroll(50, area(3, 10));
 
+    // The file is two lines and the area three rows, so the last page starts
+    // at row 0 and draws rows 0..=2: both lines and the end row after them. A
+    // notch that reaches the bottom brings the cursor to that last drawn row.
     assert_eq!(
-        state.cursor.row, 1,
-        "the clamp is the last line, not the row after it"
+        state.cursor.row, 2,
+        "the clamp is the end row, the empty row after the last line"
     );
 }
 
 #[test]
-fn backspace_at_the_buffer_end_joins_the_last_two_lines() -> Result<(), Box<dyn std::error::Error>>
-{
+fn backspace_on_the_end_row_steps_back_onto_the_last_lines_end() {
     let mut state = state_of("abc\nxyz\n");
 
     state.handle_cursor_buffer_end();
     assert_eq!(
         state.cursor,
-        at(1, 0),
-        "the buffer end is the last line, not a row past it"
+        at(2, 0),
+        "the buffer end is the empty row after the last line"
     );
 
+    // The end row holds no characters of its own, so there is nothing to
+    // delete and the text stays as it was. The press answers by moving the
+    // cursor off the row of no text, onto the last line's end.
     state.handle_char_delete_backward();
+    assert_eq!(saved_text(&state), "abc\nxyz\n", "no text is deleted");
+    assert_eq!(
+        state.cursor,
+        at(1, 3),
+        "the cursor steps onto the last line's end"
+    );
 
-    // Backspace at the start of a line joins it onto the previous one, so the
-    // last press deletes the newline rather than doing nothing.
-    assert_eq!(saved_text(&state), "abcxyz\n");
-    assert_eq!(state.cursor, at(0, 3), "the cursor joins the previous line");
-
-    Ok(())
+    // From there a further press deletes the 'z': the cursor is on a line now,
+    // so this is an ordinary backward delete.
+    state.handle_char_delete_backward();
+    assert_eq!(saved_text(&state), "abc\nxy\n");
+    assert_eq!(state.cursor, at(1, 2));
 }
 
 #[test]
-fn holding_down_stops_on_the_last_line() {
+fn backspace_at_the_start_of_a_line_joins_it_onto_the_previous_one() {
+    let mut state = state_of("abc\nxyz\n");
+
+    state.handle_cursor_buffer_end();
+    state.handle_cursor_up();
+    state.handle_cursor_line_start();
+    state.handle_char_delete_backward();
+
+    assert_eq!(saved_text(&state), "abcxyz\n");
+    assert_eq!(state.cursor, at(0, 3), "the cursor joins the previous line");
+}
+
+#[test]
+fn backspace_on_the_end_row_of_an_empty_buffer_does_nothing() {
+    let mut state = state_of("");
+
+    // An empty buffer has no lines, so `rows()` is 0 and the cursor stands on
+    // row 0 with nothing under it. That row is not the end row -- there is no
+    // last line to step back onto -- so the press leaves both alone.
+    assert_eq!(state.buffer.rows(), 0);
+
+    let before = saved_text(&state);
+
+    state.handle_char_delete_backward();
+
+    assert_eq!(saved_text(&state), before, "nothing is deleted");
+    assert_eq!(state.buffer.rows(), 0, "still no lines");
+    assert_eq!(state.cursor, at(0, 0), "the cursor keeps its place");
+}
+
+#[test]
+fn typing_on_the_row_after_the_last_line_appends_a_new_line() {
+    let mut state = state_of("abc\nxyz\n");
+    state.handle_cursor_buffer_end();
+
+    // The end row has no line, so the insertion has to start one. The file is
+    // written with a newline after every line, so "abc\nxyz\n" plus a line
+    // "Q" is "abc\nxyz\nQ\n".
+    state.handle_char_insert('Q');
+    assert_eq!(state.cursor, at(2, 1), "the cursor follows the character");
+    assert_eq!(saved_text(&state), "abc\nxyz\nQ\n");
+}
+
+#[test]
+fn a_newline_on_the_row_after_the_last_line_leaves_a_trailing_empty_line() {
+    let mut state = state_of("abc\n");
+    state.handle_cursor_buffer_end();
+
+    // Splitting the end row starts a line there and leaves a fresh end row
+    // after it; with nothing typed before the newline, that is one blank line
+    // in the middle of the file and the end row after it.
+    state.handle_newline_insert();
+    assert_eq!(state.cursor, at(2, 0), "the new line is the end row now");
+    assert_eq!(saved_text(&state), "abc\n\n\n");
+}
+
+#[test]
+fn forward_delete_on_the_end_row_deletes_nothing() {
+    let mut state = state_of("abc\nxyz\n");
+    state.handle_cursor_buffer_end();
+
+    // The end row has no character and no line after it, so there is nothing
+    // for the press to delete, and nothing above it is reachable from here: the
+    // row is a place to type, not a handle on the line before it. The text and
+    // the cursor both stay as they were.
+    state.handle_char_delete_forward();
+
+    assert_eq!(saved_text(&state), "abc\nxyz\n");
+    assert_eq!(state.buffer.rows(), 2);
+    assert_eq!(state.cursor, at(2, 0), "the cursor stays on the end row");
+}
+
+#[test]
+fn forward_delete_on_the_end_row_leaves_a_blank_last_line_alone() {
+    // `abc\n\n` is two lines: `abc` and one blank line. The end row is past
+    // both, and the blank line above it is not under the cursor -- a delete that
+    // moved the cursor to another row to reach it would be a cursor motion, not
+    // a delete. To clear the blank line the reader stands on it.
+    let mut state = state_of("abc\n\n");
+    assert_eq!(state.buffer.rows(), 2);
+    state.handle_cursor_buffer_end();
+
+    state.handle_char_delete_forward();
+
+    assert_eq!(saved_text(&state), "abc\n\n", "the blank line stays");
+    assert_eq!(state.buffer.rows(), 2);
+    assert_eq!(state.cursor, at(2, 0), "the cursor stays on the end row");
+}
+
+#[test]
+fn forward_delete_eats_the_trailing_blank_lines_one_press_at_a_time() {
+    // `a\n\n\n\n` is four lines: `a` and three blank ones. Standing on the
+    // first blank and pressing forward delete repeatedly drops them from the
+    // end down, until only the line holding `a` is left.
+    let mut state = state_of("a\n\n\n\n");
+    assert_eq!(state.buffer.rows(), 4);
+    state.cursor = at(1, 0);
+
+    state.handle_char_delete_forward();
+    assert_eq!(saved_text(&state), "a\n\n\n");
+    assert_eq!(state.buffer.rows(), 3, "one blank line goes");
+
+    state.handle_char_delete_forward();
+    assert_eq!(saved_text(&state), "a\n\n");
+    assert_eq!(state.buffer.rows(), 2);
+
+    state.handle_char_delete_forward();
+    assert_eq!(saved_text(&state), "a\n");
+    assert_eq!(state.buffer.rows(), 1, "the last blank line goes");
+
+    // `a` is the only line left and it holds a character: there is nothing
+    // under the cursor to delete and no line after it, so the press stops.
+    state.handle_char_delete_forward();
+    assert_eq!(saved_text(&state), "a\n");
+    assert_eq!(state.buffer.rows(), 1, "the line holding 'a' stays");
+}
+
+#[test]
+fn forward_delete_from_the_end_row_eats_nothing() {
+    // A reader who opens at the file's end with `--tail` or `C-x C-e` stands on
+    // the end row. Every press there does nothing, however blank the last line
+    // above it is: the blank line is cleared from the blank line, one row up.
+    let mut state = state_of("a\n\n\n\n");
+    state.handle_cursor_buffer_end();
+    assert_eq!(state.cursor, at(4, 0));
+
+    for _ in 0..4 {
+        state.handle_char_delete_forward();
+        assert_eq!(saved_text(&state), "a\n\n\n\n");
+        assert_eq!(state.cursor, at(4, 0), "the cursor stays on the end row");
+    }
+}
+
+#[test]
+fn forward_delete_on_the_last_blank_line_keeps_the_line_above_it() {
+    // The last line has no next line to join, so the merge at the end of a line
+    // cannot drop it. A blank one goes by itself; the line before it is text and
+    // is not touched.
+    let mut state = state_of("a\nb\n\n");
+    assert_eq!(state.buffer.rows(), 3);
+    state.cursor = at(2, 0);
+
+    state.handle_char_delete_forward();
+
+    assert_eq!(saved_text(&state), "a\nb\n");
+    assert_eq!(state.buffer.rows(), 2);
+    assert_eq!(state.cursor, at(2, 0), "the cursor keeps its row");
+}
+
+#[test]
+fn forward_delete_in_an_empty_buffer_does_nothing() {
+    let mut state = state_of("");
+    state.handle_cursor_buffer_end();
+
+    // An empty buffer has no lines at all: `rows()` is 0 and the cursor stands
+    // on row 0 with no line under it. It has no end row to reach, and none
+    // below it to delete -- the press does nothing.
+    assert_eq!(state.buffer.rows(), 0);
+
+    state.handle_char_delete_forward();
+
+    assert_eq!(state.buffer.rows(), 0, "still no lines");
+    assert_eq!(state.cursor, at(0, 0), "the cursor keeps its place");
+}
+
+#[test]
+fn holding_down_stops_on_the_row_after_the_last_line() {
     let mut state = state_of("1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n");
 
-    for _ in 0..10 {
+    for _ in 0..20 {
         state.handle_cursor_down();
     }
 
     assert_eq!(
         state.cursor.row,
-        state.buffer.rows() - 1,
-        "the cursor stops on the last line, not the row after it"
+        state.buffer.rows(),
+        "the cursor stops on the empty row after the last line"
     );
-    assert_eq!(state.cursor.row, 9);
+    assert_eq!(state.cursor.row, 10);
 }
 
 #[test]
-fn every_cursor_row_a_handler_can_produce_is_a_real_line() {
+fn every_cursor_row_a_handler_can_produce_is_a_row_the_cursor_may_stand_on() {
     // The bug was one wrong bound copied into several handlers, so the check is
-    // that every way of moving the cursor lands on a row the buffer backs.
+    // that every way of moving the cursor lands on a row it may stand on: the
+    // buffer's lines, or the one empty row after them. The reload is the
+    // exception the check keeps apart -- it never invents the end row.
     let text = "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n";
     let out_of_range = at(999, 999);
 
@@ -1276,20 +1467,46 @@ fn every_cursor_row_a_handler_can_produce_is_a_real_line() {
             state.handle_scroll(999, area(10, 10));
             state.cursor
         }),
-        ("a reload with a cursor past the end", {
-            let mut state = state_of("a\nb\n");
-            state.cursor = out_of_range;
-            state.handle_buffer_reload(text);
-            state.cursor
-        }),
     ];
 
+    let rows = state_of(text).buffer.rows();
     for (what, cursor) in after {
-        assert!(
-            cursor.row < state_of(text).buffer.rows(),
-            "{what} landed on row {}, but the last line is {}",
-            cursor.row,
-            state_of(text).buffer.rows() - 1
-        );
+        assert!(cursor.row <= rows, "{what} landed on row {}", cursor.row);
     }
+
+    // A reload reads the rows from the text it was handed, so a cursor past the
+    // end is pulled back onto the last line rather than left on the end row: the
+    // text changed under the cursor, and "past the end" no longer means the
+    // same place.
+    let mut state = state_of("a\nb\n");
+    state.cursor = out_of_range;
+    state.handle_buffer_reload(text);
+    assert_eq!(
+        state.cursor,
+        at(rows - 1, 2),
+        "a reload clamps to the last line, not the end row"
+    );
+}
+
+#[test]
+fn right_at_the_last_lines_end_steps_onto_the_end_row() {
+    let mut state = state_of("one\ntwo\n");
+    state.cursor = at(1, 3);
+
+    state.handle_cursor_right();
+
+    assert_eq!(state.cursor, at(2, 0), "the end row is the next row");
+}
+
+#[test]
+fn right_on_the_end_row_stays_there() {
+    let mut state = state_of("one\n");
+    state.cursor = at(1, 0);
+
+    state.handle_cursor_right();
+
+    assert_eq!(state.cursor, at(1, 0), "there is no row past the end row");
+
+    state.handle_cursor_down();
+    assert_eq!(state.cursor, at(1, 0), "and none below it either");
 }

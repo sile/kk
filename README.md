@@ -54,6 +54,6 @@ Options:
       --version     Print version
   -h, --help        Print help ('--help' for full help, '-h' for summary)
   -c, --create-new  Create the file, which must not already exist
-  -t, --tail        Open at the end of the file
+  -t, --tail        Open at the end of the file, on the row after its last line
       --hide-legend Start with the key-binding legend hidden [env: KK_HIDE_LEGEND]
 ```

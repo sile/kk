@@ -267,6 +267,43 @@ fn an_empty_line_reverses_the_cursor_at_column_zero() {
 }
 
 #[test]
+fn the_end_row_reverses_a_blank_below_the_last_line() {
+    let mut state = state_of("one\ntwo\n");
+    state.search_prompt = Some(kk::SearchPrompt::new());
+
+    // The empty row after the last line: no line backs it, so the character
+    // loop never reaches it. With a prompt open the terminal's cursor is not
+    // showing either, so the row is painted as a reversed blank.
+    state.cursor = kk::TextPosition { row: 2, col: 0 };
+    let mut frame = frame_of(3, 8);
+
+    kk::render_text_area(&state, &mut frame);
+
+    assert!(
+        style_at(&frame, 2, 5).reverse,
+        "the blank cell on the end row is reversed"
+    );
+    assert_eq!(
+        row_text(&frame, 2, 8),
+        "   |    ",
+        "a blank follows the gutter"
+    );
+}
+
+#[test]
+fn the_end_row_is_left_alone_without_a_search() {
+    let mut state = state_of("one\n");
+    state.cursor = kk::TextPosition { row: 1, col: 0 };
+    let mut frame = frame_of(2, 8);
+
+    kk::render_text_area(&state, &mut frame);
+
+    // No prompt, so no gutter and nothing reversed: the terminal's own cursor
+    // marks the end row, as it does anywhere else outside a search.
+    assert_eq!(painted_cells(&frame), 3, "only the line's three characters");
+}
+
+#[test]
 fn the_cursor_is_not_reversed_outside_a_search() {
     let mut state = state_of("one\n");
     state.cursor = kk::TextPosition { row: 0, col: 1 };
