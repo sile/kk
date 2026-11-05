@@ -78,7 +78,8 @@ the user pressed.
 `C-x y` is an extension-mode chord. Its neighbours are `C-x r` (reload), `C-x
 s` (force-save), `C-x w` (copy), `C-x a` and `C-x e` (buffer start and end) --
 the chords that act on the buffer as a whole, which is what reading another
-application's clipboard is. `C-v` was the first draft's choice and is dropped:
+application's clipboard is. In the legend it reads `y   paste-clip`, beside `w
+copy`; `C-y` keeps the bare label `paste`. `C-v` was the first draft's choice and is dropped:
 it is many users' "insert verbatim" key, and a chord under `C-x` is where this
 editor already keeps the commands that reach outside the buffer.
 
@@ -98,6 +99,18 @@ clipboards stay separate.
 
 The extension mode's own chords drop the `C-x` prefix, so a bare `y` is the
 whole chord after `C-x`, exactly like `s`, `r`, `w`, `a`, and `e`.
+
+`EXT_LEGEND` and `EXT_LEGEND_NO_FILE` gain the row `"\u{2502}y   paste-clip"`,
+placed after `w   copy`. The label carries the suffix because the two pastes do
+not do the same thing: `C-y` inserts kk's clipboard, `C-x y` reads the
+terminal's. `paste` alone would say they are one command reached two ways,
+which is the reading `w copy` would reinforce by pairing a `copy` that stays
+inside kk with a `paste` that comes from outside it. `clip` says where the text
+comes from without naming a path (`term`) or a machine (`os`) that ssh makes
+wrong, and it is shorter than `force-save`, so the legend keeps its width.
+`C-y` is left as `C-y paste`: once the new row says `paste-clip`, the bare
+`paste` next to `cut` reads as the in-kk one, and renaming it would move a label
+users already know for no gain.
 
 It stays in the extension mode rather than the edit mode because every path it
 raises is a question answered by the terminal, and a query that is never
@@ -224,7 +237,8 @@ for either way.
 
 - **The name of the action.** `ClipboardPasteFromTerminal` is long.
   Alternatives: reuse `ClipboardPaste` with a source argument, or
-  `PasteFromSystem`.
+  `PasteFromSystem`. The legend label is settled (`paste-clip`); this is only
+  about the Rust identifier, which nothing outside `src` reads.
 - **Timeout behaviour.** How long, if at all, does kk wait for an OSC 52 reply
   before reporting failure? "Until the next input" is the current strawman but
   is not measured against a real terminal.
@@ -241,8 +255,9 @@ for either way.
   behave the same way.
 - If the terminal clipboard read works in the search prompt's message line, it
   could gain the chord too, pasting into the query.
-- The extension mode's legend has five rows; `y   paste` would make it six, and
-  the legend's height rule already drops a row when the frame is short. Whether
-  the row is worth its height is worth measuring on a real terminal.
+- The extension mode's legend goes from six rows to seven with `y
+  paste-clip`, and the legend's height rule already drops a row when the frame
+  is short. Whether the row is worth its height is worth measuring on a real
+  terminal.
 - A paste that arrives as `Input::Paste` and fails to decode as UTF-8 could be
   reported with the raw bytes, following the existing `Unrecognized` contract.
