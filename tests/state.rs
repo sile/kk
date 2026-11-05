@@ -386,6 +386,46 @@ fn pasting_clipboard_text_inserts_it_at_the_cursor() {
 }
 
 #[test]
+fn text_pasted_from_the_terminal_inserts_it_at_the_cursor() {
+    // A terminal paste does not go through kk's clipboard, so this is the same
+    // insertion the clipboard uses without anything being put in it.
+    let mut state = state_of("one\n");
+    state.cursor = at(0, 3);
+
+    state.handle_text_paste("a\nb");
+
+    assert_eq!(saved_text(&state), "onea\nb\n");
+    assert_eq!(state.cursor, at(1, 1), "past the pasted text");
+    assert_eq!(state.clipboard.read(), "", "kk's clipboard is left alone");
+}
+
+#[test]
+fn a_terminal_paste_of_one_line_reports_its_characters() {
+    let mut state = state_of("");
+
+    state.handle_text_paste("abc");
+
+    assert_eq!(saved_text(&state), "abc\n");
+    assert_eq!(state.message.as_deref(), Some("Pasted 3 characters"));
+}
+
+#[test]
+fn a_multi_line_terminal_paste_arrives_as_one_edit() {
+    // A paste is one undo step, so `C-u` takes the whole block back rather than
+    // one line of it.
+    let mut state = state_of("");
+
+    state.handle_text_paste("a\nb\nc");
+    state.handle_buffer_undo();
+
+    assert_eq!(
+        saved_text(&state),
+        "\n",
+        "the whole paste is undone at once"
+    );
+}
+
+#[test]
 fn pasting_an_empty_clipboard_changes_nothing() {
     let mut state = state_of("one\n");
 
