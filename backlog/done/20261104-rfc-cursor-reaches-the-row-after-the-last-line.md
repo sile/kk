@@ -1,6 +1,6 @@
 # RFC: Let the cursor reach the row after the last line again
 
-- Status: draft (decided: `--tail` and `C-x C-e` both move to the end row)
+- Status: accepted
 
 ## Summary
 
@@ -244,3 +244,17 @@ on near the end (the last page of a 20-line file in a 5-row area is 16, not 15).
   ordinary.
 - `--tail` could later gain a mode that opens *and keeps* the cursor following
   the end as the file grows, which wants the same end row.
+
+## Outcome
+
+Implemented in [#23](https://github.com/sile/kk/pull/23) (merged as `67458cb`).
+
+The cursor bound moved to `rows()` as proposed, and `--tail` and `C-x C-e` both open on the end row. Three things came out differently from the proposal above.
+
+Backspace on the end row moves the cursor to the end of the last line rather than being a no-op: a key that finds nothing to delete still lands the cursor on text, which is where the cursor was asked for.
+
+Forward delete on the end row is a no-op, but on a real blank last line it now drops that line, so repeated presses eat a file's trailing blank lines. That is the deletion the end row does not reach, and it is not the "mirror" of the newline that ends the last line, which the text above predicts.
+
+Search mode on the end row is allowed, as the leaning suggested. The reversed blank is painted after the slice loop, whose local row was renamed `slice_end` so it cannot be read as the buffer's end row.
+
+The scope is unchanged from what is described above.
