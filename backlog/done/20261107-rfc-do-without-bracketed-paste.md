@@ -1,6 +1,6 @@
 # RFC: Do without bracketed paste
 
-- Status: draft
+- Status: accepted
 
 ## Summary
 
@@ -149,3 +149,30 @@ None.
 - A paste that arrives bracketed could be reported on the message line without
   being inserted ("Bracketed paste ignored"), which would make the mode's
   absence visible rather than silent. Nothing needs that today.
+
+## Outcome
+
+Implemented in [#25](https://github.com/sile/kk/pull/25) (merged as `5e2beb5`).
+
+The change went in as predicted, with one part settled against the text above.
+`tuinix` 0.8.1 stopped asking for the mode, and kk stops asking with it;
+`State::handle_text_paste` is folded back into `handle_clipboard_paste`,
+which borrows the clipboard text as a `&str` since that is all it reads.
+The `Input::Paste` arm stays, because the decoder still produces the variant.
+
+What differs is what that arm does, and it is the case listed under Future
+possibilities rather than the no-op described above. Dropping the paste
+silently left a terminal that brackets anyway worse off than the same bytes
+without markers: a plain paste types in, and a bracketed one would have done
+nothing at all with no sign that anything arrived. The arm now says `Bracketed
+paste ignored` on the message line, and its comment calls it a safeguard kk
+does not expect to reach rather than an ordinary path.
+
+The tests landed as planned. The `text_pasted_*` tests call
+`handle_clipboard_paste`, and `tests/e2e_paste.rs` sends `a\nb` through a new
+`send_raw()` harness helper and expects `onea\nb\n` -- bytes in, text out,
+with no mode on. No test asserts that a bracketed paste is ignored: that
+value still reaches `handle_input`, and a test over it would pin a catch-all
+arm rather than a contract.
+
+The scope is unchanged from what is described above.
