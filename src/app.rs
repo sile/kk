@@ -245,12 +245,14 @@ impl App {
                 self.handle_mouse(mouse);
                 return Ok(());
             }
-            // A terminal brackets a paste only after the application asks for
-            // bracketed-paste mode, and kk does not ask. The decoder still
-            // reports the markers, so this stays a branch rather than an
-            // unreachable pattern; a terminal that brackets unprompted gets its
-            // paste ignored rather than inserted.
-            tuinix::Input::Paste { .. } => return Ok(()),
+            // kk never asks for bracketed-paste mode, so a terminal should
+            // never bracket a paste for it and this arm should not be reached.
+            // It is here as a safeguard: a terminal that brackets anyway gets
+            // a message rather than a paste that silently does nothing.
+            tuinix::Input::Paste { .. } => {
+                self.state.set_message("Bracketed paste ignored");
+                return Ok(());
+            }
             _ => {}
         }
 
