@@ -32,6 +32,9 @@ backlog/
   00000000-bug-template.md        # template for a new bug report
   YYYYMMDD-rfc-slug.md            # an open RFC
   YYYYMMDD-bug-slug.md            # an open bug report
+  pending/
+    .gitkeep                      # keeps the empty directory in git
+    YYYYMMDD-rfc-slug.md          # a postponed RFC
   done/
     .gitkeep                      # keeps the empty directory in git
     YYYYMMDD-rfc-slug.md          # a settled RFC
@@ -40,11 +43,19 @@ backlog/
     settle.sh                     # settle a landed item
 ```
 
-Nothing but items live directly under `backlog/` or `backlog/done/`: a file
-there is always an item. Item *kind* is carried by a filename prefix (`rfc-`
-and `bug-` today; `todo-` if such items are added later), not by a directory.
-Keeping the tree shallow is intentional: an item is always one or two levels
-deep, and support files live in their own directory rather than beside them.
+Nothing but items live directly under `backlog/`, `backlog/pending/`, or
+`backlog/done/`: a file there is always an item. Item *kind* is carried by a
+filename prefix (`rfc-` and `bug-` today; `todo-` if such items are added
+later), not by a directory. Keeping the tree shallow is intentional: an item is
+always one or two levels deep, and support files live in their own directory
+rather than beside them.
+
+`pending/` is for an item that was on its way to landing and then stopped by
+something outside it -- the design is written down, and what cannot be finished
+until that something changes is known. A draft nobody is working on yet stays
+`open` in `backlog/`. `pending/` means the item was pulled back deliberately
+and its `## Postponed` section names what it is waiting for, so a later reader
+can tell it apart from a draft that has never been tried.
 
 An item is an **RFC** when the question is *what the API should be* — the
 current behavior is defensible and the proposal argues for changing it. An item
@@ -84,17 +95,18 @@ kind table above).
 
 ## States
 
-An item has one of two states, expressed by its location:
+An item has one of three states, expressed by its location:
 
-| State  | Location          | Meaning                                        |
-| ------ | ----------------- | ---------------------------------------------- |
-| `open` | `backlog/`        | Being drafted or discussed.                    |
-| `done` | `backlog/done/`   | Settled; no longer being worked on.            |
+| State       | Location           | Meaning                                        |
+| ----------- | ------------------ | ---------------------------------------------- |
+| `open`      | `backlog/`         | Being drafted or discussed.                    |
+| `postponed` | `backlog/pending/` | Pulled back; waiting on something outside it.  |
+| `done`      | `backlog/done/`    | Settled; no longer being worked on.            |
 
 Whether a settled RFC was **accepted** or **rejected** is recorded in its
 `Status` field and in an `## Outcome` section, which is written when the
-proposal is settled and left out while it is open. It is deliberately not
-split into separate directories:
+proposal is settled and left out while it is open or postponed. It is
+deliberately not split into separate directories:
 
 - kk does not value long-term stability as a primary goal, so "accepted"
 is not a permanent commitment. An accepted RFC may later be changed or even
@@ -104,12 +116,42 @@ informative.
 over and nobody is working on it. One `done/` directory expresses that; the
 qualitative difference belongs in the text, where the reasoning lives.
 
-`postponed` items stay `open` (in `backlog/`), because they are still
-unresolved.
+A postponed item is still unresolved, which is why it is not in `done/`. Its
+`Status` stays `postponed`, and a `## Postponed` section at the end of the file
+says why it stopped and what would restart it. That section is written when the
+item is moved and is not edited afterwards.
+
+It can also be settled without resuming: moved to `done/` with an outcome
+saying that nothing was implemented, and the `## Postponed` section above it
+keeping the reason. An item nobody expects to pick up again is settled, and
+`pending/` is for one that is still expected to be. Nothing forces that moment;
+an item may wait as long as it is worth waiting for.
+
+Resuming a postponed item is the reverse move. Return it with `git mv`, set
+`Status` back to `draft`, and read it against the code as it is now -- a
+postponed item describes code from when it was pulled back, and that code has
+moved on since. The `## Postponed` section stays: it says when and why the item
+stopped, which is as true after a resume as before one, and the outcome written
+when the code finally lands follows it. Do all of it in one commit, the way a
+settle moves an item to `done/`.
 
 A **bug** is settled when it is fixed (moved to `done/` with the fix) or when
 it is determined to be intended behavior (moved to `done/` with the reason it
 is not a bug).
+
+## Moving an item to `pending/`
+
+Use `git mv`, as with `done/`:
+
+```sh
+git mv backlog/20260915-rfc-search-prompt-recall.md backlog/pending/
+```
+
+Set `Status` to `postponed` and append the `## Postponed` section, which names
+what it waits for, in the same commit, so the item never sits in `pending/`
+without saying why. There is no script: settling a landed item has a pull
+request number and a merge commit to fill in, while postponing is prose written
+once.
 
 ## Moving an item to `done/`
 
@@ -129,10 +171,16 @@ backlog/scripts/settle.sh backlog/20260915-rfc-search-prompt-recall.md --pr 27 -
 
 It switches to `main`, fast-forwards it, sets `Status` from the item's kind
 (`fixed` for a bug, `accepted` for an RFC), appends the outcome, moves the
-file, commits, pushes, and deletes the merged branch. Run it from a clean
-working tree, right after the pull request is merged. Either branch will do:
-on `main` it just proceeds, and on the branch the pull request came from it
-switches to `main` first. Any other branch is a mistake and stops the script.
+file into `done/`, commits, pushes, and deletes the merged branch. Run it from
+a clean working tree, right after the pull request is merged. Either branch
+will do: on `main` it just proceeds, and on the branch the pull request came
+from it switches to `main` first. Any other branch is a mistake and stops the
+script.
+
+It takes an item from `backlog/`. A postponed item is resumed -- moved back to
+`backlog/` with its `Status` set to `draft` -- before there is anything to
+settle, and being settled without a resume is the one move this script does not
+make, because there is no pull request to name.
 
 Pass the prose of the outcome section as a file instead of retyping it
 later: it is written at the moment of settling, when what actually landed is
@@ -196,7 +244,9 @@ it in the past tense while the item is open would be the actual error.
 
 `## Outcome` goes at the end of the file, after every other section. Existing
 items vary in where they put it because the section was added by hand before
-this script existed; new items all end with it.
+this script existed; new items all end with it. An item that was postponed
+keeps its `## Postponed` section above `## Outcome`, whether it was resumed
+first or settled while still postponed.
 
 ## Pull requests
 

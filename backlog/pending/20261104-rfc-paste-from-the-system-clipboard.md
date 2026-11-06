@@ -1,6 +1,6 @@
 # RFC: Paste from the system clipboard with `C-x y`
 
-- Status: draft
+- Status: postponed
 
 ## Summary
 
@@ -261,3 +261,49 @@ for either way.
   terminal.
 - A paste that arrives as `Input::Paste` and fails to decode as UTF-8 could be
   reported with the raw bytes, following the existing `Unrecognized` contract.
+- `C-x y` could go through `tuinix` once it grows a clipboard read paired with
+  its `set_clipboard`, in place of the `Input::Unrecognized` parse and the base64
+  decoder kk carries now. It has no read today, which is why the branch writes
+  the query itself.
+
+## Postponed
+
+The half that needed no key is on `main`: a bracketed paste is inserted as one
+block of text, and the terminal is kept in bracketed-paste mode by `tuinix`
+0.8.0. The half this RFC is about -- asking the terminal for its clipboard with
+`C-x y` when no paste gesture reached kk -- was written too, and then pulled
+back before it was merged.
+
+The reason is the terminal, not the code. In the Windows terminal kk is run
+from under WSL2, `C-x y` reports that the clipboard could not be read, which is
+what a terminal that ignores an OSC 52 read answers. This draft measured that
+read against no real terminal; this was the first one, and it says that on
+this setup the feature would be a key that reliably does nothing. Whether it is
+worth keeping depends on a terminal that answers, and kk has not been met on
+one yet.
+
+The code exists on the `paste-clip-from-terminal` branch and was not merged: the
+binding, the legend row, the `Input::Unrecognized` arm with `awaiting_clipboard`,
+the timeout, the parse and the decoder are all there, with tests. None of it is
+on `main`, and nothing on `main` depends on it.
+
+The notes above are left as they were written, so they describe that branch and
+not `main`.
+
+What would restart it: a terminal where `C-x y` inserts text, used for more
+than one session. A test terminal is not enough -- one can be made to answer,
+which says nothing about the one kk runs on. A terminal that turns a paste
+gesture into a bracketed paste already works, so the chord is not needed
+there; the item is waiting on the setups where the gesture does not arrive at
+all.
+
+## Outcome
+
+Postponed rather than implemented: there is no pull request, and the design was
+not changed. The part that did not depend on the terminal -- a bracketed paste
+inserted as one block of text, with `tuinix` 0.8.0 owning the mode -- landed on
+its own, and it is what makes a paste arrive at all on a terminal that wraps
+one. The `C-x y` half is written on `paste-clip-from-terminal` against the text
+above, ready to be picked up where it was left.
+
+The scope is unchanged from what is described above.
