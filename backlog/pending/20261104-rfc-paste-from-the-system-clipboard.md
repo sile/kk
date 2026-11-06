@@ -297,6 +297,23 @@ gesture into a bracketed paste already works, so the chord is not needed
 there; the item is waiting on the setups where the gesture does not arrive at
 all.
 
+### What has moved since
+
+The bracketed-paste half this RFC builds on has since been decided the other
+way. `tuinix` 0.8.1 made the mode opt-in again for the reason this RFC did not
+know about -- terminals that drop the line breaks from a paste body -- and
+[`20261107-rfc-do-without-bracketed-paste`](../done/20261107-rfc-do-without-bracketed-paste.md)
+answered it for kk: kk does not ask for the mode, and a paste that arrives
+bracketed anyway is reported on the message line rather than inserted.
+
+So on resume this is the `C-x y` half only. "Bracketed paste is switched on",
+the `Input::Paste` handling that section describes, and the drawback about
+changing what kk receives all go: turning the mode on would undo
+`tuinix` 0.8.1 and the RFC above. What remains is the OSC 52 read, its binding
+and legend row, and the insertion path it shares with `C-y` -- all read against
+`main` as it is at that point, since the rest of the text describes code from
+when the item was pulled back.
+
 ## Outcome
 
 Postponed rather than implemented: there is no pull request, and the design was
