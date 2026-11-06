@@ -245,10 +245,12 @@ impl App {
                 self.handle_mouse(mouse);
                 return Ok(());
             }
-            tuinix::Input::Paste { bytes } => {
-                self.handle_paste(bytes);
-                return Ok(());
-            }
+            // A terminal brackets a paste only after the application asks for
+            // bracketed-paste mode, and kk does not ask. The decoder still
+            // reports the markers, so this stays a branch rather than an
+            // unreachable pattern; a terminal that brackets unprompted gets its
+            // paste ignored rather than inserted.
+            tuinix::Input::Paste { .. } => return Ok(()),
             _ => {}
         }
 
@@ -267,27 +269,6 @@ impl App {
         }
 
         Ok(())
-    }
-
-    /// Inserts the text a bracketed paste carried.
-    ///
-    /// A paste is resolved here rather than in the binding table for the same
-    /// reason a mouse event is: it is not a key, and it means one thing in every
-    /// mode, so it does not belong in a table that maps chords to actions. A
-    /// paste that arrives while the search prompt is open goes into the query,
-    /// exactly as [`ClipboardPaste`](kk::Action::ClipboardPaste) does.
-    ///
-    /// The body is bytes because the decoder does not insist a paste is UTF-8.
-    /// kk does: a body that is not valid text is reported rather than pasted,
-    /// following the existing contract for [`Input::Unrecognized`], which also
-    /// reports rather than guesses.
-    fn handle_paste(&mut self, bytes: Vec<u8>) {
-        match String::from_utf8(bytes) {
-            Ok(text) => self.state.handle_text_paste(&text),
-            Err(_) => self
-                .state
-                .set_message("Paste is not valid text; ignored".to_string()),
-        }
     }
 
     /// Carries out a mouse event.

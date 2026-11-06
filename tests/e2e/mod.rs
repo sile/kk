@@ -147,6 +147,19 @@ impl KkHarness {
         self.send_key(termnix::KeyCode::Char(ch), termnix::Modifiers::new().ctrl());
     }
 
+    /// Writes `bytes` into the pty unchanged.
+    ///
+    /// This is what a paste looks like when the terminal is not in
+    /// bracketed-paste mode: the bytes the pasted text stands for, and nothing
+    /// around them. A test that needs the markers uses this too, spelling them
+    /// out, because `Input::Paste` would ask the session for a mode `kk` never
+    /// asks for.
+    pub fn send_raw(&mut self, bytes: &[u8]) {
+        self.session
+            .enqueue_input(termnix::Input::Raw(bytes))
+            .expect("failed to enqueue raw bytes");
+    }
+
     /// Sends a bare Escape key.
     ///
     /// `kk` holds a lone `ESC` byte for a short timeout before committing it,
