@@ -1004,30 +1004,22 @@ impl State {
 
     /// Inserts the clipboard's contents at the cursor.
     ///
-    /// Newlines in the contents become line breaks. While a search prompt is
-    /// open, the contents enter the query instead and re-run it; the prompt
-    /// reads [`search_clipboard`](State::search_clipboard), so what it pastes is
-    /// what its own `C-k` cut and never the buffer's.
+    /// Newlines in the contents become line breaks, and the whole insertion is
+    /// one undo step. While a search prompt is open, the contents enter the
+    /// query instead and re-run it; the prompt reads
+    /// [`search_clipboard`](State::search_clipboard), so what it pastes is what
+    /// its own `C-k` cut and never the buffer's.
     pub fn handle_clipboard_paste(&mut self) {
-        let text = if self.search_prompt.is_some() {
+        // The prompt's clipboard and the buffer's are read the same way, so the
+        // choice of which is a choice of value rather than of code path. The
+        // text is only read, so it is borrowed for the rest of the function.
+        let clipboard = if self.search_prompt.is_some() {
             self.search_clipboard.read()
         } else {
             self.clipboard.read()
         };
-        self.handle_text_paste(&text);
-    }
+        let text = clipboard.as_str();
 
-    /// Inserts `text` at the cursor, as one paste.
-    ///
-    /// This is what both pastes run: the one kk's own clipboard feeds, and the
-    /// one the terminal hands over as [`Input::Paste`](tuinix::Input::Paste).
-    /// Newlines become line breaks, the whole insertion is one undo step, and a
-    /// search prompt takes the text as query characters rather than lines.
-    ///
-    /// The caller decides where `text` came from and what to say when it is
-    /// empty, since an empty terminal paste is a different event from an empty
-    /// clipboard.
-    pub fn handle_text_paste(&mut self, text: &str) {
         if let Some(search) = &mut self.search_prompt {
             if text.is_empty() {
                 self.set_message("Clipboard is empty");
