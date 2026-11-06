@@ -104,6 +104,17 @@ pub enum Action {
     /// Inserts the clipboard's contents at the cursor.
     ClipboardPaste,
 
+    /// Asks the terminal for its clipboard's contents and inserts what comes
+    /// back at the cursor.
+    ///
+    /// This is the other paste: [`ClipboardPaste`](Action::ClipboardPaste)
+    /// inserts the clipboard kk fills from its own cuts and copies, while this
+    /// one reads the clipboard the terminal and the applications behind it
+    /// share. The reply is not part of the action -- it arrives later, as
+    /// input -- so the edge asks for it and hands whatever comes back to the
+    /// same insertion the other paste uses.
+    ClipboardPasteFromTerminal,
+
     /// Enters the search prompt with an empty query.
     ///
     /// The direction is not chosen here: it belongs to the hit commands, so the

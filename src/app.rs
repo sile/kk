@@ -17,6 +17,16 @@ use std::path::{Path, PathBuf};
 /// is treated as the Escape key.
 const ESCAPE_TIMEOUT_MS: libc::c_int = 50;
 
+/// How long to wait for the terminal to answer an OSC 52 clipboard query.
+///
+/// The query has no error reply, so a terminal that does not answer one is
+/// indistinguishable from one that has none: after this long the paste reports
+/// that the clipboard could not be read rather than waiting. It is the one
+/// timeout that is not about the decoder, so it is deliberately generous -- a
+/// terminal that forwards the query to a clipboard owner elsewhere has to wait
+/// for that owner before it can answer.
+const CLIPBOARD_TIMEOUT_MS: libc::c_int = 300;
+
 /// How many rows one wheel notch moves the view.
 ///
 /// The rows are the text area's drawn rows, so a notch during an open search
@@ -38,6 +48,17 @@ pub struct App {
     /// with a path is saved or reloaded, so this is only compared against the
     /// disk then; a pipe-backed buffer never reads it.
     saved_text: String,
+    /// Whether an OSC 52 query has been written and has not been given up on.
+    ///
+    /// The terminal answers a clipboard query by writing the clipboard back as
+    /// another OSC 52 sequence, which arrives as [`Input::Unrecognized`] like
+    /// any control string kk has no meaning for. Only a reply that was asked
+    /// for is a paste: with this unset, an `OSC 52` sequence is a terminal or
+    /// another program talking to the terminal, and it keeps the ordinary
+    /// unbound-input report.
+    ///
+    /// [`Input::Unrecognized`]: tuinix::Input::Unrecognized
+    awaiting_clipboard: bool,
     mode: kk::Mode,
     state: kk::State,
     legend_visible: bool,
@@ -152,6 +173,7 @@ impl App {
             prev_frame: None,
             path,
             saved_text: text,
+            awaiting_clipboard: false,
             state,
             mode: kk::Mode::Edit,
             legend_visible,
@@ -178,12 +200,17 @@ impl App {
             self.render()?;
 
             // A lone `ESC` byte is ambiguous, so wait only briefly while one is
-            // held so it is reported as Escape promptly.
+            // held so it is reported as Escape promptly. While a clipboard
+            // query is unanswered the wait is bounded too, for the same reason:
+            // its silence has to be noticed.
             let timeout = if self.input.has_uncommitted_escape() {
                 ESCAPE_TIMEOUT_MS
+            } else if self.awaiting_clipboard {
+                CLIPBOARD_TIMEOUT_MS
             } else {
                 -1
             };
+
             #[expect(
                 unsafe_code,
                 reason = "libc::poll is the only way to wait on the resize and input fds at once"
@@ -208,6 +235,7 @@ impl App {
 
             if n == 0 {
                 self.input.commit_escape();
+                self.give_up_clipboard();
             }
 
             if fds[0].revents & libc::POLLIN != 0 {
@@ -249,6 +277,11 @@ impl App {
                 self.handle_paste(bytes);
                 return Ok(());
             }
+            tuinix::Input::Unrecognized { ref bytes }
+                if self.awaiting_clipboard && self.handle_clipboard_reply(bytes) =>
+            {
+                return Ok(());
+            }
             _ => {}
         }
 
@@ -287,6 +320,81 @@ impl App {
             Err(_) => self
                 .state
                 .set_message("Paste is not valid text; ignored".to_string()),
+        }
+    }
+
+    /// Asks the terminal for its clipboard's contents.
+    ///
+    /// The query is `OSC 52 ; c ; ? ST`: the selection asked for is the system
+    /// clipboard, and the payload is a question mark rather than text, which is
+    /// how OSC 52 tells a read from a write. Nothing comes back from this call:
+    /// the terminal answers by writing another OSC 52 sequence, which is read
+    /// as input and handed to [`handle_clipboard_reply()`](Self::handle_clipboard_reply).
+    ///
+    /// The sequence is written here rather than through `tuinix` because the
+    /// driver has no method for a read -- it only writes a clipboard, through
+    /// [`set_clipboard()`](tuinix::TerminalDriver::set_clipboard).
+    ///
+    /// Whether the field was already set is not checked: `C-x y` twice asks
+    /// twice, and each reply that arrives is inserted. An OSC 52 reply carries
+    /// no request id, so the two answers cannot be told apart -- but refusing
+    /// every reply after the first would lose a paste whenever a terminal was
+    /// merely slow. What the field guards is a reply against no question at
+    /// all, which is the case that matters.
+    fn request_clipboard(&mut self) {
+        self.awaiting_clipboard = true;
+        let wrote = self
+            .driver
+            .write_all(b"\x1b]52;c;?\x1b\\")
+            .and_then(|()| self.driver.flush());
+        if let Err(e) = wrote {
+            // The message is still the failure: a reply cannot arrive for a
+            // query that never went out.
+            self.give_up_clipboard();
+            self.state
+                .set_message(format!("Could not read the clipboard: {e}"));
+        }
+    }
+
+    /// Hands an answer to the clipboard query to the core, when it is one.
+    ///
+    /// The terminal writes the clipboard back as `OSC 52 ; c ; <base64> ST`,
+    /// which the decoder settles whole as [`Input::Unrecognized`] -- the same
+    /// way it reports any control string it has no meaning for. So every
+    /// `Unrecognized` is parsed here, and only one that is exactly an OSC 52
+    /// reply for the selection that was asked for counts: anything else keeps
+    /// the ordinary unbound-input report rather than being read as a paste.
+    ///
+    /// Returns whether `bytes` was the reply. A reply that carries text kk
+    /// cannot use is still the reply: it ends the wait and reports, so the
+    /// next key is not held up by a query that has already been answered.
+    ///
+    /// [`Input::Unrecognized`]: tuinix::Input::Unrecognized
+    fn handle_clipboard_reply(&mut self, bytes: &[u8]) -> bool {
+        let Some(payload) = clipboard_reply_payload(bytes) else {
+            return false;
+        };
+        self.awaiting_clipboard = false;
+
+        let payload = payload.strip_prefix(b"+").map_or(payload, |rest| rest);
+        match decode_clipboard_payload(payload) {
+            Some(text) => self.state.handle_text_paste(&text),
+            None => self
+                .state
+                .set_message("Clipboard reply is not valid text; ignored"),
+        }
+        true
+    }
+
+    /// Stops waiting for a clipboard reply, reporting that none came.
+    ///
+    /// A timeout and a failed query are the same thing to the reader: the
+    /// terminal did not answer. Most terminals leave OSC 52 reads turned off
+    /// (the same channel lets any program read the clipboard), so this is the
+    /// ordinary outcome of `C-x y`, not an error to end kk over.
+    fn give_up_clipboard(&mut self) {
+        if std::mem::take(&mut self.awaiting_clipboard) {
+            self.state.set_message("Could not read the clipboard");
         }
     }
 
@@ -378,6 +486,7 @@ impl App {
                 }
             }
             kk::Action::ClipboardPaste => self.state.handle_clipboard_paste(),
+            kk::Action::ClipboardPasteFromTerminal => self.request_clipboard(),
             kk::Action::ExtEnter => self.state.handle_ext_enter(),
             kk::Action::SearchEnter => self.state.handle_search_enter(),
             kk::Action::SearchCancel => self.state.handle_search_cancel(),
@@ -565,4 +674,90 @@ impl App {
         f(&mut sub_frame);
         frame.put_frame(region.position, &sub_frame);
     }
+}
+
+/// Returns the base64 payload of an OSC 52 reply, if `bytes` is one.
+///
+/// The sequence names its selection before the payload
+/// (`ESC ] 52 ; <Pc> ; <Pd> ST`), so the payload is everything after the second
+/// `;`. Only the system clipboard (`c`, or no name at all, which OSC 52 defines
+/// as the same selection) counts: a reply about another selection is not the
+/// answer to this query, and the text it carries is not what the reader asked
+/// to paste.
+///
+/// Both introducer spellings are accepted -- `ESC ]` and the single byte `0x9d`
+/// -- because the decoder normalises neither, and a terminal is free to send
+/// either. Both terminators are accepted for the same reason: `BEL`, and `ST`
+/// in either of its spellings (`ESC \\` and `0x9c`).
+///
+/// `None` means these bytes are not an OSC 52 reply, and the caller leaves them
+/// to the ordinary unbound-input report.
+fn clipboard_reply_payload(bytes: &[u8]) -> Option<&[u8]> {
+    let body = bytes
+        .strip_prefix(b"\x1b]52;")
+        .or_else(|| bytes.strip_prefix(b"\x9d52;"))?;
+    let body = body
+        .strip_suffix(b"\x07")
+        .or_else(|| body.strip_suffix(b"\x1b\\"))
+        .or_else(|| body.strip_suffix(b"\x9c"))?;
+
+    let (selection, payload) = split_once(body, b';')?;
+    match selection {
+        b"" | b"c" => Some(payload),
+        _ => None,
+    }
+}
+
+/// Decodes the base64 payload of an OSC 52 reply into the text it carries.
+///
+/// The `+` append prefix is not part of the base64 alphabet, so a payload that
+/// still has one is not the answer to a read and decodes to `None`; the caller
+/// strips it before getting here.
+///
+/// Whitespace is skipped: some terminals wrap a long payload, and padding is
+/// not required. Anything outside the alphabet is an error rather than being
+/// dropped, so a reply kk cannot read is reported instead of silently pasted
+/// as something else.
+fn decode_clipboard_payload(payload: &[u8]) -> Option<String> {
+    let mut decoded = Vec::with_capacity(payload.len() / 4 * 3);
+    let mut accumulator = 0u32;
+    let mut bits = 0u32;
+    for &byte in payload {
+        if byte.is_ascii_whitespace() {
+            continue;
+        }
+        if byte == b'=' {
+            break;
+        }
+        let value = u32::from(base64_byte(byte)?);
+        accumulator = (accumulator << 6) | value;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            decoded.push((accumulator >> bits) as u8);
+            accumulator &= (1 << bits) - 1;
+        }
+    }
+    String::from_utf8(decoded).ok()
+}
+
+/// Returns the 6-bit value of one base64 alphabet character.
+fn base64_byte(byte: u8) -> Option<u8> {
+    match byte {
+        b'A'..=b'Z' => Some(byte - b'A'),
+        b'a'..=b'z' => Some(byte - b'a' + 26),
+        b'0'..=b'9' => Some(byte - b'0' + 52),
+        b'+' => Some(62),
+        b'/' => Some(63),
+        _ => None,
+    }
+}
+
+/// Splits `bytes` at the first `separator` into the parts before and after it.
+///
+/// `slice::split_once` is still unstable, and this is all that is wanted from
+/// it: the first separator and no more.
+fn split_once(bytes: &[u8], separator: u8) -> Option<(&[u8], &[u8])> {
+    let index = bytes.iter().position(|&byte| byte == separator)?;
+    Some((&bytes[..index], &bytes[index + 1..]))
 }

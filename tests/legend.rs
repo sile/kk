@@ -63,11 +63,12 @@ fn the_ext_legend_fills_a_frame_exactly_its_size() {
     assert_eq!(row_text(&frame, 1, cols), "\u{2502}s   force-save");
     assert_eq!(row_text(&frame, 2, cols), "\u{2502}r   reload    ");
     assert_eq!(row_text(&frame, 3, cols), "\u{2502}w   copy      ");
-    assert_eq!(row_text(&frame, 4, cols), "\u{2502}a   bof       ");
-    assert_eq!(row_text(&frame, 5, cols), "\u{2502}e   eof       ");
+    assert_eq!(row_text(&frame, 4, cols), "\u{2502}y   paste-clip");
+    assert_eq!(row_text(&frame, 5, cols), "\u{2502}a   bof       ");
+    assert_eq!(row_text(&frame, 6, cols), "\u{2502}e   eof       ");
     assert_eq!(
-        row_text(&frame, 6, cols),
-        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}"
+        row_text(&frame, 7, cols),
+        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}"
     );
 }
 

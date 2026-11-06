@@ -1,15 +1,18 @@
 # RFC: Paste from the system clipboard with `C-x y`
 
-- Status: draft
+- Status: done
 
 ## Summary
 
 Bind `C-x y` to a paste that inserts the terminal's own clipboard into the
 buffer, so text copied in another application can be pasted into kk without
-first copying it inside kk. Today the editor can *write* the terminal's
-clipboard (`C-x w`) but has no way to *read* it, and bracketed paste is not
-even switched on, so the one thing a terminal would hand over for free is never
-sent.
+first copying it inside kk. The editor could already *write* the terminal's
+clipboard (`C-x w`) but had no way to *read* it, and a paste sent without being
+asked for arrived as a burst of keys.
+
+To insert text copied outside kk, kk asks the terminal for its clipboard
+(`C-x y`, OSC 52) and inserts what comes back; a paste the terminal sends on
+its own initiative is bracketed, and is inserted through the same path.
 
 ## Motivation
 
@@ -32,27 +35,29 @@ draft left open have been checked against `tuinix`'s source:
   `ESC [ 200 ~` / `ESC [ 201 ~`, and the decoder holds the bytes until the
   closing marker arrives, so a paste of `"a\nb"` arrives as one value rather
   than as the keys `a`, `Enter`, `b`, and it never arrives in pieces. kk
-  currently drops it: `Mode::resolve` returns `None` for any non-key input, so
-  a paste is reported as `No action found`.
+  dropped it: `Mode::resolve` returns `None` for any non-key input, so the
+  paste was reported as `No action found` until it was handled at the edge.
 - Bracketed paste only reaches an application that asks for it. A terminal
   sends `ESC [ 200 ~ ... ESC [ 201 ~` when the application has put it in
   bracketed-paste mode with `ESC [ ? 2004 h`; without that, a paste is a burst
-  of ordinary key bytes and is indistinguishable from typing. kk never sends
-  the sequence, so today no terminal wraps a paste for it.
+  of ordinary key bytes and is indistinguishable from typing. `tuinix` now
+  does this itself: `TerminalDriver::new` puts the terminal in the mode beside
+  raw mode and the alternate screen, and its `Drop` takes the mode back first
+  (tuinix v0.8.0, `e0d6f66`). The setters are private and stay private, so
+  there is no way for an application to have a paste delivered as keys.
 - `tuinix` reports a byte sequence it cannot decode as `Input::Unrecognized {
   bytes }`. `ESC ]` -- the control string OSC 52 uses -- is one of those: the
   decoder settles the whole sequence as one value and puts no bound on its
   length, which is exactly where a reply to an application's OSC 52 query would
   surface.
-- `TerminalDriver` implements `std::io::Write`, and its `Drop` takes back only
-  the mouse reporting, the alternate screen, raw mode, and the cursor. It has
-  no method for bracketed paste or for an OSC 52 query, so both sequences are
-  written by kk through `write_all` and taken back by kk before the driver
-  drops.
+- `TerminalDriver` implements `std::io::Write` but has no method for an OSC 52
+  query -- only for a write, through `set_clipboard`. So the query sequence is
+  written by kk through `write_all` and flushed; nothing has to be taken back
+  when kk leaves.
 
-So the work is not new plumbing but switching on the one mode that makes a
-paste identifiable, recognising the input kk already receives, and deciding
-what it means.
+So the work is not new plumbing but recognising the input kk already receives,
+asking for the one the terminal will only send when asked (the read), and
+deciding what each means.
 
 ## Guide-level explanation
 
@@ -61,8 +66,9 @@ the text in, and which one happens depends on the terminal rather than on the
 user:
 
 - **The terminal pastes it.** Most terminals turn a paste gesture (mouse middle
-  click, `C-Shift-V`, a menu item) into a bracketed paste. kk has bracketed
-  paste switched on, so it receives the text as one value and inserts it.
+  click, `C-Shift-V`, a menu item) into a bracketed paste. `tuinix` keeps the
+  terminal in bracketed-paste mode, so kk receives the text as one value and
+  inserts it.
 - **The user types `C-x y`.** kk asks the terminal for its clipboard (OSC 52)
   and inserts what comes back.
 
@@ -124,24 +130,21 @@ same gesture.
 
 ### Bracketed paste is switched on
 
-kk never sends `ESC [ ? 2004 h`, so no terminal wraps a paste for it. It has to
-start doing so, and has to take the mode back when it leaves:
+`tuinix` v0.8.0 owns bracketed paste end to end, and kk writes nothing for it.
+`TerminalDriver::new` sends `ESC [ ? 2004 h` beside raw mode and the alternate
+screen, and its `Drop` sends `ESC [ ? 2004 l` first. The enable and disable
+functions are private: exposing them would let an application leave the mode
+on while treating a paste as keys, which is what the mode exists to prevent.
+So the whole of this section is one dependency bump -- `tuinix` 0.8.0 -- and
+no code in kk.
 
-- `App` writes `\x1b[?2004h` once the driver has taken over the terminal, the
-  same way `TerminalDriver::new` writes the alternate-screen sequence.
-- Leaving kk writes `\x1b[?2004l`. `TerminalDriver`'s `Drop` restores the
-  mouse, the alternate screen, raw mode, and the cursor, but knows nothing
-  about bracketed paste, so kk restores it itself: `App::run` writes the
-  sequence when its loop ends, and `App`'s own `Drop` covers the paths that
-  leave through `?` without reaching there. The two are written so that the
-  sequence goes out exactly once on an ordinary exit.
-- A terminal that does not understand the mode ignores it and keeps sending
-  plain bytes, which is what kk does today.
+A terminal that does not understand the mode ignores it and keeps sending plain
+bytes.
 
-`Input::Paste` is then handled in `App::handle_input` beside the mouse arm,
-before `mode.resolve`, and inserts the bytes as text. This keeps the binding
-table about keys, lets a paste mean one thing in every mode, and mirrors how
-mouse input is already resolved outside the table.
+`Input::Paste` is handled in `App::handle_input` beside the mouse arm, before
+`mode.resolve`, and inserts the bytes as text. This keeps the binding table
+about keys, lets a paste mean one thing in every mode, and mirrors how mouse
+input is already resolved outside the table.
 
 The body is `Vec<u8>` because the encoder does not insist it is UTF-8. kk does:
 a body that is not valid UTF-8 is reported rather than inserted, following the
@@ -150,12 +153,14 @@ existing `Unrecognized` contract rather than inventing a lossy conversion.
 ### One insertion path for both pastes
 
 The bytes are inserted by the same code `C-y` uses, so the newline splitting
-exists once. `State::handle_clipboard_paste` currently reads kk's clipboard
-from inside `State`. The refactor is to split it into a method that inserts a
-`&str` and a thin caller that reads kk's clipboard and passes it, so the edge
-can hand `Input::Paste`'s text to the same method. The search prompt's paste
-reads `search_clipboard`, so it keeps its own thin caller over the same
-insertion method.
+exists once. `State::handle_clipboard_paste` read kk's clipboard from inside
+`State`; it is split into `handle_text_paste`, which inserts a `&str`, and a
+thin `handle_clipboard_paste` that reads kk's own clipboard and passes it. The
+edge hands `Input::Paste`'s text and the OSC 52 reply to the same
+`handle_text_paste`. The search prompt's paste reads `search_clipboard`, so it
+keeps its own thin caller over the same insertion method.
+
+This shipped on its own, ahead of the rest: PR #24.
 
 ### OSC 52 query
 
@@ -163,14 +168,16 @@ The query needs three things, and none of them needs a `tuinix` change:
 
 1. **Writing the query.** `TerminalDriver` has no method for it, but it
    implements `std::io::Write`, so the query is
-   `driver.write_all(b"\x1b]52;c;?\x07")` followed by a flush. No `tuinix`
-   change is needed, so this RFC is not blocked.
+   `driver.write_all(b"\x1b]52;c;?\x1b\\")` followed by a flush. `ST` is used
+   as the terminator rather than `BEL` because `ST` cannot be confused with a
+   clipboard's own contents, and every terminal that answers accepts both.
 2. **Reading the reply.** The reply arrives as `Input::Unrecognized { bytes }`
-   holding `ESC ] 52 ; c ; <base64> BEL` (or `ST`-terminated). kk decodes the
-   base64 to UTF-8 and inserts it.
-3. **Giving up.** The reply may never come. kk must not block: it sends the
-   query and continues; if no reply is decoded before the next input, the paste
-   reports `Could not read the clipboard` rather than waiting.
+   holding `ESC ] 52 ; c ; <base64> ST` (`BEL`-terminated is accepted too). kk
+   decodes the base64 to UTF-8 and inserts it.
+3. **Giving up.** The reply may never come. kk does not block: it sends the
+   query and continues, and bounds the next `poll` with
+   `CLIPBOARD_TIMEOUT_MS` (300 ms). When that passes with no reply, the paste
+   reports `Could not read the clipboard`.
 
 This is the fragile part. OSC 52 reads are answered by few terminals (they are
 often disabled for security, since the same channel lets a program read the
@@ -183,6 +190,23 @@ is only the fallback.
 kk must not treat *any* `Unrecognized` as a clipboard reply: it parses the bytes
 and only acts when they are exactly an OSC 52 reply it asked for. Stray
 `Unrecognized` input keeps its current behaviour (report and ignore).
+
+Two conditions, not one. The bytes must be an OSC 52 reply, and one must have
+been asked for: `App` holds `awaiting_clipboard`, set by the query and cleared
+by the reply, the timeout, or a failed write. So an `OSC 52` sequence a
+terminal or a program sends on its own is never a paste -- it keeps the
+ordinary `No action found` report. That matters: the sequence is something any
+writer can send, and without the guard it would be a way to type into another
+application's buffer.
+
+A reply naming a selection other than the system clipboard is not an answer to
+this query and is left alone for the same reason.
+
+Base64 is decoded here rather than by a dependency. The editor has no base64
+crate and does not want one for twenty lines of alphabet table; an octet
+outside the alphabet is an error rather than being skipped, so a reply kk
+cannot read is reported (`Clipboard reply is not valid text; ignored`) rather
+than pasted as something else.
 
 ### What a paste does not carry
 
@@ -205,8 +229,9 @@ for either way.
 - Switching bracketed paste on changes what kk receives on terminals that
   support it: a paste that used to arrive as a burst of keys now arrives as one
   value. That is the point, but it is a change in kk's input, not only in its
-  output.
-- The refactor of `handle_clipboard_paste` to share the insertion path touches
+  output. It arrived with `tuinix` 0.8.0, so it is a change in the whole
+  dependency's behaviour, not a switch kk can leave off.
+- The refactor of `handle_clipboard_paste` to share the insertion path touched
   existing, working code for the benefit of the new command.
 
 ## Rationale and alternatives
@@ -235,29 +260,27 @@ for either way.
 
 ## Unresolved questions
 
-- **The name of the action.** `ClipboardPasteFromTerminal` is long.
-  Alternatives: reuse `ClipboardPaste` with a source argument, or
-  `PasteFromSystem`. The legend label is settled (`paste-clip`); this is only
-  about the Rust identifier, which nothing outside `src` reads.
-- **Timeout behaviour.** How long, if at all, does kk wait for an OSC 52 reply
-  before reporting failure? "Until the next input" is the current strawman but
-  is not measured against a real terminal.
-- **What `C-x y` does when a bracketed paste arrives instead.** A terminal may
-  turn the chord itself into a paste, so kk receives `Input::Paste` and never
-  sees the key. That works, but the message line then says what a paste always
-  says rather than what the chord asked for. To be settled when the message is
-  written.
+None. The three this section used to hold were settled by building it:
+
+- **The name of the action** is `ClipboardPasteFromTerminal`. It is long, but it
+  says exactly what it does, and nothing outside `src` reads it.
+- **Timeout behaviour** is 300 ms, `CLIPBOARD_TIMEOUT_MS`, measured from the
+  query rather than from the next key. Waiting for the next key would keep the
+  key from being handled, and a reader who asks for a paste and then types
+  expects the typing to land.
+- **What `C-x y` does when a bracketed paste arrives instead** is the ordinary
+  paste message. The chord asked for a paste and got one; saying which route
+  the terminal took is about the terminal, not about what happened to the text.
 
 ## Future possibilities
 
 - If the terminal clipboard read works, `C-y` could be taught to fall back to
   it when kk's own clipboard is empty, making cut-then-paste and copy-then-paste
   behave the same way.
-- If the terminal clipboard read works in the search prompt's message line, it
-  could gain the chord too, pasting into the query.
-- The extension mode's legend goes from six rows to seven with `y
-  paste-clip`, and the legend's height rule already drops a row when the frame
-  is short. Whether the row is worth its height is worth measuring on a real
-  terminal.
+- The search prompt could gain the chord too, pasting into the query from the
+  terminal's clipboard rather than kk's.
+- The extension mode's legend is eight rows now, one more than before, and the
+  legend's height rule already drops a row when the frame is short. Whether the
+  row is worth its height is worth measuring on a real terminal.
 - A paste that arrives as `Input::Paste` and fails to decode as UTF-8 could be
   reported with the raw bytes, following the existing `Unrecognized` contract.

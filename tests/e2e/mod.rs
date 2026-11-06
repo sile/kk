@@ -175,6 +175,10 @@ impl KkHarness {
     }
 
     /// Sends a left button press at grid position `row`/`col`.
+    ///
+    /// This is also how a reply to an OSC 52 query is delivered: the query is a
+    /// control string the host answers with another one, and the bytes of that
+    /// answer are exactly what should be written to the child.
     pub fn click(&mut self, row: u16, col: u16) {
         self.send_mouse(
             termnix::MouseEventKind::Press(termnix::MouseButton::Left),
@@ -199,6 +203,18 @@ impl KkHarness {
             row,
             col,
         );
+    }
+
+    /// Writes already-formed bytes to the child, bypassing the encoder.
+    ///
+    /// This is how a host answers a sequence `kk` asked for: a color report or
+    /// an OSC 52 clipboard reply is a control string the terminal writes to the
+    /// child, and nothing in the encoder produces one. The bytes are the whole
+    /// answer, framing included.
+    pub fn send_raw(&mut self, bytes: &[u8]) {
+        self.session
+            .enqueue_input(termnix::Input::Raw(bytes))
+            .expect("failed to enqueue raw input");
     }
 
     /// Resizes the terminal, delivering SIGWINCH to `kk`.

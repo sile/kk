@@ -60,9 +60,10 @@ pub const EXT_LEGEND: &[&str] = &[
     "\u{2502}s   force-save",
     "\u{2502}r   reload",
     "\u{2502}w   copy",
+    "\u{2502}y   paste-clip",
     "\u{2502}a   bof",
     "\u{2502}e   eof",
-    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
 /// [`EDIT_LEGEND`] with the `Tab` save row dropped: the rows to show while a
@@ -95,9 +96,10 @@ pub const EDIT_LEGEND_NO_FILE: &[&str] = &[
 pub const EXT_LEGEND_NO_FILE: &[&str] = &[
     "\u{2502}C-g cancel",
     "\u{2502}w   copy",
+    "\u{2502}y   paste-clip",
     "\u{2502}a   bof",
     "\u{2502}e   eof",
-    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}",
+    "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} Esc \u{2500}\u{2500}\u{2500}\u{2500}",
 ];
 
 /// Identifies one of the built-in input modes.
@@ -272,6 +274,7 @@ fn resolve_ext(key: &tuinix::KeyInput) -> Option<Resolved> {
         (false, tuinix::KeyCode::Char('s')) => then(Action::BufferForceSave, Mode::Edit),
         (false, tuinix::KeyCode::Char('r')) => then(Action::BufferReload, Mode::Edit),
         (false, tuinix::KeyCode::Char('w')) => then(Action::MarkCopy, Mode::Edit),
+        (false, tuinix::KeyCode::Char('y')) => then(Action::ClipboardPasteFromTerminal, Mode::Edit),
         (false, tuinix::KeyCode::Char('a')) => then(Action::CursorBufferStart, Mode::Edit),
         (false, tuinix::KeyCode::Char('e')) => then(Action::CursorBufferEnd, Mode::Edit),
         (false, tuinix::KeyCode::Escape) => act(Action::LegendToggle),

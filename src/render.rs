@@ -347,7 +347,7 @@ pub fn render_legend(rows: &[&str], frame: &mut tuinix::Frame) {
 /// ```
 /// let room = tuinix::Size { rows: 40, cols: 100 };
 /// let ext = kk::legend_size(kk::EXT_LEGEND, room);
-/// assert_eq!(ext.rows, 7);
+/// assert_eq!(ext.rows, 8);
 /// assert_eq!(ext.cols, 15);
 /// ```
 pub fn legend_size(rows: &[&str], limit: tuinix::Size) -> tuinix::Size {
