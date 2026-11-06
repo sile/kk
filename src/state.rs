@@ -1011,12 +1011,14 @@ impl State {
     /// its own `C-k` cut and never the buffer's.
     pub fn handle_clipboard_paste(&mut self) {
         // The prompt's clipboard and the buffer's are read the same way, so the
-        // choice of which is a choice of value rather than of code path.
-        let text = if self.search_prompt.is_some() {
+        // choice of which is a choice of value rather than of code path. The
+        // text is only read, so it is borrowed for the rest of the function.
+        let clipboard = if self.search_prompt.is_some() {
             self.search_clipboard.read()
         } else {
             self.clipboard.read()
         };
+        let text = clipboard.as_str();
 
         if let Some(search) = &mut self.search_prompt {
             if text.is_empty() {
